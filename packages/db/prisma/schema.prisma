@@ -1,0 +1,1056 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CompanyStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum OutletStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum UserStatus {
+  PENDING_ACTIVATION
+  ACTIVE
+  DISABLED
+  ARCHIVED
+}
+
+enum OnboardingStatus {
+  PENDING_OWNER_ACTIVATION
+  IN_PROGRESS
+  READY_FOR_PILOT
+  COMPLETED
+}
+
+enum PaymentMethod {
+  STRIPE_CARD
+  STRIPE_PAYNOW
+  MANUAL_PAYNOW
+}
+
+enum MenuStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum MenuVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MenuChannel {
+  QR
+  POS
+  BOTH
+}
+
+enum DiningTableShape {
+  SQUARE
+  CIRCLE
+  RECTANGLE
+}
+
+enum DiningTableStatus {
+  AVAILABLE
+  INACTIVE
+}
+
+enum TableSessionStatus {
+  SEATED
+  ORDERING
+  ORDERED
+  PREPARING
+  SERVED
+  PAYMENT_PENDING
+  PAID
+  CLEANING
+  CLOSED
+}
+
+enum OrderSource {
+  QR
+  POS
+  WAITER
+}
+
+enum ServiceType {
+  DINE_IN
+  TAKEAWAY
+  PICKUP
+  COUNTER
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAYMENT_PROCESSING
+  PAID
+  SENT_TO_KITCHEN
+  PREPARING
+  READY
+  SERVED
+  COMPLETED
+  CANCELLED
+  VOIDED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum OrderPaymentStatus {
+  PENDING
+  PROCESSING
+  MANUAL_VERIFICATION_REQUIRED
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  STRIPE
+  MANUAL
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  MANUAL_VERIFICATION_REQUIRED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum KitchenTicketStatus {
+  QUEUED
+  SENT
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PrinterConnectionType {
+  EPSON_EPOS
+  ESC_POS_LAN
+  ESC_POS_USB_BRIDGE
+  BLUETOOTH_BRIDGE
+  BROWSER
+  PDF
+}
+
+enum PrinterRole {
+  KITCHEN
+  BAR
+  RECEIPT
+  BACKUP
+}
+
+enum PrinterHealthStatus {
+  UNKNOWN
+  ONLINE
+  OFFLINE
+  DEGRADED
+  DISABLED
+}
+
+enum PrintTemplate {
+  CUSTOMER_RECEIPT
+  PRE_PAYMENT_BILL
+  KITCHEN_TICKET
+  BAR_TICKET
+  CANCELLED_ITEM_TICKET
+  VOID_TICKET
+  REFUND_RECEIPT
+  DAILY_CLOSING_REPORT
+  SHIFT_CLOSING_REPORT
+  TEST_PRINT
+}
+
+enum PrintJobStatus {
+  QUEUED
+  SENDING
+  PRINTED
+  FAILED
+  RETRYING
+  CANCELLED
+  REPRINTED
+}
+
+enum PrintAttemptStatus {
+  SENDING
+  PRINTED
+  FAILED
+}
+
+model Company {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  slug                 String                 @unique @db.VarChar(80)
+  name                 String                 @db.VarChar(160)
+  legalName            String?                @map("legal_name") @db.VarChar(200)
+  registrationNumber   String?                @map("registration_number") @db.VarChar(80)
+  defaultCurrency      String                 @default("SGD") @map("default_currency") @db.Char(3)
+  defaultTimezone      String                 @default("Asia/Singapore") @map("default_timezone") @db.VarChar(80)
+  status               CompanyStatus          @default(ACTIVE)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  outlets              Outlet[]
+  users                User[]
+  roles                Role[]
+  userOutletAccess     UserOutletAccess[]
+  paymentControls      OutletPaymentControl[]
+  paymentMethodSettings PaymentMethodSetting[]
+  auditLogs            AuditLog[]
+  onboarding           ClientOnboarding?
+  menus                Menu[]
+  menuVersions         MenuVersion[]
+  menuCategories       MenuCategory[]
+  menuItems            MenuItem[]
+  itemVariants         ItemVariant[]
+  modifierGroups       ModifierGroup[]
+  modifierOptions      ModifierOption[]
+  diningZones          DiningZone[]
+  diningTables         DiningTable[]
+  qrCodes              QrCode[]
+  tableSessions        TableSession[]
+  orders               Order[]
+  orderItems           OrderItem[]
+  orderItemModifiers   OrderItemModifier[]
+  payments             Payment[]
+  webhookEvents        WebhookEvent[]
+  kitchenStations      KitchenStation[]
+  kitchenTickets       KitchenTicket[]
+  printers             Printer[]
+  printerRoutes        PrinterRoute[]
+  printerAgents        PrinterAgent[]
+  printJobs            PrintJob[]
+
+  @@map("companies")
+}
+
+model Outlet {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  companyId             String                  @map("company_id") @db.Uuid
+  name                  String                  @db.VarChar(160)
+  slug                  String                  @db.VarChar(80)
+  address               String?
+  phone                 String?                 @db.VarChar(40)
+  timezone              String                  @default("Asia/Singapore") @db.VarChar(80)
+  currency              String                  @default("SGD") @db.Char(3)
+  gstEnabled            Boolean                 @default(true) @map("gst_enabled")
+  gstRateBps            Int                     @default(900) @map("gst_rate_bps")
+  serviceChargeEnabled  Boolean                 @default(false) @map("service_charge_enabled")
+  serviceChargeBps      Int                     @default(1000) @map("service_charge_bps")
+  status                OutletStatus            @default(ACTIVE)
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company               Company                 @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  userAccess            UserOutletAccess[]
+  paymentControl        OutletPaymentControl?
+  paymentMethodSettings PaymentMethodSetting[]
+  auditLogs             AuditLog[]
+  menus                 Menu[]
+  diningZones           DiningZone[]
+  diningTables          DiningTable[]
+  qrCodes               QrCode[]
+  tableSessions         TableSession[]
+  orders                Order[]
+  payments              Payment[]
+  webhookEvents         WebhookEvent[]
+  kitchenStations       KitchenStation[]
+  kitchenTickets        KitchenTicket[]
+  printers              Printer[]
+  printerRoutes         PrinterRoute[]
+  printerAgents         PrinterAgent[]
+  printJobs             PrintJob[]
+
+  @@unique([companyId, slug])
+  @@index([companyId, status])
+  @@map("outlets")
+}
+
+model User {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  companyId              String                 @map("company_id") @db.Uuid
+  email                  String                 @db.VarChar(254)
+  fullName               String                 @map("full_name") @db.VarChar(160)
+  passwordHash           String?                @map("password_hash")
+  posPinHash             String?                @map("pos_pin_hash")
+  status                 UserStatus             @default(ACTIVE)
+  lastLoginAt            DateTime?              @map("last_login_at") @db.Timestamptz(6)
+  deletedAt              DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  createdAt              DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company                Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  outletAccess           UserOutletAccess[]
+  paymentControlsUpdated OutletPaymentControl[] @relation("PaymentControlUpdatedBy")
+  paymentMethodsUpdated  PaymentMethodSetting[] @relation("PaymentMethodUpdatedBy")
+  auditLogs              AuditLog[]             @relation("AuditActor")
+  activationTokens       UserActivationToken[]
+  onboardingOwnership    ClientOnboarding?      @relation("OnboardingOwner")
+  ordersCreated          Order[]                @relation("OrderCreatedBy")
+  paymentsVerified       Payment[]              @relation("PaymentVerifiedBy")
+
+  @@unique([companyId, email])
+  @@index([companyId, status])
+  @@map("users")
+}
+
+model Role {
+  id              String             @id @default(uuid()) @db.Uuid
+  companyId       String             @map("company_id") @db.Uuid
+  name            String             @db.VarChar(100)
+  systemKey       String             @map("system_key") @db.VarChar(80)
+  description     String?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  outletAccess    UserOutletAccess[]
+
+  @@unique([companyId, systemKey])
+  @@map("roles")
+}
+
+model Permission {
+  id              String             @id @default(uuid()) @db.Uuid
+  key             String             @unique @db.VarChar(120)
+  description     String
+  category        String             @db.VarChar(80)
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserOutletAccess {
+  id        String  @id @default(uuid()) @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  userId    String  @map("user_id") @db.Uuid
+  outletId  String  @map("outlet_id") @db.Uuid
+  roleId    String  @map("role_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlet    Outlet  @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  role      Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, outletId, roleId])
+  @@index([companyId, outletId])
+  @@map("user_outlet_access")
+}
+
+model OutletPaymentControl {
+  id                       String    @id @default(uuid()) @db.Uuid
+  companyId                String    @map("company_id") @db.Uuid
+  outletId                 String    @unique @map("outlet_id") @db.Uuid
+  onlinePaymentsEnabled    Boolean   @default(true) @map("online_payments_enabled")
+  onlineDisabledUntil      DateTime? @map("online_disabled_until") @db.Timestamptz(6)
+  onlineDisabledReason     String?   @map("online_disabled_reason")
+  stripePaymentsEnabled    Boolean   @default(true) @map("stripe_payments_enabled")
+  stripeDisabledUntil      DateTime? @map("stripe_disabled_until") @db.Timestamptz(6)
+  stripeDisabledReason     String?   @map("stripe_disabled_reason")
+  version                  Int       @default(1)
+  updatedByUserId          String?   @map("updated_by_user_id") @db.Uuid
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company                  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet                   Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  updatedBy                User?     @relation("PaymentControlUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, outletId])
+  @@map("outlet_payment_controls")
+}
+
+model PaymentMethodSetting {
+  id              String        @id @default(uuid()) @db.Uuid
+  companyId       String        @map("company_id") @db.Uuid
+  outletId        String        @map("outlet_id") @db.Uuid
+  method          PaymentMethod
+  enabled         Boolean       @default(true)
+  disabledUntil   DateTime?     @map("disabled_until") @db.Timestamptz(6)
+  disabledReason  String?       @map("disabled_reason")
+  version         Int           @default(1)
+  updatedByUserId String?       @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet          Outlet        @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  updatedBy       User?         @relation("PaymentMethodUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([outletId, method])
+  @@index([companyId, outletId])
+  @@map("payment_method_settings")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  outletId    String?  @map("outlet_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actionType  String   @map("action_type") @db.VarChar(120)
+  entityType  String   @map("entity_type") @db.VarChar(80)
+  entityId    String?  @map("entity_id") @db.Uuid
+  beforeJson  Json?    @map("before_json")
+  afterJson   Json?    @map("after_json")
+  reason      String?
+  requestId   String?  @map("request_id") @db.VarChar(100)
+  ipAddress   String?  @map("ip_address") @db.VarChar(80)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  outlet      Outlet?  @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  actorUser   User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, outletId, actionType, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model ClientOnboarding {
+  id                         String           @id @default(uuid()) @db.Uuid
+  companyId                  String           @unique @map("company_id") @db.Uuid
+  ownerUserId                String           @unique @map("owner_user_id") @db.Uuid
+  idempotencyKey             String           @unique @map("idempotency_key") @db.VarChar(120)
+  requestFingerprint         String           @map("request_fingerprint") @db.Char(64)
+  status                     OnboardingStatus @default(PENDING_OWNER_ACTIVATION)
+  businessProfileCompletedAt DateTime         @default(now()) @map("business_profile_completed_at") @db.Timestamptz(6)
+  ownerActivatedAt           DateTime?        @map("owner_activated_at") @db.Timestamptz(6)
+  paymentMethodsSelectedAt   DateTime?        @map("payment_methods_selected_at") @db.Timestamptz(6)
+  stripeConnectedAt          DateTime?        @map("stripe_connected_at") @db.Timestamptz(6)
+  menuPublishedAt            DateTime?        @map("menu_published_at") @db.Timestamptz(6)
+  tablesConfiguredAt         DateTime?        @map("tables_configured_at") @db.Timestamptz(6)
+  printerConfiguredAt        DateTime?        @map("printer_configured_at") @db.Timestamptz(6)
+  testOrderCompletedAt       DateTime?        @map("test_order_completed_at") @db.Timestamptz(6)
+  completedAt                DateTime?        @map("completed_at") @db.Timestamptz(6)
+  createdAt                  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company                    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner                      User             @relation("OnboardingOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("client_onboardings")
+}
+
+model UserActivationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("user_activation_tokens")
+}
+
+model Menu {
+  id         String      @id @default(uuid()) @db.Uuid
+  companyId  String      @map("company_id") @db.Uuid
+  outletId   String      @map("outlet_id") @db.Uuid
+  name       String      @db.VarChar(160)
+  slug       String      @db.VarChar(80)
+  channel    MenuChannel @default(BOTH)
+  isDefault  Boolean     @default(false) @map("is_default")
+  status     MenuStatus  @default(ACTIVE)
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet     Outlet      @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  versions   MenuVersion[]
+
+  @@unique([outletId, slug])
+  @@index([companyId, outletId, status])
+  @@map("menus")
+}
+
+model MenuVersion {
+  id              String            @id @default(uuid()) @db.Uuid
+  companyId       String            @map("company_id") @db.Uuid
+  menuId          String            @map("menu_id") @db.Uuid
+  versionNumber   Int               @map("version_number")
+  status          MenuVersionStatus @default(DRAFT)
+  publishedAt     DateTime?         @map("published_at") @db.Timestamptz(6)
+  createdByUserId String?           @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  menu            Menu              @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  categories      MenuCategory[]
+  items           MenuItem[]
+  modifierGroups  ModifierGroup[]
+
+  @@unique([menuId, versionNumber])
+  @@index([companyId, menuId, status])
+  @@map("menu_versions")
+}
+
+model MenuCategory {
+  id            String      @id @default(uuid()) @db.Uuid
+  companyId     String      @map("company_id") @db.Uuid
+  menuVersionId String      @map("menu_version_id") @db.Uuid
+  name          String      @db.VarChar(120)
+  displayOrder  Int         @default(0) @map("display_order")
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  menuVersion   MenuVersion @relation(fields: [menuVersionId], references: [id], onDelete: Cascade)
+  items         MenuItem[]
+
+  @@unique([menuVersionId, name])
+  @@index([menuVersionId, displayOrder])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  companyId             String                  @map("company_id") @db.Uuid
+  menuVersionId         String                  @map("menu_version_id") @db.Uuid
+  categoryId            String                  @map("category_id") @db.Uuid
+  sku                   String?                 @db.VarChar(80)
+  name                  String                  @db.VarChar(160)
+  description           String?
+  imageUrl              String?                 @map("image_url")
+  basePriceCents        Int                     @map("base_price_cents")
+  costPriceCents        Int?                    @map("cost_price_cents")
+  taxable               Boolean                 @default(true)
+  serviceChargeable     Boolean                 @default(true) @map("service_chargeable")
+  preparationStationKey String                  @default("main-kitchen") @map("preparation_station_key") @db.VarChar(80)
+  active                Boolean                 @default(true)
+  soldOut               Boolean                 @default(false) @map("sold_out")
+  displayOrder          Int                     @default(0) @map("display_order")
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company               Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  menuVersion           MenuVersion             @relation(fields: [menuVersionId], references: [id], onDelete: Cascade)
+  category              MenuCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants              ItemVariant[]
+  itemModifierGroups    MenuItemModifierGroup[]
+
+  @@unique([menuVersionId, sku])
+  @@index([menuVersionId, categoryId, active, displayOrder])
+  @@index([companyId, soldOut, active])
+  @@map("menu_items")
+}
+
+model ItemVariant {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @map("company_id") @db.Uuid
+  menuItemId      String   @map("menu_item_id") @db.Uuid
+  name            String   @db.VarChar(120)
+  priceDeltaCents Int      @default(0) @map("price_delta_cents")
+  active          Boolean  @default(true)
+  displayOrder    Int      @default(0) @map("display_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, name])
+  @@index([menuItemId, displayOrder])
+  @@map("item_variants")
+}
+
+model ModifierGroup {
+  id             String                  @id @default(uuid()) @db.Uuid
+  companyId      String                  @map("company_id") @db.Uuid
+  menuVersionId  String                  @map("menu_version_id") @db.Uuid
+  key            String                  @db.VarChar(80)
+  name           String                  @db.VarChar(120)
+  minSelect      Int                     @default(0) @map("min_select")
+  maxSelect      Int                     @default(1) @map("max_select")
+  required       Boolean                 @default(false)
+  displayOrder   Int                     @default(0) @map("display_order")
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company        Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  menuVersion    MenuVersion             @relation(fields: [menuVersionId], references: [id], onDelete: Cascade)
+  options        ModifierOption[]
+  menuItems      MenuItemModifierGroup[]
+
+  @@unique([menuVersionId, key])
+  @@index([menuVersionId, displayOrder])
+  @@map("modifier_groups")
+}
+
+model ModifierOption {
+  id              String        @id @default(uuid()) @db.Uuid
+  companyId       String        @map("company_id") @db.Uuid
+  modifierGroupId String        @map("modifier_group_id") @db.Uuid
+  name            String        @db.VarChar(120)
+  priceDeltaCents Int           @default(0) @map("price_delta_cents")
+  active          Boolean       @default(true)
+  displayOrder    Int           @default(0) @map("display_order")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([modifierGroupId, name])
+  @@index([modifierGroupId, displayOrder])
+  @@map("modifier_options")
+}
+
+model MenuItemModifierGroup {
+  menuItemId     String        @map("menu_item_id") @db.Uuid
+  modifierGroupId String       @map("modifier_group_id") @db.Uuid
+  displayOrder   Int           @default(0) @map("display_order")
+  menuItem       MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup  ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, modifierGroupId])
+  @@index([modifierGroupId])
+  @@map("menu_item_modifier_groups")
+}
+
+model DiningZone {
+  id           String        @id @default(uuid()) @db.Uuid
+  companyId    String        @map("company_id") @db.Uuid
+  outletId     String        @map("outlet_id") @db.Uuid
+  name         String        @db.VarChar(120)
+  displayOrder Int           @default(0) @map("display_order")
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet       Outlet        @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  tables       DiningTable[]
+
+  @@unique([outletId, name])
+  @@index([companyId, outletId, displayOrder])
+  @@map("dining_zones")
+}
+
+model DiningTable {
+  id          String            @id @default(uuid()) @db.Uuid
+  companyId   String            @map("company_id") @db.Uuid
+  outletId    String            @map("outlet_id") @db.Uuid
+  zoneId      String            @map("zone_id") @db.Uuid
+  tableCode   String            @map("table_code") @db.VarChar(40)
+  displayName String            @map("display_name") @db.VarChar(120)
+  capacity    Int               @default(2)
+  shape       DiningTableShape  @default(SQUARE)
+  status      DiningTableStatus @default(AVAILABLE)
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet      Outlet            @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  zone        DiningZone        @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  qrCodes     QrCode[]
+  sessions    TableSession[]
+  orders      Order[]
+
+  @@unique([outletId, tableCode])
+  @@index([companyId, outletId, status])
+  @@map("dining_tables")
+}
+
+model QrCode {
+  id              String      @id @default(uuid()) @db.Uuid
+  companyId       String      @map("company_id") @db.Uuid
+  outletId        String      @map("outlet_id") @db.Uuid
+  tableId         String      @map("table_id") @db.Uuid
+  publicCode      String      @unique @map("public_code") @db.VarChar(40)
+  tokenHash       String      @map("token_hash") @db.Char(64)
+  destinationPath String      @map("destination_path")
+  active          Boolean     @default(true)
+  expiresAt       DateTime?   @map("expires_at") @db.Timestamptz(6)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  rotatedAt       DateTime?   @map("rotated_at") @db.Timestamptz(6)
+  company         Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet          Outlet      @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  table           DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, outletId, active])
+  @@index([tableId, active])
+  @@map("qr_codes")
+}
+
+model TableSession {
+  id             String             @id @default(uuid()) @db.Uuid
+  companyId      String             @map("company_id") @db.Uuid
+  outletId       String             @map("outlet_id") @db.Uuid
+  tableId        String             @map("table_id") @db.Uuid
+  activeTableKey String?            @unique @map("active_table_key") @db.Uuid
+  status         TableSessionStatus @default(SEATED)
+  seatedAt       DateTime           @default(now()) @map("seated_at") @db.Timestamptz(6)
+  closedAt       DateTime?          @map("closed_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company        Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet         Outlet             @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  table          DiningTable        @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  orders         Order[]
+
+  @@index([companyId, outletId, status])
+  @@index([tableId, createdAt(sort: Desc)])
+  @@map("table_sessions")
+}
+
+model OrderSequence {
+  outletId     String   @map("outlet_id") @db.Uuid
+  businessDate DateTime @map("business_date") @db.Date
+  lastNumber   Int      @default(0) @map("last_number")
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@id([outletId, businessDate])
+  @@map("order_sequences")
+}
+
+model Order {
+  id                     String             @id @default(uuid()) @db.Uuid
+  companyId              String             @map("company_id") @db.Uuid
+  outletId               String             @map("outlet_id") @db.Uuid
+  tableId                String?            @map("table_id") @db.Uuid
+  tableSessionId         String?            @map("table_session_id") @db.Uuid
+  orderNumber            String             @map("order_number") @db.VarChar(40)
+  businessDate           DateTime           @map("business_date") @db.Date
+  source                 OrderSource
+  serviceType            ServiceType        @map("service_type")
+  status                 OrderStatus        @default(PENDING_PAYMENT)
+  paymentStatus          OrderPaymentStatus @default(PENDING) @map("payment_status")
+  currency               String             @db.Char(3)
+  subtotalCents          Int                @map("subtotal_cents")
+  discountTotalCents     Int                @default(0) @map("discount_total_cents")
+  serviceChargeTotalCents Int               @default(0) @map("service_charge_total_cents")
+  gstTotalCents          Int                @default(0) @map("gst_total_cents")
+  roundingAdjustmentCents Int               @default(0) @map("rounding_adjustment_cents")
+  grandTotalCents        Int                @map("grand_total_cents")
+  idempotencyKey         String             @map("idempotency_key") @db.VarChar(120)
+  requestFingerprint     String             @map("request_fingerprint") @db.Char(64)
+  customerName           String?            @map("customer_name") @db.VarChar(160)
+  customerPhone          String?            @map("customer_phone") @db.VarChar(40)
+  createdByUserId        String?            @map("created_by_user_id") @db.Uuid
+  paidAt                 DateTime?           @map("paid_at") @db.Timestamptz(6)
+  sentToKitchenAt        DateTime?           @map("sent_to_kitchen_at") @db.Timestamptz(6)
+  completedAt            DateTime?           @map("completed_at") @db.Timestamptz(6)
+  cancelledAt            DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company                Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  outlet                 Outlet              @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  table                  DiningTable?        @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  tableSession           TableSession?       @relation(fields: [tableSessionId], references: [id], onDelete: Restrict)
+  createdBy              User?               @relation("OrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items                  OrderItem[]
+  payments               Payment[]
+  kitchenTickets         KitchenTicket[]
+  printJobs              PrintJob[]
+
+  @@unique([companyId, idempotencyKey])
+  @@unique([outletId, businessDate, orderNumber])
+  @@index([outletId, status, createdAt(sort: Desc)])
+  @@index([companyId, paymentStatus, createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                    String              @id @default(uuid()) @db.Uuid
+  companyId             String              @map("company_id") @db.Uuid
+  orderId               String              @map("order_id") @db.Uuid
+  menuItemId            String?             @map("menu_item_id") @db.Uuid
+  itemName              String              @map("item_name") @db.VarChar(160)
+  sku                   String?             @db.VarChar(80)
+  variantId             String?             @map("variant_id") @db.Uuid
+  variantName           String?             @map("variant_name") @db.VarChar(120)
+  preparationStationKey String              @map("preparation_station_key") @db.VarChar(80)
+  quantity              Int
+  baseUnitPriceCents    Int                 @map("base_unit_price_cents")
+  modifierUnitCents     Int                 @default(0) @map("modifier_unit_cents")
+  unitPriceCents        Int                 @map("unit_price_cents")
+  lineTotalCents        Int                 @map("line_total_cents")
+  taxable               Boolean             @default(true)
+  serviceChargeable     Boolean             @default(true) @map("service_chargeable")
+  remarks               String?
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  company               Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  order                 Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  modifiers             OrderItemModifier[]
+
+  @@index([orderId])
+  @@index([companyId, preparationStationKey])
+  @@map("order_items")
+}
+
+model OrderItemModifier {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  orderItemId     String    @map("order_item_id") @db.Uuid
+  modifierGroupId String?   @map("modifier_group_id") @db.Uuid
+  modifierGroupName String  @map("modifier_group_name") @db.VarChar(120)
+  modifierOptionId String?  @map("modifier_option_id") @db.Uuid
+  modifierOptionName String @map("modifier_option_name") @db.VarChar(120)
+  priceDeltaCents Int       @default(0) @map("price_delta_cents")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  orderItem       OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
+  @@map("order_item_modifiers")
+}
+
+model Payment {
+  id                        String          @id @default(uuid()) @db.Uuid
+  companyId                 String          @map("company_id") @db.Uuid
+  outletId                  String          @map("outlet_id") @db.Uuid
+  orderId                   String          @map("order_id") @db.Uuid
+  provider                  PaymentProvider
+  method                    PaymentMethod
+  status                    PaymentStatus   @default(CREATED)
+  amountCents               Int             @map("amount_cents")
+  currency                  String          @db.Char(3)
+  manualReference           String?         @map("manual_reference") @db.VarChar(160)
+  creationIdempotencyKey    String?         @unique @map("creation_idempotency_key") @db.VarChar(120)
+  verificationIdempotencyKey String?        @unique @map("verification_idempotency_key") @db.VarChar(120)
+  stripeCheckoutSessionId   String?         @unique @map("stripe_checkout_session_id") @db.VarChar(255)
+  stripeCheckoutUrl         String?         @map("stripe_checkout_url")
+  stripePaymentIntentId     String?         @unique @map("stripe_payment_intent_id") @db.VarChar(255)
+  stripeChargeId            String?         @unique @map("stripe_charge_id") @db.VarChar(255)
+  checkoutExpiresAt         DateTime?       @map("checkout_expires_at") @db.Timestamptz(6)
+  providerFeeCents          Int?            @map("provider_fee_cents")
+  netAmountCents            Int?            @map("net_amount_cents")
+  verifiedByUserId          String?         @map("verified_by_user_id") @db.Uuid
+  verifiedAt                DateTime?       @map("verified_at") @db.Timestamptz(6)
+  paidAt                    DateTime?       @map("paid_at") @db.Timestamptz(6)
+  failedAt                  DateTime?       @map("failed_at") @db.Timestamptz(6)
+  failureReason             String?         @map("failure_reason")
+  createdAt                 DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company                   Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  outlet                    Outlet          @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  order                     Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  verifiedBy                User?           @relation("PaymentVerifiedBy", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  webhookEvents             WebhookEvent[]
+
+  @@index([orderId, status])
+  @@index([outletId, method, status, createdAt(sort: Desc)])
+  @@map("payments")
+}
+
+model WebhookEvent {
+  id              String             @id @default(uuid()) @db.Uuid
+  companyId       String?            @map("company_id") @db.Uuid
+  outletId        String?            @map("outlet_id") @db.Uuid
+  paymentId       String?            @map("payment_id") @db.Uuid
+  provider        PaymentProvider
+  providerEventId String             @unique @map("provider_event_id") @db.VarChar(255)
+  eventType       String             @map("event_type") @db.VarChar(160)
+  status          WebhookEventStatus @default(RECEIVED)
+  payloadJson     Json               @map("payload_json")
+  errorMessage    String?            @map("error_message")
+  receivedAt      DateTime           @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt     DateTime?          @map("processed_at") @db.Timestamptz(6)
+  company         Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  outlet          Outlet?            @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  payment         Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([provider, status, receivedAt(sort: Desc)])
+  @@index([companyId, outletId, receivedAt(sort: Desc)])
+  @@map("webhook_events")
+}
+
+model KitchenStation {
+  id           String          @id @default(uuid()) @db.Uuid
+  companyId    String          @map("company_id") @db.Uuid
+  outletId     String          @map("outlet_id") @db.Uuid
+  key          String          @db.VarChar(80)
+  name         String          @db.VarChar(120)
+  displayOrder Int             @default(0) @map("display_order")
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet       Outlet          @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  tickets      KitchenTicket[]
+  printerRoute PrinterRoute?
+
+  @@unique([outletId, key])
+  @@index([companyId, outletId, active])
+  @@map("kitchen_stations")
+}
+
+model KitchenTicket {
+  id          String              @id @default(uuid()) @db.Uuid
+  companyId   String              @map("company_id") @db.Uuid
+  outletId    String              @map("outlet_id") @db.Uuid
+  orderId     String              @map("order_id") @db.Uuid
+  stationId   String              @map("station_id") @db.Uuid
+  status      KitchenTicketStatus @default(QUEUED)
+  payloadJson Json                @map("payload_json")
+  sentAt      DateTime?           @map("sent_at") @db.Timestamptz(6)
+  preparingAt DateTime?           @map("preparing_at") @db.Timestamptz(6)
+  readyAt     DateTime?           @map("ready_at") @db.Timestamptz(6)
+  completedAt DateTime?           @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  outlet      Outlet              @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  order       Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  station     KitchenStation      @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  printJobs   PrintJob[]
+
+  @@unique([orderId, stationId])
+  @@index([outletId, stationId, status, createdAt(sort: Desc)])
+  @@map("kitchen_tickets")
+}
+
+model Printer {
+  id                String                @id @default(uuid()) @db.Uuid
+  companyId         String                @map("company_id") @db.Uuid
+  outletId          String                @map("outlet_id") @db.Uuid
+  key               String                @db.VarChar(80)
+  name              String                @db.VarChar(120)
+  connectionType    PrinterConnectionType @map("connection_type")
+  role              PrinterRole
+  host              String?               @db.VarChar(255)
+  port              Int?
+  paperWidthMm      Int                   @default(80) @map("paper_width_mm")
+  autoCut           Boolean               @default(true) @map("auto_cut")
+  buzzer            Boolean               @default(false)
+  cashDrawer        Boolean               @default(false) @map("cash_drawer")
+  active            Boolean               @default(true)
+  healthStatus      PrinterHealthStatus   @default(UNKNOWN) @map("health_status")
+  lastHeartbeatAt   DateTime?             @map("last_heartbeat_at") @db.Timestamptz(6)
+  lastTestAt        DateTime?             @map("last_test_at") @db.Timestamptz(6)
+  lastTestResult    String?               @map("last_test_result")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company           Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet            Outlet                @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  primaryRoutes     PrinterRoute[]         @relation("PrimaryPrinter")
+  backupRoutes      PrinterRoute[]         @relation("BackupPrinter")
+  printJobs         PrintJob[]
+
+  @@unique([outletId, key])
+  @@index([companyId, outletId, active])
+  @@map("printers")
+}
+
+model PrinterRoute {
+  id              String         @id @default(uuid()) @db.Uuid
+  companyId       String         @map("company_id") @db.Uuid
+  outletId        String         @map("outlet_id") @db.Uuid
+  stationId       String         @unique @map("station_id") @db.Uuid
+  primaryPrinterId String        @map("primary_printer_id") @db.Uuid
+  backupPrinterId String?        @map("backup_printer_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet          Outlet         @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  station         KitchenStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  primaryPrinter  Printer        @relation("PrimaryPrinter", fields: [primaryPrinterId], references: [id], onDelete: Restrict)
+  backupPrinter   Printer?       @relation("BackupPrinter", fields: [backupPrinterId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, outletId])
+  @@map("printer_routes")
+}
+
+model PrinterAgent {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  outletId        String    @map("outlet_id") @db.Uuid
+  deviceId        String    @unique @map("device_id") @db.VarChar(120)
+  name            String    @db.VarChar(120)
+  tokenHash       String    @unique @map("token_hash") @db.Char(64)
+  active          Boolean   @default(true)
+  appVersion      String?   @map("app_version") @db.VarChar(40)
+  lastIpAddress   String?   @map("last_ip_address") @db.VarChar(80)
+  lastHeartbeatAt DateTime? @map("last_heartbeat_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet          Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  leasedJobs      PrintJob[]
+  attempts        PrintJobAttempt[]
+
+  @@index([companyId, outletId, active])
+  @@map("printer_agents")
+}
+
+model PrintJob {
+  id                String         @id @default(uuid()) @db.Uuid
+  companyId         String         @map("company_id") @db.Uuid
+  outletId          String         @map("outlet_id") @db.Uuid
+  orderId           String?        @map("order_id") @db.Uuid
+  kitchenTicketId   String?        @map("kitchen_ticket_id") @db.Uuid
+  printerId         String?        @map("printer_id") @db.Uuid
+  template          PrintTemplate
+  payloadJson       Json           @map("payload_json")
+  renderedText      String         @map("rendered_text")
+  status            PrintJobStatus @default(QUEUED)
+  priority          Int            @default(100)
+  attemptCount      Int            @default(0) @map("attempt_count")
+  maxAttempts       Int            @default(5) @map("max_attempts")
+  nextAttemptAt     DateTime        @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  leasedByAgentId   String?         @map("leased_by_agent_id") @db.Uuid
+  leaseExpiresAt    DateTime?       @map("lease_expires_at") @db.Timestamptz(6)
+  lastError         String?         @map("last_error")
+  backupRouted      Boolean         @default(false) @map("backup_routed")
+  printedAt         DateTime?       @map("printed_at") @db.Timestamptz(6)
+  cancelledAt       DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  reprintOfId       String?         @map("reprint_of_id") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  outlet            Outlet          @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  order             Order?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kitchenTicket     KitchenTicket?  @relation(fields: [kitchenTicketId], references: [id], onDelete: Cascade)
+  printer           Printer?        @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  leasedByAgent     PrinterAgent?    @relation(fields: [leasedByAgentId], references: [id], onDelete: SetNull)
+  attempts          PrintJobAttempt[]
+  reprintOf         PrintJob?        @relation("PrintJobReprints", fields: [reprintOfId], references: [id], onDelete: SetNull)
+  reprints          PrintJob[]       @relation("PrintJobReprints")
+
+  @@index([outletId, status, priority, createdAt])
+  @@index([printerId, status, nextAttemptAt])
+  @@map("print_jobs")
+}
+
+model PrintJobAttempt {
+  id            String             @id @default(uuid()) @db.Uuid
+  printJobId    String             @map("print_job_id") @db.Uuid
+  agentId       String             @map("agent_id") @db.Uuid
+  attemptNumber Int                @map("attempt_number")
+  status        PrintAttemptStatus
+  errorMessage  String?            @map("error_message")
+  startedAt     DateTime           @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt   DateTime?          @map("completed_at") @db.Timestamptz(6)
+  printJob      PrintJob           @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  agent         PrinterAgent       @relation(fields: [agentId], references: [id], onDelete: Restrict)
+
+  @@unique([printJobId, attemptNumber])
+  @@index([agentId, startedAt(sort: Desc)])
+  @@map("print_job_attempts")
+}

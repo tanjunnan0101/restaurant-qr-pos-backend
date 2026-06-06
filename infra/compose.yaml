@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: restaurant_pos
+      POSTGRES_USER: restaurant_pos
+      POSTGRES_PASSWORD: restaurant_pos
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U restaurant_pos -d restaurant_pos']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - restaurant_pos_postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - restaurant_pos_redis:/data
+
+volumes:
+  restaurant_pos_postgres:
+  restaurant_pos_redis:
