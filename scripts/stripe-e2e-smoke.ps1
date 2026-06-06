@@ -1,8 +1,8 @@
 param(
     [string]$ApiBaseUrl = 'http://127.0.0.1:3001/api/v1',
-    [string]$CompanySlug = 'onboarding-smoke-restaurant',
-    [string]$OwnerEmail = 'smoke.owner@example.com',
-    [string]$OwnerPassword = 'StrongPass123!',
+    [string]$CompanySlug = 'demo-restaurant',
+    [string]$OwnerEmail = 'owner@example.com',
+    [string]$OwnerPassword = 'ChangeMe123!',
     [int]$FakeStripePort = 18181,
     [string]$WebhookSecret = 'whsec_local_test_secret'
 )
@@ -115,6 +115,135 @@ function Send-StripeEvent {
         -Body $payload
 }
 
+function Ensure-MenuSetup {
+    $menus = @(Invoke-RestMethod `
+        -Uri "$ApiBaseUrl/admin/outlets/$script:outletId/menus" `
+        -Headers $script:auth)
+    if ($menus.Count -gt 0 -and $menus[0] -and $menus[0].id) {
+        return
+    }
+
+    Invoke-RestMethod `
+        -Uri "$ApiBaseUrl/admin/outlets/$script:outletId/menus/setup" `
+        -Method Post `
+        -Headers $script:auth `
+        -ContentType 'application/json' `
+        -Body (@{
+            name = 'Smoke Test Menu'
+            slug = 'smoke-test-menu'
+            publish = $true
+            modifierGroups = @(
+                @{
+                    key = 'spice-level'
+                    name = 'Spice Level'
+                    minSelect = 1
+                    maxSelect = 1
+                    required = $true
+                    options = @(
+                        @{
+                            name = 'Normal'
+                            priceDeltaCents = 0
+                        }
+                    )
+                }
+            )
+            categories = @(
+                @{
+                    name = 'Mains'
+                    items = @(
+                        @{
+                            sku = 'SMOKE-001'
+                            name = 'Smoke Test Noodles'
+                            description = 'Used by the Stripe smoke harness.'
+                            basePriceCents = 650
+                            preparationStationKey = 'main-kitchen'
+                            modifierGroupKeys = @('spice-level')
+                        }
+                    )
+                }
+            )
+        } | ConvertTo-Json -Depth 10) | Out-Null
+}
+
+function Ensure-TableSetup {
+    $zones = @(Invoke-RestMethod `
+        -Uri "$ApiBaseUrl/admin/outlets/$script:outletId/tables" `
+        -Headers $script:auth)
+    $existingTables = @($zones | ForEach-Object { @($_.tables) })
+    if ($existingTables.Count -gt 0 -and $existingTables[0] -and $existingTables[0].id) {
+        return
+    }
+
+    Invoke-RestMethod `
+        -Uri "$ApiBaseUrl/admin/outlets/$script:outletId/tables/setup" `
+        -Method Post `
+        -Headers $script:auth `
+        -ContentType 'application/json' `
+        -Body (@{
+            zones = @(
+                @{
+                    name = 'Main Floor'
+                    tables = @(
+                        @{
+                            tableCode = 'T01'
+                            displayName = 'Table 1'
+                            capacity = 2
+                            shape = 'SQUARE'
+                            status = 'AVAILABLE'
+                            active = $true
+                        }
+                    )
+                }
+            )
+        } | ConvertTo-Json -Depth 10) | Out-Null
+}
+
+function Ensure-PrinterSetup {
+    $printing = Invoke-RestMethod `
+        -Uri "$ApiBaseUrl/admin/outlets/$script:outletId/printing" `
+        -Headers $script:auth
+    if (
+        @($printing.stations).Count -gt 0 -and
+        @($printing.printers).Count -gt 0 -and
+        @($printing.stations)[0].id -and
+        @($printing.printers)[0].id
+    ) {
+        return
+    }
+
+    Invoke-RestMethod `
+        -Uri "$ApiBaseUrl/admin/outlets/$script:outletId/printing/setup" `
+        -Method Post `
+        -Headers $script:auth `
+        -ContentType 'application/json' `
+        -Body (@{
+            stations = @(
+                @{
+                    key = 'main-kitchen'
+                    name = 'Main Kitchen'
+                    active = $true
+                }
+            )
+            printers = @(
+                @{
+                    key = 'kitchen-main'
+                    name = 'Kitchen Main'
+                    connectionType = 'ESC_POS_LAN'
+                    role = 'KITCHEN'
+                    host = '127.0.0.1'
+                    port = 9100
+                    active = $true
+                }
+            )
+            routes = @(
+                @{
+                    stationKey = 'main-kitchen'
+                    primaryPrinterKey = 'kitchen-main'
+                }
+            )
+        } | ConvertTo-Json -Depth 10) | Out-Null
+}
+
 try {
     $env:FAKE_STRIPE_PORT = [string]$FakeStripePort
     $stripeProcess = Start-HiddenProcess `
@@ -143,8 +272,13 @@ try {
             email = $OwnerEmail
             password = $OwnerPassword
         } | ConvertTo-Json)
-    $script:outletId = $login.user.outlets[0].id
+    $script:outletId = @($login.user.outlets)[0].id
     $auth = @{ Authorization = "Bearer $($login.accessToken)" }
+    $script:auth = $auth
+
+    Ensure-MenuSetup
+    Ensure-TableSetup
+    Ensure-PrinterSetup
 
     $invalidSignatureRejected = $false
     try {
@@ -165,10 +299,10 @@ try {
         throw 'An invalid Stripe webhook signature was accepted.'
     }
 
-    $zones = Invoke-RestMethod `
+    $zones = @(Invoke-RestMethod `
         -Uri "$ApiBaseUrl/admin/outlets/$outletId/tables" `
-        -Headers $auth
-    $tableId = $zones[0].tables[0].id
+        -Headers $auth)
+    $tableId = @(@($zones)[0].tables)[0].id
     $rotated = Invoke-RestMethod `
         -Uri "$ApiBaseUrl/admin/outlets/$outletId/tables/$tableId/qr/rotate" `
         -Method Post `
@@ -181,11 +315,12 @@ try {
     $token = $qrParts[-1]
 
     $qr = Invoke-RestMethod -Uri "$ApiBaseUrl/public/qr/$publicCode/$token"
-    $menuItem = $qr.menu.version.categories[0].items[0]
+    $menuCategory = @($qr.menu.version.categories)[0]
+    $menuItem = @($menuCategory.items)[0]
     $requiredModifierOptionIds = @(
         $menuItem.itemModifierGroups |
             Where-Object { $_.modifierGroup.minSelect -gt 0 } |
-            ForEach-Object { $_.modifierGroup.options[0].id }
+            ForEach-Object { @($_.modifierGroup.options)[0].id }
     )
     $script:order = Invoke-RestMethod `
         -Uri "$ApiBaseUrl/public/qr/$publicCode/$token/orders" `

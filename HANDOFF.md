@@ -59,8 +59,9 @@ The following passed before this handoff:
 - Production Docker image build.
 - Container `/api/v1/health` with PostgreSQL and Redis available.
 
-The Stripe smoke script expects the existing QA tenant, published menu, table,
-and printer route. It is not yet a clean-database bootstrap test.
+The Stripe smoke script now boots a minimal published menu, dining table, and
+printer route on the seeded demo tenant when they do not yet exist, so it can
+validate a clean local database after migrations and seed data.
 
 ## Not Implemented
 
@@ -108,6 +109,7 @@ Verify:
 ```powershell
 Invoke-RestMethod http://localhost:3001/api/v1/health
 npm run check
+npm run smoke:stripe
 ```
 
 Swagger is available at `http://localhost:3001/docs`.
@@ -136,7 +138,7 @@ The default seeded development login comes from `SEED_OWNER_EMAIL` and
 - Shared types: `packages/types`
 - Architecture decisions: `docs/adr`
 - Operational runbooks: `docs/runbooks`
-- Deployment guide: `docs/deployment.md`
+- Deployment guide: `deployment.md`
 - Docker assets: `infra`
 
 ## Recommended Next Milestone

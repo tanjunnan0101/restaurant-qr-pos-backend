@@ -69,7 +69,7 @@ Prerequisites:
 
 - PostgreSQL and Redis are running.
 - Migrations and seed/setup data are applied.
-- The onboarding smoke tenant, published menu, table, and printer route exist.
+- The seeded demo tenant login is available.
 - The API is not already listening on port `3001`.
 
 Build and run the repeatable local test:
@@ -80,7 +80,9 @@ npm run smoke:stripe
 ```
 
 The harness starts a local Stripe-compatible stub and an API process with test
-configuration. It verifies:
+configuration. It logs into the seeded demo tenant and creates a minimal
+published menu, dining table, and printer route if they do not yet exist. It
+verifies:
 
 - Invalid webhook signatures return `400`.
 - Checkout creation is idempotent.

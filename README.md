@@ -4,7 +4,7 @@ Backend foundation for a multi-tenant restaurant QR ordering and POS platform.
 
 For takeover status, architecture boundaries, and the next milestones, start
 with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
-[docs/deployment.md](docs/deployment.md).
+[deployment.md](deployment.md).
 
 ## Current scope
 
@@ -35,6 +35,7 @@ with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
 5. Run `npm run prisma:deploy`.
 6. Run `npm run prisma:seed`.
 7. Run `npm run dev`.
+8. Optionally run `npm run smoke:stripe` to verify the local Stripe payment flow.
 
 Swagger is available at `http://localhost:3001/docs`.
 
