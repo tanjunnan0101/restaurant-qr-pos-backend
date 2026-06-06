@@ -138,6 +138,7 @@ The default seeded development login comes from `SEED_OWNER_EMAIL` and
 - Shared types: `packages/types`
 - Architecture decisions: `docs/adr`
 - Operational runbooks: `docs/runbooks`
+- Staging rollout runbook: `docs/runbooks/staging-rollout.md`
 - Deployment guide: `deployment.md`
 - Docker assets: `infra`
 

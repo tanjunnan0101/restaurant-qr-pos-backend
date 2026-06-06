@@ -26,6 +26,9 @@ Restaurant-specific domains can be added later, but they are unnecessary for
 the initial client count. Tenant access is controlled by authenticated company
 and outlet membership, not by domain.
 
+For a concrete pre-production rollout sequence, see
+[docs/runbooks/staging-rollout.md](docs/runbooks/staging-rollout.md).
+
 ## Required Services
 
 - Container hosting for the API.

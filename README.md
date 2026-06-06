@@ -4,7 +4,8 @@ Backend foundation for a multi-tenant restaurant QR ordering and POS platform.
 
 For takeover status, architecture boundaries, and the next milestones, start
 with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
-[deployment.md](deployment.md).
+[deployment.md](deployment.md). For the next concrete milestone, use
+[Staging Rollout Runbook](docs/runbooks/staging-rollout.md).
 
 ## Current scope
 
