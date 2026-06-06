@@ -2,6 +2,10 @@
 
 Backend foundation for a multi-tenant restaurant QR ordering and POS platform.
 
+For takeover status, architecture boundaries, and the next milestones, start
+with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
+[docs/deployment.md](docs/deployment.md).
+
 ## Current scope
 
 - NestJS REST API with Swagger/OpenAPI.
@@ -28,7 +32,7 @@ Backend foundation for a multi-tenant restaurant QR ordering and POS platform.
 2. Start PostgreSQL and Redis using `infra/compose.yaml` or equivalent local services.
 3. Run `npm install`.
 4. Run `npm run prisma:generate`.
-5. Run `npm run prisma:migrate -- --name init`.
+5. Run `npm run prisma:deploy`.
 6. Run `npm run prisma:seed`.
 7. Run `npm run dev`.
 
