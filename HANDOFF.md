@@ -5,6 +5,64 @@ Status date: 2026-06-07
 Repository:
 `https://github.com/tanjunnan0101/restaurant-qr-pos-backend`
 
+## Latest Continuation Update
+
+This repository was audited, repaired, and locally validated on 2026-06-07.
+The main continuation-readiness work is already committed and the working tree
+was clean at the end of the session.
+
+Important commits:
+
+- `429339b` - Repair workspace bootstrap and self-bootstrap Stripe smoke test
+- `8fda96f` - Add concrete staging rollout runbook
+
+What was repaired:
+
+- Restored the root npm workspace manifest in `package.json` so the documented
+  monorepo commands work again.
+- Restored the missing `prisma:deploy` package script in
+  `packages/db/package.json`.
+- Fixed stale documentation links and aligned README/handoff/bootstrap steps
+  with the actual repository state.
+- Upgraded `scripts/stripe-e2e-smoke.ps1` so it no longer depends on hidden
+  pre-created QA data. It now logs into the seeded demo tenant and creates a
+  minimal published menu, table QR, and printer route when needed.
+- Added a concrete staging rollout runbook at
+  `docs/runbooks/staging-rollout.md`.
+
+What was validated locally:
+
+- `docker compose -f infra/compose.yaml up -d`
+- `npm run prisma:generate`
+- `npm run prisma:deploy`
+- `npm run prisma:seed`
+- `GET /api/v1/health` returning `status: ok` with PostgreSQL and Redis up
+- `npm run check`
+- `npm run smoke:stripe`
+
+Smoke-test behaviors confirmed:
+
+- Invalid Stripe signature is rejected.
+- Card payment marks the order paid exactly once.
+- Duplicate webhook delivery is ignored safely.
+- A second success event does not release the kitchen twice.
+- PayNow stays `PROCESSING` until the async success event arrives.
+- PayNow async success releases the kitchen exactly once.
+- Amount mismatch does not release the order.
+
+Where to resume next time:
+
+1. Use `docs/runbooks/staging-rollout.md` as the primary next-step checklist.
+2. Choose the staging host/provider.
+3. Provision managed PostgreSQL, managed Redis, DNS, HTTPS, and secrets.
+4. Deploy the API image and run `npm run prisma:deploy` against staging.
+5. Configure the Stripe test webhook and run one real card and one real PayNow
+   flow.
+6. Validate one real Windows printer-agent machine against the target thermal
+   printer.
+7. Only after staging is proven should work continue into staff POS, KDS,
+   reporting, inventory, attendance, and the frontend applications.
+
 ## Product Shape
 
 This is a multi-tenant SaaS backend for approximately ten restaurant clients.
