@@ -5,17 +5,19 @@ Use it before any staff POS, KDS, or dashboard work continues.
 
 ## Goal
 
-Bring up one cloud-hosted staging API that uses:
+Bring up one cloud-hosted staging environment that uses:
 
 - One managed PostgreSQL database.
 - One managed Redis instance.
 - One HTTPS API hostname.
+- One HTTPS customer ordering hostname.
 - One Stripe test webhook endpoint.
 
 The result should be a stable environment where the team can verify:
 
 - Login and tenant access.
 - Public QR resolution.
+- Customer QR ordering page load and menu browse flow.
 - Stripe card payment release.
 - Stripe PayNow asynchronous payment release.
 - Kitchen ticket and persisted print-job creation.
@@ -27,6 +29,7 @@ The result should be a stable environment where the team can verify:
 - Owner/staff app hostname placeholder: `app-staging.<your-domain>`
 - Customer QR hostname placeholder: `order-staging.<your-domain>`
 - One API instance is sufficient for staging.
+- One customer web instance is sufficient for staging.
 - One shared staging database is sufficient.
 - One shared staging Redis instance is sufficient.
 
@@ -38,9 +41,11 @@ printer credentials in staging.
 Prepare these before deployment:
 
 - Cloud provider and container-hosting target.
+- Container registry target and naming convention.
 - Managed PostgreSQL connection string.
 - Managed Redis connection string.
 - DNS record and HTTPS certificate for the API hostname.
+- DNS record and HTTPS certificate for the customer hostname.
 - Stripe test secret key.
 - Stripe test webhook signing secret.
 - Random values for `JWT_SECRET` and `PLATFORM_ADMIN_API_KEY`.
@@ -65,6 +70,10 @@ STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
+An editable example file lives at:
+
+- `infra/staging.api.env.example`
+
 Do not set these in staging:
 
 - `STRIPE_API_HOST`
@@ -73,12 +82,24 @@ Do not set these in staging:
 
 Those variables are only for the local Stripe stub.
 
+Build the customer web image with:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=https://api-staging.example.com/api/v1
+```
+
+An editable example file lives at:
+
+- `infra/staging.customer-web.build.env.example`
+
 ## Image Build And Release
 
-Build the immutable release image from the validated repository root:
+Build the immutable release images from the validated repository root:
 
 ```powershell
-docker build -f infra/Dockerfile.api -t restaurant-pos-api:<git-sha> .
+.\scripts\build-release-images.ps1 `
+  -Tag <git-sha> `
+  -CustomerApiBaseUrl https://api-staging.example.com/api/v1
 ```
 
 Before pushing or deploying a new image, run:
@@ -91,29 +112,31 @@ npm run smoke:stripe
 ## Migration Procedure
 
 Run database migrations as a one-off job before pointing traffic at the new
-image:
+application images:
 
 ```powershell
-npm ci
-npm run prisma:generate
-npm run prisma:deploy
+docker run --rm `
+  --env-file infra/staging.api.env.example `
+  restaurant-pos-migrate:<git-sha>
 ```
 
 Do not use `npm run prisma:migrate` outside local development.
-
-Do not run `npm run prisma:seed` on staging unless you intentionally want demo
-tenant data there.
+Replace the placeholder values in the env file or export equivalent real staging
+variables through the hosting platform. Do not run `npm run prisma:seed` on
+staging unless you intentionally want demo tenant data there.
 
 ## Deployment Procedure
 
-1. Build the image tagged with the Git commit SHA.
-2. Push the image to the chosen registry.
-3. Configure the staging environment variables.
-4. Run `npm run prisma:deploy` against the staging database.
-5. Deploy the API image.
-6. Wait for `GET /api/v1/health` to return `status: ok`.
-7. Create or confirm the Stripe test webhook endpoint.
-8. Run the smoke checklist below.
+1. Run `npm run check`.
+2. Build all three images tagged with the Git commit SHA.
+3. Push the API, migration, and customer web images to the chosen registry.
+4. Configure the staging API environment variables.
+5. Run the migration image against the staging database.
+6. Deploy the API image and wait for `GET /api/v1/health` to return `status: ok`.
+7. Deploy the customer web image with the matching `NEXT_PUBLIC_API_BASE_URL`.
+8. Open the customer hostname and confirm it serves the deployed build.
+9. Create or confirm the Stripe test webhook endpoint.
+10. Run the smoke checklist below.
 
 ## Stripe Webhook Setup
 
@@ -137,17 +160,19 @@ Confirm the webhook secret exactly matches the endpoint configured in Stripe.
 Complete all of these before calling staging ready:
 
 1. `GET /api/v1/health` returns `status: ok`.
-2. Swagger loads if intentionally enabled for staging.
-3. Seeded or onboarded owner can log in.
-4. Owner can create a menu, publish it, and configure a table QR.
-5. Public QR resolve returns outlet, table, menu, and payment availability.
-6. A Stripe card test payment marks the order paid exactly once.
-7. A Stripe PayNow test flow stays `PROCESSING` until the async success arrives.
-8. The successful PayNow event releases the kitchen exactly once.
-9. Duplicate Stripe webhook delivery does not duplicate tickets or print jobs.
-10. An amount mismatch leaves the order unreleased and records the failure safely.
-11. A local Windows printer-agent machine can heartbeat successfully.
-12. A queued test print can be leased, completed, and reflected in print-job status.
+2. `GET /` on the customer hostname returns the deployed Next.js app.
+3. Swagger loads if intentionally enabled for staging.
+4. Seeded or onboarded owner can log in.
+5. Owner can create a menu, publish it, and configure a table QR.
+6. Public QR resolve returns outlet, table, menu, and payment availability.
+7. Opening a real QR URL on the customer hostname loads the menu correctly.
+8. A Stripe card test payment marks the order paid exactly once.
+9. A Stripe PayNow test flow stays `PROCESSING` until the async success arrives.
+10. The successful PayNow event releases the kitchen exactly once.
+11. Duplicate Stripe webhook delivery does not duplicate tickets or print jobs.
+12. An amount mismatch leaves the order unreleased and records the failure safely.
+13. A local Windows printer-agent machine can heartbeat successfully.
+14. A queued test print can be leased, completed, and reflected in print-job status.
 
 ## Printer-Agent Staging Test
 

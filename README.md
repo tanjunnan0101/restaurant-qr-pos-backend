@@ -14,6 +14,7 @@ The repository provides three container definitions:
 - `infra/Dockerfile.api` for the NestJS API on port `3001`.
 - `infra/Dockerfile.customer-web` for the Next.js customer app on port `3000`.
 - `infra/Dockerfile.migrate` for a one-off Prisma migration release job.
+- `scripts/build-release-images.ps1` to build all three release images consistently.
 
 The API health endpoint returns HTTP `200` only when PostgreSQL and Redis are
 available, and HTTP `503` when either dependency is unavailable. GitHub Actions

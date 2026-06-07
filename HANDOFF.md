@@ -32,6 +32,10 @@ What was repaired:
 - Reconciled the repaired local bootstrap branch with the newer upstream
   customer-web and cloud-deployment branch so the repository now contains
   both sets of work in one continuation-ready baseline.
+- Added provider-agnostic staging release helpers:
+  `scripts/build-release-images.ps1`,
+  `infra/staging.api.env.example`, and
+  `infra/staging.customer-web.build.env.example`.
 
 What was validated locally:
 
@@ -58,12 +62,14 @@ Where to resume next time:
 1. Use `docs/runbooks/staging-rollout.md` as the primary next-step checklist.
 2. Choose the staging host/provider.
 3. Provision managed PostgreSQL, managed Redis, DNS, HTTPS, and secrets.
-4. Deploy the API image and run `npm run prisma:deploy` against staging.
-5. Configure the Stripe test webhook and run one real card and one real PayNow
+4. Build and push the API, migration, and customer web images.
+5. Deploy the API and customer web images and run the migration job against
+   staging.
+6. Configure the Stripe test webhook and run one real card and one real PayNow
    flow.
-6. Validate one real Windows printer-agent machine against the target thermal
+7. Validate one real Windows printer-agent machine against the target thermal
    printer.
-7. Only after staging is proven should work continue into staff POS, KDS,
+8. Only after staging is proven should work continue into staff POS, KDS,
    reporting, inventory, attendance, and the frontend applications.
 
 ## Product Shape
@@ -225,6 +231,7 @@ The default seeded development login comes from `SEED_OWNER_EMAIL` and
 - Staging rollout runbook: `docs/runbooks/staging-rollout.md`
 - Deployment guide: `docs/deployment.md`
 - Docker assets: `infra`
+- Release build helper: `scripts/build-release-images.ps1`
 
 ## Recommended Next Milestone
 
@@ -234,12 +241,14 @@ need to be provisioned:
 
 1. Select the cloud provider.
 2. Provision managed PostgreSQL and Redis.
-3. Deploy the API Docker image at `api-staging.<domain>`.
-4. Configure secrets and run `npm run prisma:deploy`.
-5. Configure a Stripe test webhook.
-6. Run one real Stripe card payment and one real PayNow payment.
-7. Pilot the local printer agent against the intended physical printer.
-8. Add monitoring and a database restore test.
+3. Build and push the API, migration, and customer web images.
+4. Deploy the API at `api-staging.<domain>` and the customer web at
+   `order-staging.<domain>`.
+5. Configure secrets and run the migration image once.
+6. Configure a Stripe test webhook.
+7. Run one real Stripe card payment and one real PayNow payment.
+8. Pilot the local printer agent against the intended physical printer.
+9. Add monitoring and a database restore test.
 
 After staging is stable, continue with the staff POS/KDS workflow. The
 customer web app is ready for staging integration, but real Stripe test-mode

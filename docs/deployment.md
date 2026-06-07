@@ -98,6 +98,9 @@ Do not run the demo seed in production.
 
 ## Build
 
+You can either run the three Docker builds manually or use the helper script
+at `scripts/build-release-images.ps1`.
+
 ```powershell
 docker build -f infra/Dockerfile.api -t restaurant-pos-api:<commit-sha> .
 docker build -f infra/Dockerfile.migrate -t restaurant-pos-migrate:<commit-sha> .
