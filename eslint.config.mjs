@@ -33,7 +33,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/customer-web/**/*.ts', 'apps/customer-web/**/*.tsx'],
+    files: ['apps/*-web/**/*.ts', 'apps/*-web/**/*.tsx'],
     languageOptions: {
       globals: {
         ...globals.browser,

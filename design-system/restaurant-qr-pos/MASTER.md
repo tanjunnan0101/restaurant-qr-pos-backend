@@ -1,6 +1,6 @@
 # Restaurant QR POS Design System
 
-Status: implemented customer ordering foundation, 2026-06-07
+Status: implemented customer ordering foundation and owner-web scaffold, 2026-06-08
 
 ## Product Principles
 
@@ -73,6 +73,20 @@ Use Lucide icons consistently. Do not use emoji as interface icons.
   behaviour.
 - **Desktop, 1024px+:** constrained content column and right-side checkout
   drawer; do not stretch menu copy across the viewport.
+
+## Owner Web Admin Variant
+
+The owner console reuses the same warm hospitality tokens but shifts the layout
+toward operations: dark ink sidebar, cream content panels, status pills, metric
+cards, and table/card hybrids for setup flows. It should stay calm and readable
+for restaurant owners who may be doing onboarding during service hours.
+
+Owner routes must support the multi-client model with one owner-web domain and
+company-slug login. Payment copy should name HitPay as the live hosted checkout
+provider while preserving PayNow disable controls for backend-supported staff
+POS/payment scopes. Printer screens should describe Wi-Fi printer compatibility
+through the local printer-agent path and leave physical validation as a hardware
+task.
 
 ## Delivery Checklist
 

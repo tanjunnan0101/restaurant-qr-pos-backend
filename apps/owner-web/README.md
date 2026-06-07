@@ -1,30 +1,43 @@
-# Owner Web Placeholder
+# Owner Web
 
-This directory reserves the future owner and outlet-admin web application
-without affecting the current monorepo checks.
+Owner and outlet-admin web application for restaurant client onboarding and
+setup. This app is scaffolded as a Next.js App Router workspace and is now part
+of the monorepo typecheck/build/lint path.
 
-Recommended first scope:
+## Current Scope
 
-- Owner activation
-- Login
-- Outlet settings
-- Menu management
-- Table and QR management
-- Payment settings
-- Printer setup visibility
+- `/activate` owner invitation token flow scaffold
+- `/login` client login scaffold using `companySlug`, email, and password
+- `/dashboard` repeatable onboarding checklist for roughly 10 clients
+- `/outlets/:outletId/menu` menu setup and publish workflow shell
+- `/outlets/:outletId/tables` table and QR setup shell
+- `/outlets/:outletId/payment-settings` HitPay card and PayNow disable controls
+- `/outlets/:outletId/printing` Wi-Fi printer and printer-agent visibility
 
-Suggested implementation approach:
+## Client Model
 
-- Next.js App Router
-- Reuse the existing API and JWT auth model
-- Ship owner activation and menu/table setup first, then reporting later
+Use one owner-web app for all restaurant clients. Each client should sign in
+with their company slug, owner email, and password. The backend already supports
+this shape through `POST /auth/login`.
 
-Suggested first routes:
+## Backend Routes To Wire Next
 
-- `/activate`
-- `/login`
-- `/dashboard`
-- `/outlets/:outletId/menu`
-- `/outlets/:outletId/tables`
-- `/outlets/:outletId/payment-settings`
-- `/outlets/:outletId/printing`
+- `POST /auth/activate`
+- `POST /auth/login`
+- `GET /admin/outlets`
+- `GET /admin/outlets/:outletId/menus`
+- `POST /admin/outlets/:outletId/menus/setup`
+- `GET /admin/outlets/:outletId/tables`
+- `POST /admin/outlets/:outletId/tables/setup`
+- `GET /admin/outlets/:outletId/payment-settings`
+- `POST /admin/outlets/:outletId/payment-settings/disable`
+- `POST /admin/outlets/:outletId/payment-settings/enable`
+- `GET /admin/outlets/:outletId/printing`
+- `POST /admin/outlets/:outletId/printing/setup`
+- `POST /admin/outlets/:outletId/printing/printers/:printerId/test`
+
+## Local Development
+
+```bash
+npm run dev:owner
+```
