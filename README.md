@@ -1,14 +1,29 @@
-# Restaurant QR POS Backend
+# Restaurant QR POS
 
-Backend foundation for a multi-tenant restaurant QR ordering and POS platform.
+Multi-tenant restaurant QR ordering and POS platform.
 
 For takeover status, architecture boundaries, and the next milestones, start
 with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
-[deployment.md](deployment.md). For the next concrete milestone, use
+[docs/deployment.md](docs/deployment.md). For the next concrete milestone, use
 [Staging Rollout Runbook](docs/runbooks/staging-rollout.md).
+
+## Cloud deployment artifacts
+
+The repository provides three container definitions:
+
+- `infra/Dockerfile.api` for the NestJS API on port `3001`.
+- `infra/Dockerfile.customer-web` for the Next.js customer app on port `3000`.
+- `infra/Dockerfile.migrate` for a one-off Prisma migration release job.
+
+The API health endpoint returns HTTP `200` only when PostgreSQL and Redis are
+available, and HTTP `503` when either dependency is unavailable. GitHub Actions
+builds all three images, applies migrations to clean PostgreSQL, starts the
+production API image, and verifies `/api/v1/health`.
 
 ## Current scope
 
+- Mobile-first customer QR ordering web app with menu search, item
+  customisation, cart totals, and payment selection.
 - NestJS REST API with Swagger/OpenAPI.
 - PostgreSQL and Prisma tenant/auth schema.
 - JWT authentication and outlet-scoped RBAC.
@@ -35,12 +50,34 @@ with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
 4. Run `npm run prisma:generate`.
 5. Run `npm run prisma:deploy`.
 6. Run `npm run prisma:seed`.
-7. Run `npm run dev`.
-8. Optionally run `npm run smoke:stripe` to verify the local Stripe payment flow.
+7. Run `npm run dev` for the API.
+8. In a second terminal, run `npm run dev:customer`.
+9. Optionally run `npm run smoke:stripe` to verify the local Stripe payment flow.
 
 Swagger is available at `http://localhost:3001/docs`.
+The customer web app is available at `http://localhost:3000`. Its real entry
+point is a generated QR URL in the form `/q/:publicCode/:token`.
 
 The seeded login defaults to `owner@example.com` / `ChangeMe123!` unless overridden in `.env`.
+
+## Customer QR web app
+
+The Next.js application in `apps/customer-web` consumes only public QR and
+order endpoints. It provides:
+
+- Outlet, dining-zone, and table confirmation after scanning.
+- Published menu browsing, search, categories, sold-out handling, variants,
+  modifiers, remarks, and quantity controls.
+- A session-persisted cart with server-compatible service charge and GST
+  previews.
+- Stripe card, Stripe PayNow, and manual PayNow choices based on the outlet's
+  effective payment settings.
+- Processing, paid, cancelled, failed, delayed PayNow, and manual-verification
+  states.
+
+Set `NEXT_PUBLIC_API_BASE_URL` at image build time for deployments. Payment
+availability is always loaded from the API, so manually disabling Stripe or
+either PayNow method takes effect without rebuilding the frontend.
 
 ## Client onboarding
 

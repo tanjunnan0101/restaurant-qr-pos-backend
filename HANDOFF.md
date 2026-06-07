@@ -29,6 +29,9 @@ What was repaired:
   minimal published menu, table QR, and printer route when needed.
 - Added a concrete staging rollout runbook at
   `docs/runbooks/staging-rollout.md`.
+- Reconciled the repaired local bootstrap branch with the newer upstream
+  customer-web and cloud-deployment branch so the repository now contains
+  both sets of work in one continuation-ready baseline.
 
 What was validated locally:
 
@@ -102,6 +105,14 @@ custom domain per client is not required for the initial ten-client rollout.
 - Kitchen tickets, persisted print jobs, retry/backup routing, and test prints.
 - ESC/POS LAN printer agent.
 - Docker API image and local PostgreSQL/Redis Compose services.
+- Mobile-first Next.js customer QR ordering app.
+- Menu search, variants, required and optional modifiers, item remarks, and a
+  session-persisted cart.
+- Checkout totals, effective payment-method selection, Stripe Checkout
+  redirects, manual PayNow handoff, and payment result polling.
+- Production customer web Docker image.
+- One-off Prisma migration Docker image for cloud release jobs.
+- Container health checks for the API and customer web.
 - Unit tests and a local Stripe webhook smoke harness.
 
 ## Proven Checks
@@ -116,6 +127,14 @@ The following passed before this handoff:
 - Amount-mismatch rejection.
 - Production Docker image build.
 - Container `/api/v1/health` with PostgreSQL and Redis available.
+- Customer web typecheck, lint, and production build.
+- Customer web Docker image and live-container HTTP check.
+- Clean-database migration container run and production API container health
+  check in CI.
+- Mobile browser walkthrough covering required modifiers, modifier pricing,
+  cart persistence, totals, and all enabled payment methods.
+- Reconciled baseline includes both the self-bootstrapping Stripe smoke test
+  and the customer-web/cloud deployment additions.
 
 The Stripe smoke script now boots a minimal published menu, dining table, and
 printer route on the seeded demo tenant when they do not yet exist, so it can
@@ -134,7 +153,7 @@ validate a clean local database after migrations and seed data.
 - Inventory recipes, stock movement, deduction, and wastage.
 - Reporting, reconciliation, exports, and owner dashboards.
 - Employee attendance and clock-in/out.
-- Customer, POS, KDS, and owner frontend applications.
+- Staff POS, KDS, and owner frontend applications.
 - Packaging the printer agent as a supervised Windows service/installer.
 
 ## First Local Run
@@ -160,6 +179,12 @@ npm run prisma:generate
 npm run prisma:deploy
 npm run prisma:seed
 npm run dev
+```
+
+In a second terminal, run:
+
+```powershell
+npm run dev:customer
 ```
 
 Verify:
@@ -191,18 +216,21 @@ The default seeded development login comes from `SEED_OWNER_EMAIL` and
 ## Important Paths
 
 - API: `apps/api/src`
+- Customer web app: `apps/customer-web`
 - Printer agent: `apps/printer-agent/src`
 - Prisma schema and migrations: `packages/db/prisma`
 - Shared types: `packages/types`
 - Architecture decisions: `docs/adr`
 - Operational runbooks: `docs/runbooks`
 - Staging rollout runbook: `docs/runbooks/staging-rollout.md`
-- Deployment guide: `deployment.md`
+- Deployment guide: `docs/deployment.md`
 - Docker assets: `infra`
 
 ## Recommended Next Milestone
 
-Deploy a staging environment first:
+Deploy a staging environment first. The repository images are ready to upload
+to a container platform, but the managed services, domains, and secrets still
+need to be provisioned:
 
 1. Select the cloud provider.
 2. Provision managed PostgreSQL and Redis.
@@ -213,4 +241,6 @@ Deploy a staging environment first:
 7. Pilot the local printer agent against the intended physical printer.
 8. Add monitoring and a database restore test.
 
-After staging is stable, continue with the staff POS/KDS workflow.
+After staging is stable, continue with the staff POS/KDS workflow. The
+customer web app is ready for staging integration, but real Stripe test-mode
+payments still require deployed callback URLs and a configured webhook.

@@ -7,13 +7,14 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/api && npm run build --workspace @restaurant-pos/printer-agent",
+    "build": "npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/api && npm run build --workspace @restaurant-pos/printer-agent && npm run build --workspace @restaurant-pos/customer-web",
     "dev": "npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run dev --workspace @restaurant-pos/api",
+    "dev:customer": "npm run dev --workspace @restaurant-pos/customer-web",
     "start": "npm run start --workspace @restaurant-pos/api",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "npm run typecheck --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/db && npm run typecheck --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/types && npm run typecheck --workspace @restaurant-pos/api && npm run typecheck --workspace @restaurant-pos/printer-agent",
+    "typecheck": "npm run typecheck --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/db && npm run typecheck --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/types && npm run typecheck --workspace @restaurant-pos/api && npm run typecheck --workspace @restaurant-pos/printer-agent && npm run typecheck --workspace @restaurant-pos/customer-web",
     "test": "npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run test --workspace @restaurant-pos/api",
     "prisma:generate": "npm run prisma:generate --workspace @restaurant-pos/db",
     "prisma:validate": "npm run prisma:validate --workspace @restaurant-pos/db",
@@ -21,7 +22,7 @@
     "prisma:deploy": "npm run prisma:deploy --workspace @restaurant-pos/db",
     "prisma:seed": "npm run prisma:seed --workspace @restaurant-pos/db",
     "smoke:stripe": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/stripe-e2e-smoke.ps1",
-    "check": "npm run prisma:validate && npm run typecheck && npm run lint && npm run test && npm run build"
+    "check": "npm run format:check && npm run prisma:validate && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "engines": {
     "node": ">=20"

@@ -31,7 +31,8 @@ For a concrete pre-production rollout sequence, see
 
 ## Required Services
 
-- Container hosting for the API.
+- Container hosting for the API and customer web.
+- A one-off container job for database migrations.
 - Managed PostgreSQL with automated backups and point-in-time recovery.
 - Managed Redis.
 - DNS and managed HTTPS certificate.
@@ -42,6 +43,23 @@ The API container is stateless. Run at least one instance for staging and two
 instances for production once operational traffic matters. Socket.IO currently
 uses process-local rooms; multiple API instances will require a Redis Socket.IO
 adapter before horizontal scaling.
+
+## Repository Deployment Contract
+
+Configure three services from the same GitHub repository:
+
+| Service            | Dockerfile                      | Port   | Health check     |
+| ------------------ | ------------------------------- | ------ | ---------------- |
+| API                | `infra/Dockerfile.api`          | `3001` | `/api/v1/health` |
+| Customer web       | `infra/Dockerfile.customer-web` | `3000` | `/`              |
+| Database migration | `infra/Dockerfile.migrate`      | none   | one-off job      |
+
+The API health endpoint returns HTTP `503` when PostgreSQL or Redis is
+unavailable. Configure the platform to use the HTTP status code rather than
+checking only that the container process is running.
+
+For the first deployment, run one API replica. Add the Redis Socket.IO adapter
+before scaling the API horizontally.
 
 ## Production Environment
 
@@ -63,6 +81,16 @@ STRIPE_SECRET_KEY=sk_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
+Customer web image build argument:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=https://api.example.com/api/v1
+```
+
+This is embedded into the browser bundle at build time. Build separate staging
+and production customer images when those environments use different API
+domains.
+
 Do not set `STRIPE_API_HOST`, `STRIPE_API_PORT`, or `STRIPE_API_PROTOCOL` in
 production. Those variables are only for the local Stripe stub.
 
@@ -72,9 +100,14 @@ Do not run the demo seed in production.
 
 ```powershell
 docker build -f infra/Dockerfile.api -t restaurant-pos-api:<commit-sha> .
+docker build -f infra/Dockerfile.migrate -t restaurant-pos-migrate:<commit-sha> .
+docker build `
+  -f infra/Dockerfile.customer-web `
+  --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.com/api/v1 `
+  -t restaurant-pos-customer-web:<commit-sha> .
 ```
 
-The image listens on port `3001` and starts:
+The API image listens on port `3001` and starts:
 
 ```text
 node apps/api/dist/main.js
@@ -88,18 +121,28 @@ GET /api/v1/health
 
 Treat `status: degraded` as unhealthy.
 
+The customer web image listens on port `3000` and starts its standalone
+Next.js server. Configure the hosting platform to expose it at
+`https://order.example.com`. A plain `GET /` can be used as its container
+health check; real acceptance testing should also open a valid QR URL.
+
 ## Database Migrations
 
-Run migrations as a one-off release job before switching application traffic:
+Run the migration image as a one-off release job before switching application
+traffic:
 
 ```powershell
-npm ci
-npm run prisma:generate
-npm run prisma:deploy
+docker run --rm `
+  -e DATABASE_URL=postgresql://... `
+  restaurant-pos-migrate:<commit-sha>
 ```
 
 `prisma:deploy` uses `prisma migrate deploy` and is non-interactive. Do not use
 `prisma migrate dev` in staging or production.
+
+Most container platforms provide a release command, pre-deploy job, or
+one-off task. Point that facility at the migration image. Do not run migrations
+concurrently from every API replica.
 
 Before every production migration:
 
@@ -151,14 +194,27 @@ primary printer, retry, backup printer, and restart behavior.
 
 ## Deployment Order
 
-1. Build an immutable image tagged with the Git commit SHA.
+1. Build immutable API, migration, and customer web images tagged with the Git
+   commit SHA.
 2. Run `npm run check`.
-3. Apply migrations from a one-off release job.
-4. Deploy the image.
+3. Apply migrations once using the migration image.
+4. Deploy the API image.
 5. Wait for `/api/v1/health`.
-6. Verify login, QR resolution, and payment availability.
-7. Run Stripe and printer smoke tests in staging.
-8. Promote the same image to production.
+6. Deploy the customer web image with the matching API base URL.
+7. Verify login, QR resolution, menu loading, and payment availability.
+8. Run Stripe and printer smoke tests in staging.
+9. Promote the same images to production.
+
+## CI Deployment Proof
+
+GitHub Actions verifies the deployment contract on every push and pull request:
+
+1. Runs formatting, schema validation, typechecks, lint, tests, and production
+   builds.
+2. Builds all three Docker images.
+3. Starts clean PostgreSQL and Redis services.
+4. Applies all migrations through the migration image.
+5. Starts the production API image and requires a successful HTTP health check.
 
 ## Current Production Gaps
 

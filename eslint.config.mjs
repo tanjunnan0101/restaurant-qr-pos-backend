@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/coverage/**',
       '**/node_modules/**',
+      '**/.next/**',
       'packages/db/src/generated/**',
     ],
   },
@@ -28,6 +29,15 @@ export default tseslint.config(
       globals: {
         ...globals.node,
         ...globals.jest,
+      },
+    },
+  },
+  {
+    files: ['apps/customer-web/**/*.ts', 'apps/customer-web/**/*.tsx'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
       },
     },
   },

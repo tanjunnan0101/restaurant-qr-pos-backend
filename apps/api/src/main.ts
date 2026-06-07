@@ -30,6 +30,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.useGlobalFilters(new ApiExceptionFilter());
+  app.enableShutdownHooks();
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Restaurant QR POS API')
