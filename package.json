@@ -1,28 +1,37 @@
 {
-  "name": "@restaurant-pos/db",
+  "name": "restaurant-pos",
   "version": "0.1.0",
   "private": true,
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prisma:generate": "prisma generate --config prisma.config.ts",
-    "prisma:validate": "prisma validate --config prisma.config.ts",
-    "prisma:migrate": "prisma migrate dev --config prisma.config.ts",
-    "prisma:deploy": "prisma migrate deploy --config prisma.config.ts",
-    "prisma:seed": "prisma db seed --config prisma.config.ts"
+    "build": "npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/api && npm run build --workspace @restaurant-pos/printer-agent",
+    "dev": "npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run dev --workspace @restaurant-pos/api",
+    "start": "npm run start --workspace @restaurant-pos/api",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/db && npm run typecheck --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/types && npm run typecheck --workspace @restaurant-pos/api && npm run typecheck --workspace @restaurant-pos/printer-agent",
+    "test": "npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run test --workspace @restaurant-pos/api",
+    "prisma:generate": "npm run prisma:generate --workspace @restaurant-pos/db",
+    "prisma:validate": "npm run prisma:validate --workspace @restaurant-pos/db",
+    "prisma:migrate": "npm run prisma:migrate --workspace @restaurant-pos/db",
+    "prisma:deploy": "npm run prisma:deploy --workspace @restaurant-pos/db",
+    "prisma:seed": "npm run prisma:seed --workspace @restaurant-pos/db",
+    "smoke:stripe": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/stripe-e2e-smoke.ps1",
+    "check": "npm run format:check && npm run prisma:validate && npm run typecheck && npm run lint && npm run test && npm run build"
   },
-  "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
-    "pg": "^8.21.0"
+  "engines": {
+    "node": ">=20"
   },
   "devDependencies": {
-    "@types/node": "^25.9.2",
-    "bcryptjs": "^3.0.3",
-    "dotenv": "^17.4.2",
-    "prisma": "^7.8.0",
-    "tsx": "^4.22.4"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.1",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.1"
   }
 }

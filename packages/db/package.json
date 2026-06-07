@@ -10,6 +10,7 @@
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:validate": "prisma validate --config prisma.config.ts",
     "prisma:migrate": "prisma migrate dev --config prisma.config.ts",
+    "prisma:deploy": "prisma migrate deploy --config prisma.config.ts",
     "prisma:seed": "prisma db seed --config prisma.config.ts"
   },
   "dependencies": {
