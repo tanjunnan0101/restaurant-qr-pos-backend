@@ -44,6 +44,12 @@ custom domain per client is not required for the initial ten-client rollout.
 - Kitchen tickets, persisted print jobs, retry/backup routing, and test prints.
 - ESC/POS LAN printer agent.
 - Docker API image and local PostgreSQL/Redis Compose services.
+- Mobile-first Next.js customer QR ordering app.
+- Menu search, variants, required and optional modifiers, item remarks, and a
+  session-persisted cart.
+- Checkout totals, effective payment-method selection, Stripe Checkout
+  redirects, manual PayNow handoff, and payment result polling.
+- Production customer web Docker image.
 - Unit tests and a local Stripe webhook smoke harness.
 
 ## Proven Checks
@@ -58,6 +64,10 @@ The following passed before this handoff:
 - Amount-mismatch rejection.
 - Production Docker image build.
 - Container `/api/v1/health` with PostgreSQL and Redis available.
+- Customer web typecheck, lint, and production build.
+- Customer web Docker image and live-container HTTP check.
+- Mobile browser walkthrough covering required modifiers, modifier pricing,
+  cart persistence, totals, and all enabled payment methods.
 
 The Stripe smoke script expects the existing QA tenant, published menu, table,
 and printer route. It is not yet a clean-database bootstrap test.
@@ -75,7 +85,7 @@ and printer route. It is not yet a clean-database bootstrap test.
 - Inventory recipes, stock movement, deduction, and wastage.
 - Reporting, reconciliation, exports, and owner dashboards.
 - Employee attendance and clock-in/out.
-- Customer, POS, KDS, and owner frontend applications.
+- Staff POS, KDS, and owner frontend applications.
 - Packaging the printer agent as a supervised Windows service/installer.
 
 ## First Local Run
@@ -131,6 +141,7 @@ The default seeded development login comes from `SEED_OWNER_EMAIL` and
 ## Important Paths
 
 - API: `apps/api/src`
+- Customer web app: `apps/customer-web`
 - Printer agent: `apps/printer-agent/src`
 - Prisma schema and migrations: `packages/db/prisma`
 - Shared types: `packages/types`
@@ -152,4 +163,6 @@ Deploy a staging environment first:
 7. Pilot the local printer agent against the intended physical printer.
 8. Add monitoring and a database restore test.
 
-After staging is stable, continue with the staff POS/KDS workflow.
+After staging is stable, continue with the staff POS/KDS workflow. The
+customer web app is ready for staging integration, but real Stripe test-mode
+payments still require deployed callback URLs and a configured webhook.

@@ -60,6 +60,16 @@ STRIPE_SECRET_KEY=sk_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
+Customer web image build argument:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=https://api.example.com/api/v1
+```
+
+This is embedded into the browser bundle at build time. Build separate staging
+and production customer images when those environments use different API
+domains.
+
 Do not set `STRIPE_API_HOST`, `STRIPE_API_PORT`, or `STRIPE_API_PROTOCOL` in
 production. Those variables are only for the local Stripe stub.
 
@@ -69,9 +79,13 @@ Do not run the demo seed in production.
 
 ```powershell
 docker build -f infra/Dockerfile.api -t restaurant-pos-api:<commit-sha> .
+docker build `
+  -f infra/Dockerfile.customer-web `
+  --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.com/api/v1 `
+  -t restaurant-pos-customer-web:<commit-sha> .
 ```
 
-The image listens on port `3001` and starts:
+The API image listens on port `3001` and starts:
 
 ```text
 node apps/api/dist/main.js
@@ -84,6 +98,11 @@ GET /api/v1/health
 ```
 
 Treat `status: degraded` as unhealthy.
+
+The customer web image listens on port `3000` and starts its standalone
+Next.js server. Configure the hosting platform to expose it at
+`https://order.example.com`. A plain `GET /` can be used as its container
+health check; real acceptance testing should also open a valid QR URL.
 
 ## Database Migrations
 
@@ -148,14 +167,15 @@ primary printer, retry, backup printer, and restart behavior.
 
 ## Deployment Order
 
-1. Build an immutable image tagged with the Git commit SHA.
+1. Build immutable API and customer web images tagged with the Git commit SHA.
 2. Run `npm run check`.
 3. Apply migrations from a one-off release job.
-4. Deploy the image.
+4. Deploy the API image.
 5. Wait for `/api/v1/health`.
-6. Verify login, QR resolution, and payment availability.
-7. Run Stripe and printer smoke tests in staging.
-8. Promote the same image to production.
+6. Deploy the customer web image with the matching API base URL.
+7. Verify login, QR resolution, menu loading, and payment availability.
+8. Run Stripe and printer smoke tests in staging.
+9. Promote the same images to production.
 
 ## Current Production Gaps
 

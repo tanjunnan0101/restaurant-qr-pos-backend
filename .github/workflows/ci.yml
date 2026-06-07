@@ -50,3 +50,11 @@ jobs:
 
       - name: Build production API image
         run: docker build -f infra/Dockerfile.api -t restaurant-pos-api:${{ github.sha }} .
+
+      - name: Build production customer web image
+        run: >-
+          docker build
+          -f infra/Dockerfile.customer-web
+          --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.test/api/v1
+          -t restaurant-pos-customer-web:${{ github.sha }}
+          .
