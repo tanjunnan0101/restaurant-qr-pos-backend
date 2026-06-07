@@ -50,6 +50,8 @@ custom domain per client is not required for the initial ten-client rollout.
 - Checkout totals, effective payment-method selection, Stripe Checkout
   redirects, manual PayNow handoff, and payment result polling.
 - Production customer web Docker image.
+- One-off Prisma migration Docker image for cloud release jobs.
+- Container health checks for the API and customer web.
 - Unit tests and a local Stripe webhook smoke harness.
 
 ## Proven Checks
@@ -66,6 +68,8 @@ The following passed before this handoff:
 - Container `/api/v1/health` with PostgreSQL and Redis available.
 - Customer web typecheck, lint, and production build.
 - Customer web Docker image and live-container HTTP check.
+- Clean-database migration container run and production API container health
+  check in CI.
 - Mobile browser walkthrough covering required modifiers, modifier pricing,
   cart persistence, totals, and all enabled payment methods.
 
@@ -152,7 +156,9 @@ The default seeded development login comes from `SEED_OWNER_EMAIL` and
 
 ## Recommended Next Milestone
 
-Deploy a staging environment first:
+Deploy a staging environment first. The repository images are ready to upload
+to a container platform, but the managed services, domains, and secrets still
+need to be provisioned:
 
 1. Select the cloud provider.
 2. Provision managed PostgreSQL and Redis.

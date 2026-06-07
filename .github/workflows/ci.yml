@@ -41,8 +41,31 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     needs: verify
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: restaurant_pos
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d restaurant_pos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Check out repository
@@ -51,6 +74,9 @@ jobs:
       - name: Build production API image
         run: docker build -f infra/Dockerfile.api -t restaurant-pos-api:${{ github.sha }} .
 
+      - name: Build database migration image
+        run: docker build -f infra/Dockerfile.migrate -t restaurant-pos-migrate:${{ github.sha }} .
+
       - name: Build production customer web image
         run: >-
           docker build
@@ -58,3 +84,41 @@ jobs:
           --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.test/api/v1
           -t restaurant-pos-customer-web:${{ github.sha }}
           .
+
+      - name: Apply migrations in a release container
+        run: >-
+          docker run --rm --network host
+          -e DATABASE_URL=postgresql://ci:ci@127.0.0.1:5432/restaurant_pos
+          restaurant-pos-migrate:${{ github.sha }}
+
+      - name: Start production API container
+        run: >-
+          docker run -d
+          --name restaurant-pos-api-ci
+          --network host
+          -e NODE_ENV=production
+          -e PORT=3001
+          -e API_CORS_ORIGINS=https://order.example.test
+          -e DATABASE_URL=postgresql://ci:ci@127.0.0.1:5432/restaurant_pos
+          -e REDIS_URL=redis://127.0.0.1:6379
+          -e JWT_SECRET=ci-jwt-secret-with-at-least-32-characters
+          -e PLATFORM_ADMIN_API_KEY=ci-platform-key-with-at-least-32-characters
+          -e OWNER_APP_BASE_URL=https://app.example.test
+          -e CUSTOMER_APP_BASE_URL=https://order.example.test
+          restaurant-pos-api:${{ github.sha }}
+
+      - name: Verify production API health
+        shell: bash
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3001/api/v1/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs restaurant-pos-api-ci
+          exit 1
+
+      - name: Clean up API container
+        if: always()
+        run: docker rm --force restaurant-pos-api-ci || true

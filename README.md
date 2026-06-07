@@ -6,6 +6,19 @@ For takeover status, architecture boundaries, and the next milestones, start
 with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
 [docs/deployment.md](docs/deployment.md).
 
+## Cloud deployment artifacts
+
+The repository provides three container definitions:
+
+- `infra/Dockerfile.api` for the NestJS API on port `3001`.
+- `infra/Dockerfile.customer-web` for the Next.js customer app on port `3000`.
+- `infra/Dockerfile.migrate` for a one-off Prisma migration release job.
+
+The API health endpoint returns HTTP `200` only when PostgreSQL and Redis are
+available, and HTTP `503` when either dependency is unavailable. GitHub Actions
+builds all three images, applies migrations to clean PostgreSQL, starts the
+production API image, and verifies `/api/v1/health`.
+
 ## Current scope
 
 - Mobile-first customer QR ordering web app with menu search, item

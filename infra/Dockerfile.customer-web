@@ -1,5 +1,6 @@
 FROM node:24-alpine AS build
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
@@ -16,6 +17,7 @@ RUN npm run build --workspace @restaurant-pos/customer-web
 
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 WORKDIR /app
@@ -24,4 +26,7 @@ COPY --from=build /app/apps/customer-web/.next/standalone ./
 COPY --from=build /app/apps/customer-web/.next/static ./apps/customer-web/.next/static
 
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))"
+
 CMD ["node", "apps/customer-web/server.js"]
