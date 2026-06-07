@@ -28,6 +28,7 @@ The setup request can create:
 
 - Kitchen and bar stations.
 - Primary and backup printers.
+- An optional receipt printer with role `RECEIPT`.
 - Station-to-printer routes.
 - One local printer-agent credential.
 
@@ -53,6 +54,10 @@ npm run start --workspace @restaurant-pos/printer-agent
 
 The computer running the agent must be on the same LAN or Wi-Fi network as the
 printer and must be able to reach the printer IP and port.
+
+When an active printer with role `RECEIPT` is configured for the outlet, paid
+orders now also queue one customer receipt print job in addition to the routed
+kitchen or bar ticket jobs.
 
 ## Test and monitor
 

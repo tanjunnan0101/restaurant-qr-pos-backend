@@ -15,6 +15,7 @@ import {
   PaymentMethod,
   PaymentProvider,
   PaymentStatus,
+  PrinterRole,
   PrintJobStatus,
   PrintTemplate,
   ServiceType,
@@ -27,6 +28,7 @@ import { evaluatePaymentAvailability } from '../payment-settings/payment-availab
 import { OperationsGateway } from '../realtime/operations.gateway';
 import { verifyQrToken } from '../tables/qr-token';
 import { TenantService } from '../tenant/tenant.service';
+import { renderCustomerReceipt } from './customer-receipt-renderer';
 import type { CreatePublicOrderDto } from './dto/create-public-order.dto';
 import { createOrderFingerprint } from './order-fingerprint';
 import { calculateOrderTotals } from './order-pricing';
@@ -801,11 +803,18 @@ export class OrdersService {
       tableSessionId: string | null;
       table: { displayName: string } | null;
       outlet: { name: string };
+      currency: string;
+      subtotalCents: number;
+      serviceChargeTotalCents: number;
+      gstTotalCents: number;
+      roundingAdjustmentCents: number;
+      grandTotalCents: number;
       items: Array<{
         itemName: string;
         variantName: string | null;
         preparationStationKey: string;
         quantity: number;
+        lineTotalCents: number;
         remarks: string | null;
         modifiers: Array<{ modifierOptionName: string }>;
       }>;
@@ -889,6 +898,64 @@ export class OrdersService {
         },
       });
     }
+
+    const receiptPrinter = await tx.printer.findFirst({
+      where: {
+        companyId: order.companyId,
+        outletId: order.outletId,
+        role: PrinterRole.RECEIPT,
+        active: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (receiptPrinter) {
+      const receiptPayload = {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        tableName: order.table?.displayName ?? 'Counter',
+        currency: order.currency,
+        subtotalCents: order.subtotalCents,
+        serviceChargeTotalCents: order.serviceChargeTotalCents,
+        gstTotalCents: order.gstTotalCents,
+        roundingAdjustmentCents: order.roundingAdjustmentCents,
+        grandTotalCents: order.grandTotalCents,
+        items: order.items.map((item) => ({
+          name: item.itemName,
+          variant: item.variantName,
+          quantity: item.quantity,
+          lineTotalCents: item.lineTotalCents,
+          modifiers: item.modifiers.map(
+            (modifier) => modifier.modifierOptionName,
+          ),
+          remarks: item.remarks,
+        })),
+      };
+      await tx.printJob.create({
+        data: {
+          companyId: order.companyId,
+          outletId: order.outletId,
+          orderId: order.id,
+          printerId: receiptPrinter.id,
+          template: PrintTemplate.CUSTOMER_RECEIPT,
+          payloadJson: receiptPayload,
+          renderedText: renderCustomerReceipt({
+            outletName: order.outlet.name,
+            orderNumber: order.orderNumber,
+            tableName: order.table?.displayName ?? 'Counter',
+            createdAt: order.createdAt,
+            currency: order.currency,
+            subtotalCents: order.subtotalCents,
+            serviceChargeTotalCents: order.serviceChargeTotalCents,
+            gstTotalCents: order.gstTotalCents,
+            roundingAdjustmentCents: order.roundingAdjustmentCents,
+            grandTotalCents: order.grandTotalCents,
+            items: order.items,
+          }),
+          status: PrintJobStatus.QUEUED,
+        },
+      });
+    }
+
     await tx.order.update({
       where: { id: order.id },
       data: {
