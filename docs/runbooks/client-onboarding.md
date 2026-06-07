@@ -7,7 +7,7 @@
 - Owner account awaiting one-time activation.
 - Owner, Manager, Cashier, Waiter, and Kitchen roles.
 - Outlet access and permission assignments.
-- Stripe card, Stripe PayNow, and manual PayNow defaults.
+- Hosted online checkout and manual-verification payment defaults.
 - Persisted eight-step launch checklist.
 - Audit record of the operator who created the client.
 
@@ -32,7 +32,10 @@ Create the client:
   -EnableServiceCharge
 ```
 
-Stripe card and Stripe PayNow start enabled. Manual PayNow starts disabled. Use `-DisableStripeCard`, `-DisableStripePayNow`, or `-EnableManualPayNow` when a client needs different defaults.
+Hosted online checkout starts enabled. Manual PayNow starts disabled. Use
+`-DisableOnlineCard` or `-EnableManualPayNow` when a client needs different
+defaults. The PowerShell script still accepts `-DisableStripeCard` as a legacy
+alias.
 
 Send the returned activation link to the owner. The owner sets a password and can then log in using the company slug and email address.
 
@@ -58,7 +61,7 @@ The platform onboarding endpoint reports:
 1. Business and first outlet
 2. Owner account activation
 3. Payment methods selected
-4. Stripe account connected
+4. HitPay account connected
 5. First menu published
 6. Tables and QR codes configured
 7. Kitchen printer configured

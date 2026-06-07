@@ -144,7 +144,7 @@ async function main(): Promise<void> {
         companyId: company.id,
         outletId: outlet.id,
         method,
-        enabled: method === PaymentMethod.STRIPE_CARD,
+        enabled: method === PaymentMethod.ONLINE_CARD,
         updatedByUserId: owner.id,
       },
     });

@@ -27,7 +27,7 @@ describe('payment availability', () => {
       stripe: { enabled: true, disabledUntil: null },
       methods: [
         {
-          method: PaymentMethod.STRIPE_CARD,
+          method: PaymentMethod.ONLINE_CARD,
           enabled: true,
           disabledUntil: null,
         },
@@ -44,7 +44,7 @@ describe('payment availability', () => {
       ],
     });
 
-    expect(result.STRIPE_CARD).toBe(true);
+    expect(result.ONLINE_CARD).toBe(true);
     expect(result.STRIPE_PAYNOW).toBe(false);
     expect(result.MANUAL_PAYNOW).toBe(false);
   });
@@ -56,7 +56,7 @@ describe('payment availability', () => {
       stripe: { enabled: false, disabledUntil: null },
       methods: [
         {
-          method: PaymentMethod.STRIPE_CARD,
+          method: PaymentMethod.ONLINE_CARD,
           enabled: true,
           disabledUntil: null,
         },
@@ -73,7 +73,7 @@ describe('payment availability', () => {
       ],
     });
 
-    expect(result.STRIPE_CARD).toBe(false);
+    expect(result.ONLINE_CARD).toBe(false);
     expect(result.STRIPE_PAYNOW).toBe(false);
     expect(result.MANUAL_PAYNOW).toBe(false);
   });

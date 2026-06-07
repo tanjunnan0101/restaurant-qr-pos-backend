@@ -19,11 +19,7 @@ export class OnboardingPaymentDefaultsDto {
 
   @IsOptional()
   @IsBoolean()
-  stripeCardEnabled?: boolean = true;
-
-  @IsOptional()
-  @IsBoolean()
-  stripePayNowEnabled?: boolean = true;
+  onlineCardEnabled?: boolean = true;
 
   @IsOptional()
   @IsBoolean()

@@ -1,7 +1,7 @@
 export const paymentScopes = [
   'ONLINE',
   'STRIPE',
-  'STRIPE_CARD',
+  'ONLINE_CARD',
   'STRIPE_PAYNOW',
   'MANUAL_PAYNOW',
 ] as const;

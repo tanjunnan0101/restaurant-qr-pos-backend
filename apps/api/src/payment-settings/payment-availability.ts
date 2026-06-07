@@ -29,13 +29,17 @@ export function evaluatePaymentAvailability(input: {
   const onlineEnabled = isToggleEffective(input.online, now);
   const stripeEnabled = isToggleEffective(input.stripe, now);
   const customerSupportedMethods = new Set<PaymentMethod>([
-    PaymentMethod.STRIPE_CARD,
+    PaymentMethod.ONLINE_CARD,
+  ]);
+  const hostedCheckoutMethods = new Set<PaymentMethod>([
+    PaymentMethod.ONLINE_CARD,
+    PaymentMethod.STRIPE_PAYNOW,
   ]);
 
   return Object.fromEntries(
     input.methods.map((method) => {
       const methodEnabled = isToggleEffective(method, now);
-      const needsStripe = method.method.startsWith('STRIPE_');
+      const needsStripe = hostedCheckoutMethods.has(method.method);
       const supported = customerSupportedMethods.has(method.method);
       return [
         method.method,

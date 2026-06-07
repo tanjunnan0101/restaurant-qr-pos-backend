@@ -421,7 +421,7 @@ export class PaymentsService {
     const payment = order.payments.find(
       (entry) =>
         entry.provider === PaymentProvider.HITPAY &&
-        entry.method === PaymentMethod.STRIPE_CARD,
+        entry.method === PaymentMethod.ONLINE_CARD,
     );
     if (!payment?.stripeCheckoutSessionId) {
       return {

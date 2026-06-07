@@ -18,7 +18,7 @@ const paymentCopy: Record<
   PaymentMethod,
   { title: string; description: string }
 > = {
-  STRIPE_CARD: {
+  ONLINE_CARD: {
     title: 'Card or wallet',
     description: 'Secure checkout with HitPay',
   },
@@ -54,13 +54,13 @@ export function CartDrawer({
 }) {
   const methods = useMemo(
     () =>
-      (['STRIPE_CARD'] as PaymentMethod[]).filter(
+      (['ONLINE_CARD'] as PaymentMethod[]).filter(
         (paymentMethod) => qr.paymentAvailability[paymentMethod],
       ),
     [qr.paymentAvailability],
   );
   const [method, setMethod] = useState<PaymentMethod>(
-    methods[0] ?? 'STRIPE_CARD',
+    methods[0] ?? 'ONLINE_CARD',
   );
 
   useEffect(() => {

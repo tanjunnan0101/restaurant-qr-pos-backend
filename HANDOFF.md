@@ -1,237 +1,139 @@
 # Backend Handoff
 
-Status date: 2026-06-07
+Status date: 2026-06-08
 
 Repository:
 `https://github.com/tanjunnan0101/restaurant-qr-pos-backend`
 
-## Latest Update: HitPay Migration
+## Current state
 
-Status date: 2026-06-07
+This repository is continuation-ready for the backend, the customer QR web app,
+and the printer-agent foundation.
 
-The repository is no longer Stripe-based for customer checkout. The active
-continuation baseline now uses HitPay hosted checkout and disables the
-customer-facing PayNow paths.
+Current deployed/staging truth at the end of this session:
 
-What changed in the working tree:
+- Render API and customer web deployment are up.
+- Render PostgreSQL and Redis are connected and healthy.
+- HitPay sandbox checkout is working end to end.
+- Successful payments are visible in the HitPay sandbox dashboard.
+- The customer QR menu flow is working.
+- The remaining unvalidated area is physical printer hardware.
 
-- Replaced Stripe checkout creation with HitPay payment-request creation.
-- Replaced the public webhook endpoint with
-  `POST /api/v1/webhooks/hitpay`.
-- Added signed HitPay webhook verification using `Hitpay-Signature` and the
-  configured webhook salt.
-- Added public return reconciliation so the customer success page can ask the
-  API to fetch the latest HitPay payment-request status after redirect.
-- Removed PayNow from the customer checkout UI and limited public order /
-  checkout creation to the single hosted checkout method.
-- Default outlet, onboarding, and seed payment settings now enable only the
-  hosted card or wallet checkout path.
-- Added Prisma migration
-  `packages/db/prisma/migrations/20260607153000_add_hitpay_provider`
-  so new online payments are stored under `PaymentProvider.HITPAY`.
+The live customer checkout baseline is now:
 
-Important note:
+- Hosted HitPay checkout only.
+- Public payment method key `ONLINE_CARD`.
+- No public PayNow checkout path.
+- Signed HitPay webhooks at `POST /api/v1/webhooks/hitpay`.
+- Redirect reconciliation on the customer return page.
 
-- The public payment method enum still uses the legacy key `STRIPE_CARD` for
-  the current hosted checkout option. This is intentional for the safer
-  continuation-ready migration and should be normalized in a later cleanup
-  pass after staging is stable.
+The repo now also includes automatic customer receipt queueing after successful
+payment when an active printer with role `RECEIPT` is configured for the outlet.
 
-What was validated after the migration:
+## Most important recent work
 
+1. Migrated the customer payment flow from Stripe to HitPay.
+2. Normalized the active public payment method from `STRIPE_CARD` to
+   `ONLINE_CARD`.
+3. Removed stale Stripe-era customer checkout wording from the main docs and
+   handoff.
+4. Added automatic customer receipt rendering and queueing alongside the
+   existing kitchen and bar tickets.
+5. Added continuation placeholders for the future `staff-web` and `owner-web`
+   applications.
+
+## What is implemented
+
+- NestJS API with Swagger and health checks.
+- PostgreSQL/Prisma multi-tenant backend.
+- JWT login, roles, permissions, and outlet access control.
+- Client onboarding and owner activation.
+- Menu setup, versioning, publishing, and sold-out controls.
+- Dining zones, tables, QR generation, and QR rotation.
+- Public QR resolution with live payment availability.
+- Server-priced idempotent QR order creation.
+- Hosted HitPay checkout and signed webhook processing.
+- Kitchen release only after confirmed payment.
+- Print-job persistence, retry logic, backup routing, and printer-agent lease flow.
+- Customer receipt queueing after successful payment.
+- Next.js customer ordering app.
+- Dockerfiles for API, customer web, and migration job.
+
+## What is not implemented yet
+
+- Staff POS frontend.
+- KDS frontend.
+- Owner/admin frontend.
+- Real outlet printer validation on physical hardware.
+- Authenticated Socket.IO subscriptions.
+- Production rate limiting and abuse protection.
+- Error tracking, alerting, and backup/restore drills.
+- Full reporting, inventory, attendance, and operational dashboards.
+
+## What was validated locally
+
+- `npm run check`
 - `npm run prisma:generate`
 - `npm run typecheck`
 - `npm run test`
 - `npm run build`
 
-What must be done before the next staging payment test:
+The customer-receipt printing change was validated through typecheck, tests,
+and build. Physical printer testing was intentionally skipped because printer
+hardware is not available yet.
 
-1. Update Render API environment variables from Stripe to HitPay:
-   `HITPAY_API_KEY`, `HITPAY_WEBHOOK_SALT`, and `HITPAY_API_URL`.
-2. Remove old Stripe secrets from the Render API service.
-3. Run the new Prisma migration in staging.
-4. Redeploy the API and customer web services.
-5. Create a HitPay sandbox webhook endpoint pointing to
-   `https://<api-host>/api/v1/webhooks/hitpay`.
-6. Use the customer web to run one real HitPay sandbox card or wallet payment.
-7. Confirm the redirect reconciliation and webhook both leave the order paid
-   exactly once and release the kitchen once.
+## What was validated in deployed staging
 
-## Latest Continuation Update
+- `GET /api/v1/health` returned `status: ok`.
+- Customer QR menu URL loaded successfully in the deployed customer web app.
+- A real HitPay sandbox payment completed successfully through the hosted
+  checkout flow.
+- Paid orders were recorded correctly and visible in the HitPay sandbox
+  dashboard.
+- The deployed flow now shows HitPay, not Stripe, to the customer.
 
-This repository was audited, repaired, and locally validated on 2026-06-07.
-The main continuation-readiness work is already committed and the working tree
-was clean at the end of the session.
+## Required deployment notes
 
-Important commits:
+For staging or production, the important API environment variables are:
 
-- `429339b` - Repair workspace bootstrap and self-bootstrap Stripe smoke test
-- `8fda96f` - Add concrete staging rollout runbook
+- `DATABASE_URL`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `PLATFORM_ADMIN_API_KEY`
+- `OWNER_APP_BASE_URL`
+- `CUSTOMER_APP_BASE_URL`
+- `HITPAY_API_KEY`
+- `HITPAY_WEBHOOK_SALT`
+- `HITPAY_API_URL`
 
-What was repaired:
+Important:
 
-- Restored the root npm workspace manifest in `package.json` so the documented
-  monorepo commands work again.
-- Restored the missing `prisma:deploy` package script in
-  `packages/db/package.json`.
-- Fixed stale documentation links and aligned README/handoff/bootstrap steps
-  with the actual repository state.
-- Upgraded `scripts/stripe-e2e-smoke.ps1` so it no longer depends on hidden
-  pre-created QA data. It now logs into the seeded demo tenant and creates a
-  minimal published menu, table QR, and printer route when needed.
-- Added a concrete staging rollout runbook at
-  `docs/runbooks/staging-rollout.md`.
-- Reconciled the repaired local bootstrap branch with the newer upstream
-  customer-web and cloud-deployment branch so the repository now contains
-  both sets of work in one continuation-ready baseline.
-- Added provider-agnostic staging release helpers:
-  `scripts/build-release-images.ps1`,
-  `infra/staging.api.env.example`, and
-  `infra/staging.customer-web.build.env.example`.
+- Rotate any HitPay sandbox keys or webhook salts that were ever pasted into
+  chat, screenshots, or temporary notes.
+- Do not commit `.env`, payment secrets, database credentials, or printer-agent
+  keys.
 
-What was validated locally:
+## Current topology
 
-- `docker compose -f infra/compose.yaml up -d`
-- `npm run prisma:generate`
-- `npm run prisma:deploy`
-- `npm run prisma:seed`
-- `GET /api/v1/health` returning `status: ok` with PostgreSQL and Redis up
-- `npm run check`
-- `npm run smoke:stripe`
+The intended topology remains:
 
-Smoke-test behaviors confirmed:
+- One shared cloud API for all restaurant tenants.
+- One managed PostgreSQL database.
+- One managed Redis instance.
+- One customer ordering frontend deployment.
+- Future shared staff and owner frontends.
+- One printer-agent machine per outlet network as needed.
 
-- Invalid Stripe signature is rejected.
-- Card payment marks the order paid exactly once.
-- Duplicate webhook delivery is ignored safely.
-- A second success event does not release the kitchen twice.
-- PayNow stays `PROCESSING` until the async success event arrives.
-- PayNow async success releases the kitchen exactly once.
-- Amount mismatch does not release the order.
+Each restaurant is a tenant inside the same system. This is not one separate
+backend deployment per restaurant.
 
-Where to resume next time:
-
-1. Use `docs/runbooks/staging-rollout.md` as the primary next-step checklist.
-2. Choose the staging host/provider.
-3. Provision managed PostgreSQL, managed Redis, DNS, HTTPS, and secrets.
-4. Build and push the API, migration, and customer web images.
-5. Deploy the API and customer web images and run the migration job against
-   staging.
-6. Configure the Stripe test webhook and run one real card and one real PayNow
-   flow.
-7. Validate one real Windows printer-agent machine against the target thermal
-   printer.
-8. Only after staging is proven should work continue into staff POS, KDS,
-   reporting, inventory, attendance, and the frontend applications.
-
-## Product Shape
-
-This is a multi-tenant SaaS backend for approximately ten restaurant clients.
-It is not an installed mobile-app backend and it is not deployed once per
-restaurant.
-
-The intended topology is:
-
-- One cloud-hosted NestJS API for all clients.
-- One managed PostgreSQL database with tenant isolation by `company_id` and
-  `outlet_id`.
-- One managed Redis service.
-- Browser-based customer QR ordering, staff POS/KDS, and owner applications
-  connecting to the API.
-- One local printer agent at each restaurant that can reach its Wi-Fi/LAN
-  printers and the cloud API.
-
-Each restaurant receives its own login and isolated company/outlet data. A
-custom domain per client is not required for the initial ten-client rollout.
-
-## Implemented
-
-- TypeScript npm-workspace monorepo.
-- NestJS REST API, Swagger, health endpoint, and Socket.IO event publishing.
-- PostgreSQL/Prisma schema and migrations.
-- JWT authentication, tenant isolation, outlet access, roles, and permissions.
-- One-call client onboarding and owner activation.
-- Payment availability controls for online payments, Stripe, Stripe card,
-  Stripe PayNow, and manual PayNow.
-- Menu versioning, publishing, modifiers, variants, and sold-out controls.
-- Dining-zone, table, and secure rotatable QR setup.
-- Server-priced and idempotent public QR order creation.
-- Manual PayNow verification.
-- Stripe-hosted card and PayNow Checkout.
-- Signed Stripe webhook processing, amount validation, event deduplication,
-  and one-time kitchen release.
-- Kitchen tickets, persisted print jobs, retry/backup routing, and test prints.
-- ESC/POS LAN printer agent.
-- Docker API image and local PostgreSQL/Redis Compose services.
-- Mobile-first Next.js customer QR ordering app.
-- Menu search, variants, required and optional modifiers, item remarks, and a
-  session-persisted cart.
-- Checkout totals, effective payment-method selection, Stripe Checkout
-  redirects, manual PayNow handoff, and payment result polling.
-- Production customer web Docker image.
-- One-off Prisma migration Docker image for cloud release jobs.
-- Container health checks for the API and customer web.
-- Unit tests and a local Stripe webhook smoke harness.
-
-## Proven Checks
-
-The following passed before this handoff:
-
-- `npm run check`
-- Twelve API unit tests.
-- Stripe card and asynchronous PayNow smoke scenarios.
-- Invalid Stripe signature rejection.
-- Duplicate-event and second-success protection.
-- Amount-mismatch rejection.
-- Production Docker image build.
-- Container `/api/v1/health` with PostgreSQL and Redis available.
-- Customer web typecheck, lint, and production build.
-- Customer web Docker image and live-container HTTP check.
-- Clean-database migration container run and production API container health
-  check in CI.
-- Mobile browser walkthrough covering required modifiers, modifier pricing,
-  cart persistence, totals, and all enabled payment methods.
-- Reconciled baseline includes both the self-bootstrapping Stripe smoke test
-  and the customer-web/cloud deployment additions.
-
-The Stripe smoke script now boots a minimal published menu, dining table, and
-printer route on the seeded demo tenant when they do not yet exist, so it can
-validate a clean local database after migrations and seed data.
-
-## Not Implemented
-
-- Cloud staging or production infrastructure.
-- CI/CD deployment to a selected cloud provider.
-- Real Stripe test-account and live-account validation.
-- Authenticated Socket.IO room subscription.
-- Production rate limiting and abuse protection.
-- Production observability, alerting, and backup-restore drills.
-- Staff user-management APIs beyond onboarding defaults.
-- Full KDS station-specific views and bump workflows.
-- Inventory recipes, stock movement, deduction, and wastage.
-- Reporting, reconciliation, exports, and owner dashboards.
-- Employee attendance and clock-in/out.
-- Staff POS, KDS, and owner frontend applications.
-- Packaging the printer agent as a supervised Windows service/installer.
-
-## First Local Run
-
-Requirements:
-
-- Node.js 24
-- Docker Desktop
-- PowerShell on Windows for the helper scripts
+## First local run
 
 ```powershell
 git clone https://github.com/tanjunnan0101/restaurant-qr-pos-backend.git
 cd restaurant-qr-pos-backend
 Copy-Item .env.example .env
-```
-
-Replace the placeholder secrets in `.env`, then run:
-
-```powershell
-npm ci
+npm install
 docker compose -f infra/compose.yaml up -d
 npm run prisma:generate
 npm run prisma:deploy
@@ -239,69 +141,51 @@ npm run prisma:seed
 npm run dev
 ```
 
-In a second terminal, run:
+In a second terminal:
 
 ```powershell
 npm run dev:customer
 ```
 
-Verify:
+Useful checks:
 
 ```powershell
 Invoke-RestMethod http://localhost:3001/api/v1/health
-npm run check
-npm run smoke:stripe
+npm run test
+npm run build
 ```
 
-Swagger is available at `http://localhost:3001/docs`.
+## Where the next developer should resume
 
-The default seeded development login comes from `SEED_OWNER_EMAIL` and
-`SEED_OWNER_PASSWORD` in `.env`.
+1. Use `docs/runbooks/staging-rollout.md` and
+   `docs/runbooks/production-readiness.md` as the operational checklist.
+2. Validate one real Windows printer-agent machine against the target thermal
+   printer, including the new customer-receipt output.
+3. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
+   column names after staging is stable.
+4. Start the next frontend phase:
+   - `apps/staff-web`
+   - `apps/owner-web`
 
-## Development Rules
+The payment flow no longer needs rescue work unless HitPay credentials are
+rotated or the deployment environment changes.
 
-- Use integer cents for money.
-- Treat Stripe webhooks, not browser redirects, as payment truth.
-- Do not release an order to the kitchen before confirmed payment.
-- Preserve idempotency for order, Checkout, verification, and webhook paths.
-- Derive tenant and outlet access from authenticated server context.
-- Store print requests before attempting local network delivery.
-- Add a Prisma migration for every schema change.
-- Run `npm run check` before pushing.
-- Never commit `.env`, Stripe secrets, database credentials, or printer-agent
-  keys.
-
-## Important Paths
+## Important paths
 
 - API: `apps/api/src`
-- Customer web app: `apps/customer-web`
+- Customer web: `apps/customer-web`
 - Printer agent: `apps/printer-agent/src`
+- Future staff app placeholder: `apps/staff-web`
+- Future owner app placeholder: `apps/owner-web`
 - Prisma schema and migrations: `packages/db/prisma`
-- Shared types: `packages/types`
-- Architecture decisions: `docs/adr`
-- Operational runbooks: `docs/runbooks`
-- Staging rollout runbook: `docs/runbooks/staging-rollout.md`
+- Runbooks: `docs/runbooks`
 - Deployment guide: `docs/deployment.md`
-- Docker assets: `infra`
-- Release build helper: `scripts/build-release-images.ps1`
 
-## Recommended Next Milestone
+## Remaining technical debt to be aware of
 
-Deploy a staging environment first. The repository images are ready to upload
-to a container platform, but the managed services, domains, and secrets still
-need to be provisioned:
-
-1. Select the cloud provider.
-2. Provision managed PostgreSQL and Redis.
-3. Build and push the API, migration, and customer web images.
-4. Deploy the API at `api-staging.<domain>` and the customer web at
-   `order-staging.<domain>`.
-5. Configure secrets and run the migration image once.
-6. Configure a Stripe test webhook.
-7. Run one real Stripe card payment and one real PayNow payment.
-8. Pilot the local printer agent against the intended physical printer.
-9. Add monitoring and a database restore test.
-
-After staging is stable, continue with the staff POS/KDS workflow. The
-customer web app is ready for staging integration, but real Stripe test-mode
-payments still require deployed callback URLs and a configured webhook.
+- Some internal schema fields and service response properties still use legacy
+  `stripe*` names even though the live provider is now HitPay.
+- The obsolete enum value `STRIPE_PAYNOW` still exists in the schema for safer
+  compatibility, but it is no longer used in the public customer flow.
+- There is no local fake payment-provider harness anymore; meaningful payment
+  validation should happen against deployed HitPay sandbox endpoints.

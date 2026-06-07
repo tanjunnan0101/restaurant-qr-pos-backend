@@ -80,6 +80,10 @@ export function renderCustomerReceipt(input: {
     );
   }
   lines.push(`TOTAL ${formatMoney(input.grandTotalCents, input.currency)}`);
-  lines.push('================================', 'PAID VIA ONLINE CHECKOUT', '');
+  lines.push(
+    '================================',
+    'PAID VIA ONLINE CHECKOUT',
+    '',
+  );
   return lines.join('\n');
 }

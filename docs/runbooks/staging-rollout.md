@@ -185,7 +185,7 @@ Validation sequence:
 Staging is ready for frontend and operational testing only when:
 
 - API health is stable.
-- Stripe test flows work end to end.
+- HitPay sandbox flows work end to end.
 - Kitchen release is idempotent.
 - Print jobs persist and transition correctly.
 - One real printer-agent machine has been validated.

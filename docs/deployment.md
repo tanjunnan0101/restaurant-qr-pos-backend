@@ -79,7 +79,7 @@ CUSTOMER_APP_BASE_URL=https://order.example.com
 ONBOARDING_TOKEN_TTL_HOURS=72
 HITPAY_API_KEY=<hitpay business api key>
 HITPAY_WEBHOOK_SALT=<hitpay webhook salt>
-HITPAY_API_URL=https://api.sandbox.hit-pay.com
+HITPAY_API_URL=<hitpay api base url for the target environment>
 ```
 
 Customer web image build argument:

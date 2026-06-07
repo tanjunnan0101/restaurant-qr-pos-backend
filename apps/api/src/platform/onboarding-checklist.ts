@@ -27,8 +27,8 @@ export function buildOnboardingChecklist(source: OnboardingChecklistSource) {
       completed: Boolean(source.paymentMethodsSelectedAt),
     },
     {
-      key: 'stripe_connection',
-      label: 'Stripe account connected',
+      key: 'payment_provider_connection',
+      label: 'HitPay account connected',
       completed: Boolean(source.stripeConnectedAt),
     },
     {

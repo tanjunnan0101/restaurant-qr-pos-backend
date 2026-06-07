@@ -211,7 +211,7 @@ export class PaymentSettingsService {
 
   private toPaymentMethod(scope: PaymentScope): PaymentMethod {
     if (
-      scope === 'STRIPE_CARD' ||
+      scope === 'ONLINE_CARD' ||
       scope === 'STRIPE_PAYNOW' ||
       scope === 'MANUAL_PAYNOW'
     ) {

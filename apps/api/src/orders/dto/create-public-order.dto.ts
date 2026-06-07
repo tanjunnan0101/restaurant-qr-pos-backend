@@ -46,7 +46,7 @@ export class CreatePublicOrderDto {
   @IsEnum(ServiceType)
   serviceType?: ServiceType = ServiceType.DINE_IN;
 
-  @IsIn([PaymentMethod.STRIPE_CARD])
+  @IsIn([PaymentMethod.ONLINE_CARD])
   paymentMethod!: PaymentMethod;
 
   @IsOptional()

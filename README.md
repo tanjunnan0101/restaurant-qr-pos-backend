@@ -1,182 +1,119 @@
 # Restaurant QR POS
 
-Multi-tenant restaurant QR ordering and POS platform.
+Multi-tenant restaurant QR ordering platform with a live customer ordering
+frontend, HitPay checkout, and local printer-agent support.
 
-For takeover status, architecture boundaries, and the next milestones, start
-with [HANDOFF.md](HANDOFF.md). Production deployment guidance is in
-[docs/deployment.md](docs/deployment.md). For the next concrete milestone, use
-[Staging Rollout Runbook](docs/runbooks/staging-rollout.md).
+Start with [HANDOFF.md](HANDOFF.md) for the current continuation baseline. For
+deployment and rollout, use:
 
-## Cloud deployment artifacts
+- [docs/deployment.md](docs/deployment.md)
+- [docs/runbooks/staging-rollout.md](docs/runbooks/staging-rollout.md)
+- [docs/runbooks/production-readiness.md](docs/runbooks/production-readiness.md)
 
-The repository provides three container definitions:
+## Current baseline
 
-- `infra/Dockerfile.api` for the NestJS API on port `3001`.
-- `infra/Dockerfile.customer-web` for the Next.js customer app on port `3000`.
-- `infra/Dockerfile.migrate` for a one-off Prisma migration release job.
-- `scripts/build-release-images.ps1` to build all three release images consistently.
+Implemented now:
 
-The API health endpoint returns HTTP `200` only when PostgreSQL and Redis are
-available, and HTTP `503` when either dependency is unavailable. GitHub Actions
-builds all three images, applies migrations to clean PostgreSQL, starts the
-production API image, and verifies `/api/v1/health`.
+- NestJS API with Swagger, JWT auth, outlet-scoped RBAC, and tenant isolation.
+- Prisma/PostgreSQL schema for restaurants, outlets, menus, tables, orders,
+  payments, and print jobs.
+- Customer QR ordering web app in `apps/customer-web`.
+- Menu publishing, sold-out controls, table QR generation, and QR rotation.
+- Server-priced order creation with idempotency protection.
+- Hosted HitPay checkout for the public customer flow.
+- Signed HitPay webhook processing and redirect reconciliation.
+- Kitchen and bar ticket routing to printer queues after confirmed payment.
+- Automatic customer receipt queueing when a `RECEIPT` printer is configured.
+- Windows/LAN printer agent for ESC/POS thermal printers.
+- One-call client onboarding and owner activation.
 
-## Current scope
+Not implemented yet:
 
-- Mobile-first customer QR ordering web app with menu search, item
-  customisation, cart totals, and payment selection.
-- NestJS REST API with Swagger/OpenAPI.
-- PostgreSQL and Prisma tenant/auth schema.
-- JWT authentication and outlet-scoped RBAC.
-- Company and outlet administration.
-- Audited payment controls for online checkout availability, with one customer-facing hosted checkout method.
-- One-call client onboarding with owner activation, default roles, payment defaults, and a setup checklist.
-- Versioned menu setup with categories, items, variants, modifiers, publishing, and sold-out controls.
-- Bulk dining-zone and table setup with secure, rotatable QR codes.
-- Public QR resolution with the current published menu and live payment availability.
-- Server-priced, idempotent QR order creation with immutable item and modifier snapshots.
-- Hosted HitPay checkout for card and wallet payments with signed, idempotent webhook fulfilment.
-- Station-routed kitchen tickets and persisted print jobs after payment confirmation.
-- ESC/POS Wi-Fi/LAN printer agent with leasing, retries, backup routing, and test prints.
-- Temporary payment shutdowns with automatic effective re-enable after the configured timestamp.
-- Redis/BullMQ print queue foundation.
-- Socket.IO operations gateway.
+- Staff POS frontend.
+- KDS frontend.
+- Owner dashboard frontend.
+- Physical printer acceptance on a real outlet network.
+- Production observability, rate limiting, backup/restore drills, and
+  horizontally scaled Socket.IO.
 
 ## Local setup
 
-1. Copy `.env.example` to `.env` and change the secrets.
-2. Start PostgreSQL and Redis using `infra/compose.yaml` or equivalent local services.
+1. Copy `.env.example` to `.env`.
+2. Start PostgreSQL and Redis with `docker compose -f infra/compose.yaml up -d`.
 3. Run `npm install`.
 4. Run `npm run prisma:generate`.
 5. Run `npm run prisma:deploy`.
 6. Run `npm run prisma:seed`.
-7. Run `npm run dev` for the API.
+7. Run `npm run dev`.
 8. In a second terminal, run `npm run dev:customer`.
-9. Build and redeploy both apps after any payment-provider configuration change.
 
-Swagger is available at `http://localhost:3001/docs`.
-The customer web app is available at `http://localhost:3000`. Its real entry
-point is a generated QR URL in the form `/q/:publicCode/:token`.
+Useful local URLs:
 
-The seeded login defaults to `owner@example.com` / `ChangeMe123!` unless overridden in `.env`.
+- Swagger: `http://localhost:3001/docs`
+- API health: `http://localhost:3001/api/v1/health`
+- Customer app shell: `http://localhost:3000`
 
-## Customer QR web app
+Seeded owner login defaults to `owner@example.com` / `ChangeMe123!` unless
+you override them in `.env`.
 
-The Next.js application in `apps/customer-web` consumes only public QR and
-order endpoints. It provides:
+## Public checkout flow
 
-- Outlet, dining-zone, and table confirmation after scanning.
-- Published menu browsing, search, categories, sold-out handling, variants,
-  modifiers, remarks, and quantity controls.
-- A session-persisted cart with server-compatible service charge and GST
-  previews.
-- One hosted card or wallet checkout option based on the outlet's effective
-  payment settings.
-- Processing, paid, cancelled, failed, and verification states.
+The live customer payment method is:
 
-Set `NEXT_PUBLIC_API_BASE_URL` at image build time for deployments. Payment
-availability is always loaded from the API, so disabling online checkout takes
-effect without rebuilding the frontend.
+- `ONLINE_CARD`
 
-## Client onboarding
+That method currently maps to hosted HitPay card or wallet checkout. Public
+PayNow has been removed from the QR customer flow.
 
-Internal operators create a complete client shell through:
+Key endpoints:
 
-`POST /api/v1/platform/onboarding/clients`
+- `POST /api/v1/public/qr/:publicCode/:token/orders`
+- `POST /api/v1/public/qr/:publicCode/:token/orders/:orderId/payment`
+- `POST /api/v1/webhooks/hitpay`
 
-Required headers:
+See [docs/runbooks/hitpay-checkout-webhooks.md](docs/runbooks/hitpay-checkout-webhooks.md).
 
-- `x-platform-key`
-- `Idempotency-Key`
+## Payment controls
 
-The response contains a one-time owner activation URL. Only the activation-token hash is stored. Repeating the same idempotency key returns the existing client instead of creating a duplicate.
+Outlet operators can disable payment scopes through:
 
-For the operator-friendly PowerShell command, see [Client Onboarding Runbook](docs/runbooks/client-onboarding.md).
+- `POST /api/v1/admin/outlets/:outletId/payment-settings/disable`
+- `POST /api/v1/admin/outlets/:outletId/payment-settings/enable`
 
-## Payment control semantics
-
-`POST /api/v1/admin/outlets/:outletId/payment-settings/disable`
-
-- Without `until`, the selected scope is disabled indefinitely.
-- With a future `until`, the scope is temporarily blocked and becomes effective again after that timestamp.
-- Every change requires a reason and is written to the audit log in the same database transaction.
-
-Scopes:
+Current customer-relevant scopes:
 
 - `ONLINE`
-- `STRIPE_CARD`
+- `ONLINE_CARD`
 
-## Menu, tables, and QR setup
+There are still legacy internal field names containing `stripe` in the schema
+and some service responses. Those names currently gate the hosted checkout path
+and are safe to leave in place until a later schema cleanup.
 
-An owner or manager can configure a complete first menu in one request:
+## Printing
 
-`POST /api/v1/admin/outlets/:outletId/menus/setup`
+Printing setup is configured through:
 
-Further menu changes use a draft so the currently published version remains
-stable:
+- `POST /api/v1/admin/outlets/:outletId/printing/setup`
 
-- `POST /api/v1/admin/outlets/:outletId/menus/:menuId/draft/clone`
-- `PUT /api/v1/admin/outlets/:outletId/menus/:menuId/draft`
-- `POST /api/v1/admin/outlets/:outletId/menus/:menuId/publish`
-- `PATCH /api/v1/admin/outlets/:outletId/menus/items/:itemId/sold-out`
+The printer agent runs on a Windows machine inside the restaurant's Wi-Fi/LAN
+network and sends ESC/POS output directly to local printer IPs, normally on TCP
+port `9100`.
 
-Dining zones, tables, and their initial QR codes are configured in bulk:
+When payment is confirmed:
 
-`POST /api/v1/admin/outlets/:outletId/tables/setup`
+- Kitchen or bar tickets are queued by station route.
+- One customer receipt is also queued if an active printer with role
+  `RECEIPT` exists.
 
-QR URLs contain a random token. Only its SHA-256 hash is stored, so the full
-URL is returned only when the code is generated or rotated:
+See [docs/runbooks/order-and-printer-flow.md](docs/runbooks/order-and-printer-flow.md).
 
-`POST /api/v1/admin/outlets/:outletId/tables/:tableId/qr/rotate`
+## Frontend continuation
 
-Customer applications resolve a scan through:
+Only the customer ordering app is implemented today. Continuation placeholders
+for the next apps live at:
 
-`GET /api/v1/public/qr/:publicCode/:token`
+- `apps/staff-web`
+- `apps/owner-web`
 
-The response includes the outlet, table, current published QR menu, and
-effective payment availability. Disabling online checkout is therefore
-reflected immediately without reprinting the QR code.
-
-## Orders and kitchen release
-
-Customer orders are created through:
-
-`POST /api/v1/public/qr/:publicCode/:token/orders`
-
-The request requires an `Idempotency-Key` header. The client submits menu,
-variant, and modifier IDs only. Prices, service charge, GST, and totals are
-calculated by the API from the published menu.
-
-## HitPay checkout
-
-Customers start hosted HitPay checkout through:
-
-`POST /api/v1/public/qr/:publicCode/:token/orders/:orderId/payment`
-
-The endpoint requires an `Idempotency-Key` and accepts only `STRIPE_CARD`,
-which is the current legacy enum key for the customer-facing hosted checkout
-method. The backend sends HitPay the server-calculated total and stores the
-resulting payment-request reference.
-
-HitPay sends webhook results to:
-
-`POST /api/v1/webhooks/hitpay`
-
-The endpoint verifies `Hitpay-Signature` against the raw request body.
-Browser redirects still never count as payment truth on their own, but the
-customer return page now asks the API to reconcile the latest HitPay payment
-request so cancellations and delayed webhook delivery do not leave an order
-stuck in `PAYMENT_PROCESSING`.
-
-See [HitPay Checkout and Webhooks Runbook](docs/runbooks/stripe-checkout-webhooks.md).
-
-## Wi-Fi/LAN printing
-
-Printer stations, routes, backups, and a local-agent credential are configured
-through:
-
-`POST /api/v1/admin/outlets/:outletId/printing/setup`
-
-The agent runs inside the restaurant network and sends ESC/POS data directly
-to the printer IP, normally on TCP port `9100`. See
-[Order and Printer Runbook](docs/runbooks/order-and-printer-flow.md).
+These directories currently document the intended surface and first milestones
+without affecting the monorepo build.

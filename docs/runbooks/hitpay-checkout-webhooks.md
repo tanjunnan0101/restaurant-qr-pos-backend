@@ -2,7 +2,7 @@
 
 ## Payment flow
 
-1. The customer creates a QR order with `STRIPE_CARD`.
+1. The customer creates a QR order with `ONLINE_CARD`.
 2. The customer app calls
    `POST /api/v1/public/qr/:publicCode/:token/orders/:orderId/payment` with an
    `Idempotency-Key`, `successUrl`, and `cancelUrl`.
@@ -63,8 +63,8 @@ through the payment-settings enable endpoint.
 
 ## Verification
 
-There is no longer a local Stripe stub in the continuation baseline. Validate
-HitPay in a deployed sandbox environment:
+There is no longer a local fake payment-provider stub in the continuation
+baseline. Validate HitPay in a deployed sandbox environment:
 
 - Start checkout from the customer QR app.
 - Confirm the customer is redirected to HitPay.

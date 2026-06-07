@@ -1,4 +1,4 @@
-export type PaymentMethod = 'STRIPE_CARD';
+export type PaymentMethod = 'ONLINE_CARD';
 
 export interface ModifierOption {
   id: string;

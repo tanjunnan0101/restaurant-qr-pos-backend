@@ -27,8 +27,8 @@ param(
     [int]$GstRateBps = 900,
     [switch]$EnableServiceCharge,
     [int]$ServiceChargeBps = 1000,
-    [switch]$DisableStripeCard,
-    [switch]$DisableStripePayNow,
+    [Alias('DisableStripeCard')]
+    [switch]$DisableOnlineCard,
     [switch]$EnableManualPayNow,
     [string]$ApiBaseUrl = 'http://localhost:3001/api/v1',
     [string]$PlatformKey = $env:PLATFORM_ADMIN_API_KEY,
@@ -53,8 +53,7 @@ $payload = @{
     serviceChargeBps = $ServiceChargeBps
     payments = @{
         onlinePaymentsEnabled = $true
-        stripeCardEnabled = -not $DisableStripeCard
-        stripePayNowEnabled = -not $DisableStripePayNow
+        onlineCardEnabled = -not $DisableOnlineCard
         manualPayNowEnabled = [bool]$EnableManualPayNow
     }
 }

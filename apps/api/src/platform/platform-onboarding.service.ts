@@ -91,8 +91,7 @@ export class PlatformOnboardingService {
     const expiresAt = this.activationExpiry();
     const paymentDefaults = {
       onlinePaymentsEnabled: dto.payments?.onlinePaymentsEnabled ?? true,
-      stripeCardEnabled: dto.payments?.stripeCardEnabled ?? true,
-      stripePayNowEnabled: dto.payments?.stripePayNowEnabled ?? true,
+      onlineCardEnabled: dto.payments?.onlineCardEnabled ?? true,
       manualPayNowEnabled: dto.payments?.manualPayNowEnabled ?? false,
     };
 
@@ -165,8 +164,8 @@ export class PlatformOnboardingService {
             {
               companyId: company.id,
               outletId: outlet.id,
-              method: PaymentMethod.STRIPE_CARD,
-              enabled: paymentDefaults.stripeCardEnabled,
+              method: PaymentMethod.ONLINE_CARD,
+              enabled: paymentDefaults.onlineCardEnabled,
               updatedByUserId: owner.id,
             },
             {
@@ -405,8 +404,7 @@ export class PlatformOnboardingService {
       serviceChargeBps: dto.serviceChargeBps ?? 1000,
       payments: {
         onlinePaymentsEnabled: dto.payments?.onlinePaymentsEnabled ?? true,
-        stripeCardEnabled: dto.payments?.stripeCardEnabled ?? true,
-        stripePayNowEnabled: dto.payments?.stripePayNowEnabled ?? true,
+        onlineCardEnabled: dto.payments?.onlineCardEnabled ?? true,
         manualPayNowEnabled: dto.payments?.manualPayNowEnabled ?? false,
       },
     };

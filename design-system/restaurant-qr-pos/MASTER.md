@@ -51,7 +51,7 @@ use `16-24px` radii; sheets and drawers use `24-28px` top radii.
 - **Checkout drawer:** editable items, itemised subtotal/service/GST, payment
   radios, and a persistent final action.
 - **Status page:** plain-language processing, success, failure, cancellation,
-  delayed PayNow, and manual-verification states.
+  payment failure, and manual-verification states.
 
 Use Lucide icons consistently. Do not use emoji as interface icons.
 
@@ -79,7 +79,7 @@ Use Lucide icons consistently. Do not use emoji as interface icons.
 - Verify at `375px`, `768px`, `1024px`, and `1440px`.
 - Confirm required modifiers cannot be skipped.
 - Confirm displayed totals match backend pricing rules.
-- Confirm disabled Stripe and PayNow methods disappear after refreshing QR
+- Confirm disabled hosted checkout methods disappear after refreshing QR
   context.
 - Confirm all payment result states remain understandable without colour.
 - Run typecheck, lint, production build, and a browser walkthrough against the
