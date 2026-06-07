@@ -20,7 +20,7 @@ describe('payment availability', () => {
     ).toBe(true);
   });
 
-  it('allows card while Stripe PayNow is disabled', () => {
+  it('allows only the hosted card checkout method', () => {
     const result = evaluatePaymentAvailability({
       now,
       online: { enabled: true, disabledUntil: null },
@@ -46,10 +46,10 @@ describe('payment availability', () => {
 
     expect(result.STRIPE_CARD).toBe(true);
     expect(result.STRIPE_PAYNOW).toBe(false);
-    expect(result.MANUAL_PAYNOW).toBe(true);
+    expect(result.MANUAL_PAYNOW).toBe(false);
   });
 
-  it('blocks all Stripe methods when the Stripe master switch is off', () => {
+  it('blocks the hosted checkout method when the provider master switch is off', () => {
     const result = evaluatePaymentAvailability({
       now,
       online: { enabled: true, disabledUntil: null },
@@ -75,6 +75,6 @@ describe('payment availability', () => {
 
     expect(result.STRIPE_CARD).toBe(false);
     expect(result.STRIPE_PAYNOW).toBe(false);
-    expect(result.MANUAL_PAYNOW).toBe(true);
+    expect(result.MANUAL_PAYNOW).toBe(false);
   });
 });

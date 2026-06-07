@@ -10,7 +10,8 @@ import {
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '../common/decorators/public.decorator';
-import { CreateStripeCheckoutDto } from './dto/create-stripe-checkout.dto';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
+import { ReconcileHitPayReturnDto } from './dto/reconcile-hitpay-return.dto';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('Public payments')
@@ -26,7 +27,7 @@ export class PublicPaymentsController {
     @Param('token') token: string,
     @Param('orderId') orderId: string,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
-    @Body() dto: CreateStripeCheckoutDto,
+    @Body() dto: CreateCheckoutDto,
     @Req() request: Request & { id?: string },
     @Ip() ipAddress: string,
   ) {
@@ -35,6 +36,25 @@ export class PublicPaymentsController {
       token,
       orderId,
       idempotencyKey ?? '',
+      dto,
+      request.id,
+      ipAddress,
+    );
+  }
+
+  @Post('return')
+  reconcileCheckoutReturn(
+    @Param('publicCode') publicCode: string,
+    @Param('token') token: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: ReconcileHitPayReturnDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.payments.reconcileHitPayReturn(
+      publicCode,
+      token,
+      orderId,
       dto,
       request.id,
       ipAddress,

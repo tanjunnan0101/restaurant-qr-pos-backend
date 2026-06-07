@@ -1,4 +1,4 @@
-export type PaymentMethod = 'STRIPE_CARD' | 'STRIPE_PAYNOW' | 'MANUAL_PAYNOW';
+export type PaymentMethod = 'STRIPE_CARD';
 
 export interface ModifierOption {
   id: string;

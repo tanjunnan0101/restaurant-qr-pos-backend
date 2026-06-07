@@ -35,11 +35,9 @@ const environmentSchema = z.object({
   OWNER_APP_BASE_URL: z.string().url().default('http://localhost:3000'),
   CUSTOMER_APP_BASE_URL: z.string().url().default('http://localhost:3000'),
   ONBOARDING_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(72),
-  STRIPE_SECRET_KEY: z.string().default(''),
-  STRIPE_WEBHOOK_SECRET: z.string().default(''),
-  STRIPE_API_HOST: z.string().optional(),
-  STRIPE_API_PORT: z.string().optional(),
-  STRIPE_API_PROTOCOL: z.enum(['http', 'https']).optional(),
+  HITPAY_API_KEY: z.string().default(''),
+  HITPAY_WEBHOOK_SALT: z.string().default(''),
+  HITPAY_API_URL: z.string().url().default('https://api.sandbox.hit-pay.com'),
 });
 
 @Module({

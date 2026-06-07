@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsEnum,
   IsInt,
   IsOptional,
@@ -45,7 +46,7 @@ export class CreatePublicOrderDto {
   @IsEnum(ServiceType)
   serviceType?: ServiceType = ServiceType.DINE_IN;
 
-  @IsEnum(PaymentMethod)
+  @IsIn([PaymentMethod.STRIPE_CARD])
   paymentMethod!: PaymentMethod;
 
   @IsOptional()

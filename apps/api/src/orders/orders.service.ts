@@ -230,7 +230,7 @@ export class OrdersService {
                   outletId: qr.outletId,
                   provider: manualPayNow
                     ? PaymentProvider.MANUAL
-                    : PaymentProvider.STRIPE,
+                    : PaymentProvider.HITPAY,
                   method: dto.paymentMethod,
                   status: manualPayNow
                     ? PaymentStatus.MANUAL_VERIFICATION_REQUIRED

@@ -11,15 +11,15 @@ Bring up one cloud-hosted staging environment that uses:
 - One managed Redis instance.
 - One HTTPS API hostname.
 - One HTTPS customer ordering hostname.
-- One Stripe test webhook endpoint.
+- One HitPay sandbox webhook endpoint.
 
 The result should be a stable environment where the team can verify:
 
 - Login and tenant access.
 - Public QR resolution.
 - Customer QR ordering page load and menu browse flow.
-- Stripe card payment release.
-- Stripe PayNow asynchronous payment release.
+- HitPay hosted payment release.
+- HitPay checkout cancel or failure recovery.
 - Kitchen ticket and persisted print-job creation.
 - Local printer-agent connectivity from a real Windows machine.
 
@@ -33,7 +33,7 @@ The result should be a stable environment where the team can verify:
 - One shared staging database is sufficient.
 - One shared staging Redis instance is sufficient.
 
-Do not use production Stripe keys, production webhooks, or live restaurant
+Do not use production HitPay keys, production webhooks, or live restaurant
 printer credentials in staging.
 
 ## Required Inputs
@@ -46,8 +46,8 @@ Prepare these before deployment:
 - Managed Redis connection string.
 - DNS record and HTTPS certificate for the API hostname.
 - DNS record and HTTPS certificate for the customer hostname.
-- Stripe test secret key.
-- Stripe test webhook signing secret.
+- HitPay sandbox business API key.
+- HitPay webhook salt.
 - Random values for `JWT_SECRET` and `PLATFORM_ADMIN_API_KEY`.
 
 ## Staging Environment Variables
@@ -66,21 +66,14 @@ PLATFORM_ADMIN_API_KEY=<at least 32 random characters>
 OWNER_APP_BASE_URL=https://app-staging.example.com
 CUSTOMER_APP_BASE_URL=https://order-staging.example.com
 ONBOARDING_TOKEN_TTL_HOURS=72
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+HITPAY_API_KEY=<hitpay sandbox api key>
+HITPAY_WEBHOOK_SALT=<hitpay webhook salt>
+HITPAY_API_URL=https://api.sandbox.hit-pay.com
 ```
 
 An editable example file lives at:
 
 - `infra/staging.api.env.example`
-
-Do not set these in staging:
-
-- `STRIPE_API_HOST`
-- `STRIPE_API_PORT`
-- `STRIPE_API_PROTOCOL`
-
-Those variables are only for the local Stripe stub.
 
 Build the customer web image with:
 
@@ -106,7 +99,6 @@ Before pushing or deploying a new image, run:
 
 ```powershell
 npm run check
-npm run smoke:stripe
 ```
 
 ## Migration Procedure
@@ -135,25 +127,19 @@ staging unless you intentionally want demo tenant data there.
 6. Deploy the API image and wait for `GET /api/v1/health` to return `status: ok`.
 7. Deploy the customer web image with the matching `NEXT_PUBLIC_API_BASE_URL`.
 8. Open the customer hostname and confirm it serves the deployed build.
-9. Create or confirm the Stripe test webhook endpoint.
+9. Create or confirm the HitPay sandbox webhook endpoint.
 10. Run the smoke checklist below.
 
-## Stripe Webhook Setup
+## HitPay Webhook Setup
 
-Create a Stripe test-mode webhook endpoint:
+Create a HitPay sandbox webhook endpoint:
 
 ```text
-https://api-staging.example.com/api/v1/webhooks/stripe
+https://api-staging.example.com/api/v1/webhooks/hitpay
 ```
 
-Subscribe to:
-
-- `checkout.session.completed`
-- `checkout.session.async_payment_succeeded`
-- `checkout.session.async_payment_failed`
-- `checkout.session.expired`
-
-Confirm the webhook secret exactly matches the endpoint configured in Stripe.
+Register the webhook salt from that endpoint in the API environment as
+`HITPAY_WEBHOOK_SALT`.
 
 ## Staging Smoke Checklist
 
@@ -166,13 +152,12 @@ Complete all of these before calling staging ready:
 5. Owner can create a menu, publish it, and configure a table QR.
 6. Public QR resolve returns outlet, table, menu, and payment availability.
 7. Opening a real QR URL on the customer hostname loads the menu correctly.
-8. A Stripe card test payment marks the order paid exactly once.
-9. A Stripe PayNow test flow stays `PROCESSING` until the async success arrives.
-10. The successful PayNow event releases the kitchen exactly once.
-11. Duplicate Stripe webhook delivery does not duplicate tickets or print jobs.
-12. An amount mismatch leaves the order unreleased and records the failure safely.
-13. A local Windows printer-agent machine can heartbeat successfully.
-14. A queued test print can be leased, completed, and reflected in print-job status.
+8. A HitPay sandbox payment marks the order paid exactly once.
+9. A cancelled or failed HitPay sandbox flow returns the order to `PENDING_PAYMENT`.
+10. Duplicate HitPay webhook delivery does not duplicate tickets or print jobs.
+11. An amount mismatch leaves the order unreleased and records the failure safely.
+12. A local Windows printer-agent machine can heartbeat successfully.
+13. A queued test print can be leased, completed, and reflected in print-job status.
 
 ## Printer-Agent Staging Test
 

@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { getOrder } from '@/lib/api';
+import { getOrder, reconcileHitPayReturn } from '@/lib/api';
 import { formatMoney } from '@/lib/money';
 import type { PublicOrder } from '@/lib/types';
 
@@ -36,6 +36,8 @@ export function PaymentResult({
 }) {
   const query = useSearchParams();
   const orderId = query.get('order_id');
+  const providerReference = query.get('reference');
+  const providerStatus = query.get('status');
   const manual = query.get('manual') === '1';
   const [order, setOrder] = useState<PublicOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,16 @@ export function PaymentResult({
 
     async function poll() {
       try {
+        if (attempts === 0 && (providerReference || providerStatus)) {
+          await reconcileHitPayReturn({
+            publicCode,
+            token,
+            orderId: orderId!,
+            reference: providerReference,
+            status: providerStatus,
+          }).catch(() => undefined);
+        }
+
         const result = await getOrder(publicCode, token, orderId!);
         if (stopped) return;
         setOrder(result);
@@ -77,7 +89,7 @@ export function PaymentResult({
       stopped = true;
       if (timer) clearTimeout(timer);
     };
-  }, [orderId, publicCode, token]);
+  }, [orderId, providerReference, providerStatus, publicCode, token]);
 
   const paid = order?.paymentStatus === 'PAID';
   const manualPending =
@@ -125,10 +137,10 @@ export function PaymentResult({
           {paid
             ? 'Payment is confirmed. We will prepare everything and bring it to your table.'
             : manualPending
-              ? 'Please show your PayNow confirmation to a staff member. The kitchen receives your order after verification.'
+              ? 'Please show your payment confirmation to a staff member. The kitchen receives your order after verification.'
               : mode === 'cancel' || failed
                 ? 'Nothing has been sent to the kitchen. You can return to the menu and try again.'
-                : 'PayNow can take a short moment to confirm. Keep this page open; it updates automatically.'}
+                : 'Payment confirmation can take a short moment. Keep this page open; it updates automatically.'}
         </p>
 
         {error && (

@@ -19,13 +19,13 @@ import { OrdersService } from '../orders/orders.service';
 import { evaluatePaymentAvailability } from '../payment-settings/payment-availability';
 import { OperationsGateway } from '../realtime/operations.gateway';
 import { verifyQrToken } from '../tables/qr-token';
-import type { CreateStripeCheckoutDto } from './dto/create-stripe-checkout.dto';
-import { checkoutEventAction, stripeObjectId } from './stripe-checkout-event';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
+import { ReconcileHitPayReturnDto } from './dto/reconcile-hitpay-return.dto';
 import {
-  StripeGateway,
-  type StripeCheckoutSession,
-  type StripeEvent,
-} from './stripe.gateway';
+  HitPayGateway,
+  type HitPayPayment,
+  type HitPayPaymentRequest,
+} from './hitpay.gateway';
 
 const paidOrderStatuses: OrderStatus[] = [
   OrderStatus.PAID,
@@ -45,11 +45,15 @@ const activePaymentStatuses: PaymentStatus[] = [
   PaymentStatus.PROCESSING,
 ];
 
+type PaymentWithOrder = Awaited<
+  ReturnType<PaymentsService['loadPaymentForProcessing']>
+>;
+
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly stripe: StripeGateway,
+    private readonly hitpay: HitPayGateway,
     private readonly orders: OrdersService,
     private readonly operations: OperationsGateway,
   ) {}
@@ -59,7 +63,7 @@ export class PaymentsService {
     token: string,
     orderId: string,
     idempotencyKey: string,
-    dto: CreateStripeCheckoutDto,
+    dto: CreateCheckoutDto,
     requestId?: string,
     ipAddress?: string,
   ) {
@@ -97,7 +101,7 @@ export class PaymentsService {
     const now = new Date();
     const active = order.payments.find(
       (payment) =>
-        payment.provider === PaymentProvider.STRIPE &&
+        payment.provider === PaymentProvider.HITPAY &&
         payment.method === dto.paymentMethod &&
         activePaymentStatuses.includes(payment.status),
     );
@@ -131,7 +135,7 @@ export class PaymentsService {
           companyId: order.companyId,
           outletId: order.outletId,
           orderId: order.id,
-          provider: PaymentProvider.STRIPE,
+          provider: PaymentProvider.HITPAY,
           method: dto.paymentMethod,
           status: PaymentStatus.CREATED,
           amountCents: order.grandTotalCents,
@@ -145,7 +149,7 @@ export class PaymentsService {
       !payment.stripeCheckoutSessionId
     ) {
       throw new ConflictException(
-        'A Stripe Checkout session is already being created for this order.',
+        'A HitPay checkout is already being created for this order.',
       );
     }
     if (!payment.creationIdempotencyKey) {
@@ -165,7 +169,7 @@ export class PaymentsService {
           return this.checkoutResponse(current);
         }
         throw new ConflictException(
-          'A Stripe Checkout session is already being created for this order.',
+          'A HitPay checkout is already being created for this order.',
         );
       }
       payment = {
@@ -174,38 +178,24 @@ export class PaymentsService {
       };
     }
 
-    const session = await this.stripe.createCheckoutSession(
-      {
-        mode: 'payment',
-        payment_method_types: [
-          dto.paymentMethod === PaymentMethod.STRIPE_CARD ? 'card' : 'paynow',
-        ],
-        client_reference_id: order.id,
-        success_url: this.withCheckoutResult(dto.successUrl, order.id, true),
-        cancel_url: this.withCheckoutResult(dto.cancelUrl, order.id, false),
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency: order.currency.toLowerCase(),
-              unit_amount: order.grandTotalCents,
-              product_data: {
-                name: `Order ${order.orderNumber}`,
-                description: 'Restaurant QR order',
-              },
-            },
-          },
-        ],
-        metadata: this.stripeMetadata(order, payment.id),
-        payment_intent_data: {
-          metadata: this.stripeMetadata(order, payment.id),
-        },
+    const paymentRequest = await this.hitpay.createPaymentRequest({
+      amount: this.centsToMajorUnit(order.grandTotalCents),
+      currency: order.currency,
+      paymentMethods: ['card'],
+      purpose: `Restaurant QR order ${order.orderNumber}`,
+      referenceNumber: payment.id,
+      redirectUrl: this.withCheckoutResult(dto.successUrl, order.id),
+      metadata: {
+        company_id: order.companyId,
+        outlet_id: order.outletId,
+        order_id: order.id,
+        order_number: order.orderNumber,
+        payment_attempt_id: payment.id,
       },
-      `checkout-session-${payment.id}`,
-    );
-    if (!session.url) {
+    });
+    if (!paymentRequest.url) {
       throw new ConflictException(
-        'Stripe did not return a Checkout redirect URL.',
+        'HitPay did not return a checkout redirect URL.',
       );
     }
 
@@ -214,10 +204,11 @@ export class PaymentsService {
         where: { id: payment.id },
         data: {
           status: PaymentStatus.PENDING,
-          stripeCheckoutSessionId: session.id,
-          stripeCheckoutUrl: session.url,
-          stripePaymentIntentId: stripeObjectId(session.payment_intent),
-          checkoutExpiresAt: new Date(session.expires_at * 1000),
+          stripeCheckoutSessionId: paymentRequest.id,
+          stripeCheckoutUrl: paymentRequest.url,
+          checkoutExpiresAt: paymentRequest.expiry_date
+            ? new Date(paymentRequest.expiry_date)
+            : null,
         },
       });
       await tx.order.update({
@@ -237,15 +228,15 @@ export class PaymentsService {
         data: {
           companyId: order.companyId,
           outletId: order.outletId,
-          actionType: 'STRIPE_CHECKOUT_CREATED',
+          actionType: 'HITPAY_CHECKOUT_CREATED',
           entityType: 'payment',
           entityId: payment.id,
           afterJson: {
-            checkoutSessionId: session.id,
+            paymentRequestId: paymentRequest.id,
             method: dto.paymentMethod,
             amountCents: order.grandTotalCents,
           },
-          reason: 'Customer started Stripe Checkout.',
+          reason: 'Customer started HitPay hosted checkout.',
           requestId,
           ipAddress,
         },
@@ -258,61 +249,92 @@ export class PaymentsService {
       method: updated.method,
       status: updated.status,
     });
+
     return this.checkoutResponse(updated);
   }
 
-  async handleStripeWebhook(rawBody: Buffer, signature: string) {
-    let event: StripeEvent;
+  async handleHitPayWebhook(
+    rawBody: Buffer,
+    signature: string,
+    eventType: string | undefined,
+    eventObject: string | undefined,
+  ) {
+    let paymentRequest: HitPayPaymentRequest;
     try {
-      event = this.stripe.constructWebhookEvent(rawBody, signature);
+      this.hitpay.verifyWebhookSignature(rawBody, signature);
+      paymentRequest = JSON.parse(
+        rawBody.toString('utf8'),
+      ) as HitPayPaymentRequest;
     } catch (error) {
       throw new BadRequestException(
         error instanceof Error
-          ? `Stripe webhook signature verification failed: ${error.message}`
-          : 'Stripe webhook signature verification failed.',
+          ? `HitPay webhook verification failed: ${error.message}`
+          : 'HitPay webhook verification failed.',
       );
     }
 
-    const isCheckoutEvent = event.type.startsWith('checkout.session.');
-    if (!isCheckoutEvent) {
-      return this.recordIgnoredEvent(event);
-    }
-    const session = event.data.object as StripeCheckoutSession;
-    const action = checkoutEventAction(event.type, session);
-    if (action === 'IGNORED') {
-      return this.recordIgnoredEvent(event);
+    if (eventObject !== 'payment_request') {
+      return this.recordIgnoredEvent(
+        this.hitPayProviderEventId(eventType ?? 'unknown', paymentRequest.id),
+        eventType ?? 'unknown',
+        paymentRequest,
+      );
     }
 
+    const normalizedStatus = this.normalizeHitPayStatus(
+      eventType ?? paymentRequest.status,
+    );
+    if (normalizedStatus === 'PROCESSING') {
+      return this.recordIgnoredEvent(
+        this.hitPayProviderEventId(eventType ?? 'pending', paymentRequest.id),
+        eventType ?? paymentRequest.status,
+        paymentRequest,
+      );
+    }
+
+    const providerEventId = this.hitPayProviderEventId(
+      eventType ?? paymentRequest.status,
+      paymentRequest.id,
+    );
     const outcome = await this.prisma.$transaction(async (tx) => {
-      const recorded = await this.createWebhookEvent(tx, event);
+      const recorded = await this.createWebhookEvent(
+        tx,
+        providerEventId,
+        eventType ?? paymentRequest.status,
+        paymentRequest,
+      );
       if (!recorded) {
-        return { duplicate: true, released: false, outletId: null };
+        return {
+          duplicate: true,
+          released: false,
+          outletId: null,
+          orderId: null,
+        };
       }
-      const payment = await tx.payment.findUnique({
-        where: { stripeCheckoutSessionId: session.id },
-        include: {
-          order: {
-            include: {
-              outlet: true,
-              table: true,
-              items: { include: { modifiers: true } },
-            },
-          },
-        },
-      });
+
+      const payment = await this.findPaymentForProviderUpdate(
+        tx,
+        paymentRequest,
+      );
       if (!payment) {
         await tx.webhookEvent.update({
-          where: { providerEventId: event.id },
+          where: { providerEventId },
           data: {
             status: WebhookEventStatus.IGNORED,
             processedAt: new Date(),
-            errorMessage: 'No payment matches the Checkout Session.',
+            errorMessage: 'No payment matches the HitPay payment request.',
           },
         });
-        return { duplicate: false, released: false, outletId: null };
+        return {
+          duplicate: false,
+          released: false,
+          outletId: null,
+          orderId: null,
+        };
       }
+
       await tx.webhookEvent.update({
-        where: { providerEventId: event.id },
+        where: { providerEventId },
         data: {
           companyId: payment.companyId,
           outletId: payment.outletId,
@@ -320,10 +342,13 @@ export class PaymentsService {
         },
       });
 
-      const validationError = this.validateSession(session, payment);
+      const validationError = this.validateHitPayPaymentRequest(
+        paymentRequest,
+        payment,
+      );
       if (validationError) {
         await tx.webhookEvent.update({
-          where: { providerEventId: event.id },
+          where: { providerEventId },
           data: {
             status: WebhookEventStatus.FAILED,
             processedAt: new Date(),
@@ -334,10 +359,14 @@ export class PaymentsService {
           data: {
             companyId: payment.companyId,
             outletId: payment.outletId,
-            actionType: 'STRIPE_WEBHOOK_REJECTED',
+            actionType: 'HITPAY_WEBHOOK_REJECTED',
             entityType: 'payment',
             entityId: payment.id,
-            afterJson: { eventId: event.id, eventType: event.type },
+            afterJson: {
+              providerEventId,
+              paymentRequestId: paymentRequest.id,
+              eventType,
+            },
             reason: validationError,
           },
         });
@@ -345,153 +374,127 @@ export class PaymentsService {
           duplicate: false,
           released: false,
           outletId: payment.outletId,
+          orderId: payment.orderId,
         };
       }
 
-      if (action === 'PROCESSING') {
-        await tx.payment.updateMany({
-          where: { id: payment.id, status: { not: PaymentStatus.SUCCEEDED } },
-          data: {
-            status: PaymentStatus.PROCESSING,
-            stripePaymentIntentId: stripeObjectId(session.payment_intent),
-          },
-        });
-        await tx.order.updateMany({
-          where: {
-            id: payment.orderId,
-            paymentStatus: { not: OrderPaymentStatus.PAID },
-          },
-          data: {
-            status: OrderStatus.PAYMENT_PROCESSING,
-            paymentStatus: OrderPaymentStatus.PROCESSING,
-          },
-        });
-        await this.markEventProcessed(tx, event.id);
-        return {
-          duplicate: false,
-          released: false,
-          outletId: payment.outletId,
-        };
-      }
-
-      if (action === 'FAILED' || action === 'CANCELLED') {
-        if (payment.status !== PaymentStatus.SUCCEEDED) {
-          const failedStatus =
-            action === 'FAILED'
-              ? PaymentStatus.FAILED
-              : PaymentStatus.CANCELLED;
-          await tx.payment.update({
-            where: { id: payment.id },
-            data: {
-              status: failedStatus,
-              failedAt: new Date(),
-              failureReason: event.type,
-            },
-          });
-          await tx.order.updateMany({
-            where: {
-              id: payment.orderId,
-              paymentStatus: { not: OrderPaymentStatus.PAID },
-            },
-            data: {
-              status: OrderStatus.PENDING_PAYMENT,
-              paymentStatus:
-                action === 'FAILED'
-                  ? OrderPaymentStatus.FAILED
-                  : OrderPaymentStatus.CANCELLED,
-            },
-          });
-        }
-        await this.markEventProcessed(tx, event.id);
-        return {
-          duplicate: false,
-          released: false,
-          outletId: payment.outletId,
-        };
-      }
-
-      const claimed = await tx.payment.updateMany({
-        where: {
-          id: payment.id,
-          status: { not: PaymentStatus.SUCCEEDED },
-        },
-        data: {
-          status: PaymentStatus.SUCCEEDED,
-          stripePaymentIntentId: stripeObjectId(session.payment_intent),
-          paidAt: new Date(),
-        },
+      const result = await this.applyHitPayStatus(tx, payment, paymentRequest, {
+        source: 'webhook',
+        statusHint: eventType,
       });
-      if (claimed.count === 0) {
-        await this.markEventProcessed(tx, event.id);
-        return {
-          duplicate: false,
-          released: false,
-          outletId: payment.outletId,
-        };
-      }
-
-      const now = new Date();
-      await tx.order.update({
-        where: { id: payment.orderId },
-        data: {
-          status: OrderStatus.PAID,
-          paymentStatus: OrderPaymentStatus.PAID,
-          paidAt: now,
-        },
-      });
-      await this.orders.releaseOrderToKitchen(tx, payment.order);
-      await tx.clientOnboarding.updateMany({
-        where: { companyId: payment.companyId },
-        data: {
-          stripeConnectedAt: now,
-          testOrderCompletedAt: now,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          companyId: payment.companyId,
-          outletId: payment.outletId,
-          actionType: 'STRIPE_PAYMENT_SUCCEEDED',
-          entityType: 'payment',
-          entityId: payment.id,
-          beforeJson: { status: payment.status },
-          afterJson: {
-            status: PaymentStatus.SUCCEEDED,
-            eventId: event.id,
-            checkoutSessionId: session.id,
-            amountCents: payment.amountCents,
-          },
-          reason: 'Verified Stripe webhook confirmed payment.',
-        },
-      });
-      await this.markEventProcessed(tx, event.id);
-      return {
-        duplicate: false,
-        released: true,
-        outletId: payment.outletId,
-        orderId: payment.orderId,
-      };
+      await this.markEventProcessed(tx, providerEventId);
+      return result;
     });
 
-    if (outcome.released && outcome.outletId && outcome.orderId) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: outcome.orderId },
-        include: { kitchenTickets: true },
-      });
-      this.operations.publishToOutlet(outcome.outletId, 'payment.confirmed', {
-        orderId: outcome.orderId,
-        paymentStatus: OrderPaymentStatus.PAID,
-      });
-      this.operations.publishToOutlet(
-        outcome.outletId,
-        'kitchen.ticket.created',
-        {
-          orderId: outcome.orderId,
-          tickets: order?.kitchenTickets ?? [],
-        },
+    await this.publishReleaseEvents(
+      outcome.outletId,
+      outcome.orderId,
+      outcome.released,
+    );
+    return { received: true, ...outcome };
+  }
+
+  async reconcileHitPayReturn(
+    publicCode: string,
+    token: string,
+    orderId: string,
+    dto: ReconcileHitPayReturnDto,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    const qr = await this.loadValidQr(publicCode, token);
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        companyId: qr.companyId,
+        outletId: qr.outletId,
+        tableId: qr.tableId,
+      },
+      include: {
+        payments: { orderBy: { createdAt: 'desc' } },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found.');
+    }
+
+    const payment = order.payments.find(
+      (entry) =>
+        entry.provider === PaymentProvider.HITPAY &&
+        entry.method === PaymentMethod.STRIPE_CARD,
+    );
+    if (!payment?.stripeCheckoutSessionId) {
+      return {
+        reconciled: false,
+        reason: 'No active HitPay checkout was found for this order.',
+      };
+    }
+
+    if (dto.reference && dto.reference !== payment.stripeCheckoutSessionId) {
+      throw new ConflictException(
+        'The returned HitPay payment reference does not match this order.',
       );
     }
-    return { received: true, ...outcome };
+
+    const paymentRequest = await this.hitpay.getPaymentRequest(
+      dto.reference ?? payment.stripeCheckoutSessionId,
+    );
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const freshPayment = await this.loadPaymentForProcessing(tx, payment.id);
+      if (!freshPayment) {
+        throw new NotFoundException('Payment not found.');
+      }
+
+      const validationError = this.validateHitPayPaymentRequest(
+        paymentRequest,
+        freshPayment,
+      );
+      if (validationError) {
+        throw new ConflictException(validationError);
+      }
+
+      const result = await this.applyHitPayStatus(
+        tx,
+        freshPayment,
+        paymentRequest,
+        {
+          source: 'redirect',
+          statusHint: dto.status,
+          requestId,
+          ipAddress,
+        },
+      );
+
+      await tx.auditLog.create({
+        data: {
+          companyId: freshPayment.companyId,
+          outletId: freshPayment.outletId,
+          actionType: 'HITPAY_RETURN_RECONCILED',
+          entityType: 'payment',
+          entityId: freshPayment.id,
+          afterJson: {
+            paymentRequestId: paymentRequest.id,
+            status: paymentRequest.status,
+          },
+          reason: 'Customer returned from HitPay checkout.',
+          requestId,
+          ipAddress,
+        },
+      });
+
+      return result;
+    });
+
+    await this.publishReleaseEvents(
+      outcome.outletId,
+      outcome.orderId,
+      outcome.released,
+    );
+    return {
+      reconciled: true,
+      released: outcome.released,
+      providerStatus: paymentRequest.status,
+    };
   }
 
   private async loadValidQr(publicCode: string, token: string) {
@@ -540,36 +543,9 @@ export class PaymentsService {
     }
   }
 
-  private stripeMetadata(
-    order: {
-      companyId: string;
-      outletId: string;
-      id: string;
-      orderNumber: string;
-      grandTotalCents: number;
-      source: string;
-    },
-    paymentId: string,
-  ): Record<string, string> {
-    return {
-      company_id: order.companyId,
-      outlet_id: order.outletId,
-      order_id: order.id,
-      order_number: order.orderNumber,
-      amount_cents: String(order.grandTotalCents),
-      payment_attempt_id: paymentId,
-      source: order.source.toLowerCase(),
-    };
-  }
-
-  private withCheckoutResult(
-    baseUrl: string,
-    orderId: string,
-    includeSession: boolean,
-  ): string {
+  private withCheckoutResult(baseUrl: string, orderId: string): string {
     const separator = baseUrl.includes('?') ? '&' : '?';
-    const session = includeSession ? '&session_id={CHECKOUT_SESSION_ID}' : '';
-    return `${baseUrl}${separator}order_id=${encodeURIComponent(orderId)}${session}`;
+    return `${baseUrl}${separator}order_id=${encodeURIComponent(orderId)}`;
   }
 
   private checkoutResponse(payment: {
@@ -594,8 +570,8 @@ export class PaymentsService {
     };
   }
 
-  private validateSession(
-    session: StripeCheckoutSession,
+  private validateHitPayPaymentRequest(
+    paymentRequest: HitPayPaymentRequest,
     payment: {
       id: string;
       orderId: string;
@@ -603,41 +579,321 @@ export class PaymentsService {
       outletId: string;
       amountCents: number;
       currency: string;
+      stripeCheckoutSessionId: string | null;
     },
   ): string | null {
-    if (session.client_reference_id !== payment.orderId) {
-      return 'Stripe client reference does not match the order.';
+    if (
+      payment.stripeCheckoutSessionId &&
+      paymentRequest.id !== payment.stripeCheckoutSessionId
+    ) {
+      return 'HitPay payment request does not match the server checkout reference.';
     }
-    if (session.metadata?.payment_attempt_id !== payment.id) {
-      return 'Stripe payment-attempt metadata does not match.';
+    if (
+      paymentRequest.reference_number &&
+      paymentRequest.reference_number !== payment.id
+    ) {
+      return 'HitPay reference number does not match the payment attempt.';
     }
-    if (session.metadata?.company_id !== payment.companyId) {
-      return 'Stripe company metadata does not match.';
+    if (
+      this.parseAmountToCents(paymentRequest.amount) !== payment.amountCents
+    ) {
+      return 'HitPay amount does not match the server-calculated order total.';
     }
-    if (session.metadata?.outlet_id !== payment.outletId) {
-      return 'Stripe outlet metadata does not match.';
-    }
-    if (session.amount_total !== payment.amountCents) {
-      return 'Stripe amount does not match the server-calculated order total.';
-    }
-    if (session.currency?.toUpperCase() !== payment.currency.toUpperCase()) {
-      return 'Stripe currency does not match the order currency.';
+    if (
+      paymentRequest.currency?.toUpperCase() !== payment.currency.toUpperCase()
+    ) {
+      return 'HitPay currency does not match the order currency.';
     }
     return null;
   }
 
+  private async applyHitPayStatus(
+    tx: Prisma.TransactionClient,
+    payment: NonNullable<PaymentWithOrder>,
+    paymentRequest: HitPayPaymentRequest,
+    context: {
+      source: 'webhook' | 'redirect';
+      statusHint?: string;
+      requestId?: string;
+      ipAddress?: string;
+    },
+  ) {
+    const normalizedStatus = this.normalizeHitPayStatus(
+      context.statusHint ?? paymentRequest.status,
+    );
+    const providerPayment = this.primaryHitPayPayment(paymentRequest);
+
+    if (normalizedStatus === 'PROCESSING') {
+      await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: PaymentStatus.SUCCEEDED } },
+        data: {
+          status: PaymentStatus.PROCESSING,
+          stripeCheckoutSessionId: paymentRequest.id,
+        },
+      });
+      await tx.order.updateMany({
+        where: {
+          id: payment.orderId,
+          paymentStatus: { not: OrderPaymentStatus.PAID },
+        },
+        data: {
+          status: OrderStatus.PAYMENT_PROCESSING,
+          paymentStatus: OrderPaymentStatus.PROCESSING,
+        },
+      });
+      return {
+        duplicate: false,
+        released: false,
+        outletId: payment.outletId,
+        orderId: payment.orderId,
+      };
+    }
+
+    if (normalizedStatus === 'FAILED' || normalizedStatus === 'CANCELLED') {
+      if (payment.status !== PaymentStatus.SUCCEEDED) {
+        const failedStatus =
+          normalizedStatus === 'FAILED'
+            ? PaymentStatus.FAILED
+            : PaymentStatus.CANCELLED;
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: failedStatus,
+            failedAt: new Date(),
+            failureReason: this.hitPayFailureReason(
+              paymentRequest,
+              context.statusHint,
+            ),
+          },
+        });
+        await tx.order.updateMany({
+          where: {
+            id: payment.orderId,
+            paymentStatus: { not: OrderPaymentStatus.PAID },
+          },
+          data: {
+            status: OrderStatus.PENDING_PAYMENT,
+            paymentStatus:
+              normalizedStatus === 'FAILED'
+                ? OrderPaymentStatus.FAILED
+                : OrderPaymentStatus.CANCELLED,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            companyId: payment.companyId,
+            outletId: payment.outletId,
+            actionType: 'HITPAY_PAYMENT_FAILED',
+            entityType: 'payment',
+            entityId: payment.id,
+            afterJson: {
+              paymentRequestId: paymentRequest.id,
+              providerStatus: paymentRequest.status,
+            },
+            reason: this.hitPayFailureReason(
+              paymentRequest,
+              context.statusHint,
+            ),
+            requestId: context.requestId,
+            ipAddress: context.ipAddress,
+          },
+        });
+      }
+      return {
+        duplicate: false,
+        released: false,
+        outletId: payment.outletId,
+        orderId: payment.orderId,
+      };
+    }
+
+    const claimed = await tx.payment.updateMany({
+      where: {
+        id: payment.id,
+        status: { not: PaymentStatus.SUCCEEDED },
+      },
+      data: {
+        status: PaymentStatus.SUCCEEDED,
+        stripeCheckoutSessionId: paymentRequest.id,
+        stripePaymentIntentId: providerPayment?.id ?? null,
+        providerFeeCents: this.parseOptionalAmountToCents(
+          providerPayment?.fees,
+        ),
+        netAmountCents: this.computeNetAmountCents(
+          paymentRequest,
+          providerPayment,
+        ),
+        paidAt: new Date(),
+      },
+    });
+    if (claimed.count === 0) {
+      return {
+        duplicate: false,
+        released: false,
+        outletId: payment.outletId,
+        orderId: payment.orderId,
+      };
+    }
+
+    const now = new Date();
+    await tx.order.update({
+      where: { id: payment.orderId },
+      data: {
+        status: OrderStatus.PAID,
+        paymentStatus: OrderPaymentStatus.PAID,
+        paidAt: now,
+      },
+    });
+    await this.orders.releaseOrderToKitchen(tx, payment.order);
+    await tx.clientOnboarding.updateMany({
+      where: { companyId: payment.companyId },
+      data: {
+        stripeConnectedAt: now,
+        testOrderCompletedAt: now,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        companyId: payment.companyId,
+        outletId: payment.outletId,
+        actionType: 'HITPAY_PAYMENT_SUCCEEDED',
+        entityType: 'payment',
+        entityId: payment.id,
+        beforeJson: { status: payment.status },
+        afterJson: {
+          status: PaymentStatus.SUCCEEDED,
+          paymentRequestId: paymentRequest.id,
+          providerPaymentId: providerPayment?.id ?? null,
+          amountCents: payment.amountCents,
+        },
+        reason:
+          context.source === 'webhook'
+            ? 'Verified HitPay webhook confirmed payment.'
+            : 'Verified HitPay checkout return confirmed payment.',
+        requestId: context.requestId,
+        ipAddress: context.ipAddress,
+      },
+    });
+
+    return {
+      duplicate: false,
+      released: true,
+      outletId: payment.outletId,
+      orderId: payment.orderId,
+    };
+  }
+
+  private async findPaymentForProviderUpdate(
+    tx: Prisma.TransactionClient,
+    paymentRequest: HitPayPaymentRequest,
+  ) {
+    let payment = await tx.payment.findUnique({
+      where: { stripeCheckoutSessionId: paymentRequest.id },
+      include: this.paymentProcessingInclude(),
+    });
+    if (payment) {
+      return payment;
+    }
+
+    if (
+      paymentRequest.reference_number &&
+      this.isUuidLike(paymentRequest.reference_number)
+    ) {
+      payment = await tx.payment.findUnique({
+        where: { id: paymentRequest.reference_number },
+        include: this.paymentProcessingInclude(),
+      });
+    }
+
+    return payment;
+  }
+
+  private async loadPaymentForProcessing(
+    tx: Prisma.TransactionClient,
+    paymentId: string,
+  ) {
+    return tx.payment.findUnique({
+      where: { id: paymentId },
+      include: this.paymentProcessingInclude(),
+    });
+  }
+
+  private paymentProcessingInclude() {
+    return {
+      order: {
+        include: {
+          outlet: true,
+          table: true,
+          items: { include: { modifiers: true } },
+        },
+      },
+    } as const;
+  }
+
+  private normalizeHitPayStatus(status: string | undefined) {
+    const normalized = status?.trim().toLowerCase();
+    if (
+      !normalized ||
+      normalized === 'pending' ||
+      normalized === 'processing'
+    ) {
+      return 'PROCESSING' as const;
+    }
+    if (normalized === 'completed' || normalized === 'succeeded') {
+      return 'SUCCEEDED' as const;
+    }
+    if (normalized === 'failed') {
+      return 'FAILED' as const;
+    }
+    if (
+      normalized === 'canceled' ||
+      normalized === 'cancelled' ||
+      normalized === 'expired' ||
+      normalized === 'inactive'
+    ) {
+      return 'CANCELLED' as const;
+    }
+    return 'PROCESSING' as const;
+  }
+
+  private primaryHitPayPayment(
+    paymentRequest: HitPayPaymentRequest,
+  ): HitPayPayment | undefined {
+    return paymentRequest.payments?.[0];
+  }
+
+  private hitPayFailureReason(
+    paymentRequest: HitPayPaymentRequest,
+    statusHint?: string,
+  ): string {
+    const providerPayment = this.primaryHitPayPayment(paymentRequest);
+    return (
+      providerPayment?.status_reason ||
+      providerPayment?.status_reason_code ||
+      statusHint ||
+      paymentRequest.status ||
+      'hitpay_payment_failed'
+    );
+  }
+
+  private hitPayProviderEventId(eventType: string, paymentRequestId: string) {
+    return `payment_request:${eventType}:${paymentRequestId}`;
+  }
+
   private async createWebhookEvent(
     tx: Prisma.TransactionClient,
-    event: StripeEvent,
+    providerEventId: string,
+    eventType: string,
+    payload: HitPayPaymentRequest,
   ) {
     const result = await tx.webhookEvent.createMany({
       data: [
         {
-          provider: PaymentProvider.STRIPE,
-          providerEventId: event.id,
-          eventType: event.type,
+          provider: PaymentProvider.HITPAY,
+          providerEventId,
+          eventType,
           payloadJson: JSON.parse(
-            JSON.stringify(event),
+            JSON.stringify(payload),
           ) as Prisma.InputJsonValue,
         },
       ],
@@ -659,16 +915,20 @@ export class PaymentsService {
     });
   }
 
-  private async recordIgnoredEvent(event: StripeEvent) {
+  private async recordIgnoredEvent(
+    providerEventId: string,
+    eventType: string,
+    payload: HitPayPaymentRequest,
+  ) {
     const result = await this.prisma.webhookEvent.createMany({
       data: [
         {
-          provider: PaymentProvider.STRIPE,
-          providerEventId: event.id,
-          eventType: event.type,
+          provider: PaymentProvider.HITPAY,
+          providerEventId,
+          eventType,
           status: WebhookEventStatus.IGNORED,
           payloadJson: JSON.parse(
-            JSON.stringify(event),
+            JSON.stringify(payload),
           ) as Prisma.InputJsonValue,
           processedAt: new Date(),
         },
@@ -680,5 +940,72 @@ export class PaymentsService {
       ignored: true,
       duplicate: result.count === 0,
     };
+  }
+
+  private async publishReleaseEvents(
+    outletId: string | null,
+    orderId: string | null,
+    released: boolean,
+  ) {
+    if (!released || !outletId || !orderId) {
+      return;
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { kitchenTickets: true },
+    });
+    this.operations.publishToOutlet(outletId, 'payment.confirmed', {
+      orderId,
+      paymentStatus: OrderPaymentStatus.PAID,
+    });
+    this.operations.publishToOutlet(outletId, 'kitchen.ticket.created', {
+      orderId,
+      tickets: order?.kitchenTickets ?? [],
+    });
+  }
+
+  private centsToMajorUnit(cents: number): number {
+    return Number((cents / 100).toFixed(2));
+  }
+
+  private parseAmountToCents(amount: string | number | undefined): number {
+    if (typeof amount === 'number') {
+      return Math.round(amount * 100);
+    }
+    if (!amount) {
+      return 0;
+    }
+    return Math.round(Number(amount) * 100);
+  }
+
+  private parseOptionalAmountToCents(
+    amount: string | number | undefined,
+  ): number | null {
+    if (amount === undefined || amount === null || amount === '') {
+      return null;
+    }
+    return this.parseAmountToCents(amount);
+  }
+
+  private computeNetAmountCents(
+    paymentRequest: HitPayPaymentRequest,
+    payment: HitPayPayment | undefined,
+  ): number | null {
+    const amountCents = this.parseOptionalAmountToCents(paymentRequest.amount);
+    const feeCents = this.parseOptionalAmountToCents(payment?.fees);
+    if (amountCents === null) {
+      return null;
+    }
+    if (feeCents === null) {
+      return amountCents;
+    }
+    return amountCents - feeCents;
+  }
+
+  private isUuidLike(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
   }
 }

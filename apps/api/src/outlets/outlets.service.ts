@@ -73,7 +73,7 @@ export class OutletsService {
           companyId: user.companyId,
           outletId: outlet.id,
           method,
-          enabled: method !== PaymentMethod.MANUAL_PAYNOW,
+          enabled: method === PaymentMethod.STRIPE_CARD,
           updatedByUserId: user.userId,
         })),
       });

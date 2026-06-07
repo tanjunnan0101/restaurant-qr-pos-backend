@@ -122,6 +122,7 @@ enum OrderPaymentStatus {
 
 enum PaymentProvider {
   STRIPE
+  HITPAY
   MANUAL
 }
 

@@ -29,14 +29,13 @@ production API image, and verifies `/api/v1/health`.
 - PostgreSQL and Prisma tenant/auth schema.
 - JWT authentication and outlet-scoped RBAC.
 - Company and outlet administration.
-- Audited payment controls for online payments, Stripe, Stripe card, Stripe PayNow, and manual PayNow.
+- Audited payment controls for online checkout availability, with one customer-facing hosted checkout method.
 - One-call client onboarding with owner activation, default roles, payment defaults, and a setup checklist.
 - Versioned menu setup with categories, items, variants, modifiers, publishing, and sold-out controls.
 - Bulk dining-zone and table setup with secure, rotatable QR codes.
 - Public QR resolution with the current published menu and live payment availability.
 - Server-priced, idempotent QR order creation with immutable item and modifier snapshots.
-- Hosted Stripe Checkout for cards and PayNow with signed, idempotent webhook fulfilment.
-- Manual PayNow verification and audited order state transitions.
+- Hosted HitPay checkout for card and wallet payments with signed, idempotent webhook fulfilment.
 - Station-routed kitchen tickets and persisted print jobs after payment confirmation.
 - ESC/POS Wi-Fi/LAN printer agent with leasing, retries, backup routing, and test prints.
 - Temporary payment shutdowns with automatic effective re-enable after the configured timestamp.
@@ -53,7 +52,7 @@ production API image, and verifies `/api/v1/health`.
 6. Run `npm run prisma:seed`.
 7. Run `npm run dev` for the API.
 8. In a second terminal, run `npm run dev:customer`.
-9. Optionally run `npm run smoke:stripe` to verify the local Stripe payment flow.
+9. Build and redeploy both apps after any payment-provider configuration change.
 
 Swagger is available at `http://localhost:3001/docs`.
 The customer web app is available at `http://localhost:3000`. Its real entry
@@ -71,14 +70,13 @@ order endpoints. It provides:
   modifiers, remarks, and quantity controls.
 - A session-persisted cart with server-compatible service charge and GST
   previews.
-- Stripe card, Stripe PayNow, and manual PayNow choices based on the outlet's
-  effective payment settings.
-- Processing, paid, cancelled, failed, delayed PayNow, and manual-verification
-  states.
+- One hosted card or wallet checkout option based on the outlet's effective
+  payment settings.
+- Processing, paid, cancelled, failed, and verification states.
 
 Set `NEXT_PUBLIC_API_BASE_URL` at image build time for deployments. Payment
-availability is always loaded from the API, so manually disabling Stripe or
-either PayNow method takes effect without rebuilding the frontend.
+availability is always loaded from the API, so disabling online checkout takes
+effect without rebuilding the frontend.
 
 ## Client onboarding
 
@@ -106,10 +104,7 @@ For the operator-friendly PowerShell command, see [Client Onboarding Runbook](do
 Scopes:
 
 - `ONLINE`
-- `STRIPE`
 - `STRIPE_CARD`
-- `STRIPE_PAYNOW`
-- `MANUAL_PAYNOW`
 
 ## Menu, tables, and QR setup
 
@@ -139,8 +134,8 @@ Customer applications resolve a scan through:
 `GET /api/v1/public/qr/:publicCode/:token`
 
 The response includes the outlet, table, current published QR menu, and
-effective payment availability. Disabling Stripe or either PayNow method is
-therefore reflected immediately without reprinting the QR code.
+effective payment availability. Disabling online checkout is therefore
+reflected immediately without reprinting the QR code.
 
 ## Orders and kitchen release
 
@@ -152,39 +147,28 @@ The request requires an `Idempotency-Key` header. The client submits menu,
 variant, and modifier IDs only. Prices, service charge, GST, and totals are
 calculated by the API from the published menu.
 
-Manual PayNow orders remain locked in `PENDING_PAYMENT` until authorised staff
-verify the exact amount:
+## HitPay checkout
 
-`POST /api/v1/admin/outlets/:outletId/orders/:orderId/manual-paynow/verify`
-
-Successful verification creates station-specific kitchen tickets and print
-jobs in the same database transaction.
-
-## Stripe card and PayNow
-
-Customers start hosted Stripe Checkout through:
+Customers start hosted HitPay checkout through:
 
 `POST /api/v1/public/qr/:publicCode/:token/orders/:orderId/payment`
 
-The endpoint requires an `Idempotency-Key` and accepts only `STRIPE_CARD` or
-`STRIPE_PAYNOW`. The backend sends Stripe the server-calculated total and
-stores the resulting Checkout Session.
+The endpoint requires an `Idempotency-Key` and accepts only `STRIPE_CARD`,
+which is the current legacy enum key for the customer-facing hosted checkout
+method. The backend sends HitPay the server-calculated total and stores the
+resulting payment-request reference.
 
-Stripe sends payment results to:
+HitPay sends webhook results to:
 
-`POST /api/v1/webhooks/stripe`
+`POST /api/v1/webhooks/hitpay`
 
-The endpoint verifies `Stripe-Signature` against the raw request body.
-Success or cancel redirects never mark an order paid. A verified event must
-match the local order, payment attempt, amount, and currency before the order
-is released to the kitchen. Duplicate and repeated success events cannot
-release it twice.
+The endpoint verifies `Hitpay-Signature` against the raw request body.
+Browser redirects still never count as payment truth on their own, but the
+customer return page now asks the API to reconcile the latest HitPay payment
+request so cancellations and delayed webhook delivery do not leave an order
+stuck in `PAYMENT_PROCESSING`.
 
-PayNow may complete asynchronously. An unpaid `checkout.session.completed`
-keeps the order in `PROCESSING`; only
-`checkout.session.async_payment_succeeded` marks it paid.
-
-See [Stripe Checkout and Webhooks Runbook](docs/runbooks/stripe-checkout-webhooks.md).
+See [HitPay Checkout and Webhooks Runbook](docs/runbooks/stripe-checkout-webhooks.md).
 
 ## Wi-Fi/LAN printing
 

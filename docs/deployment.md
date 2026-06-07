@@ -9,7 +9,7 @@ clients.
 flowchart LR
   Customer["Customer QR web app"] --> API["HTTPS NestJS API"]
   Staff["POS / KDS / owner web apps"] --> API
-  Stripe["Stripe webhooks"] --> API
+  HitPay["HitPay webhooks"] --> API
   API --> DB["Managed PostgreSQL"]
   API --> Redis["Managed Redis"]
   Agent["Restaurant printer agent"] --> API
@@ -77,8 +77,9 @@ PLATFORM_ADMIN_API_KEY=<at least 32 random characters>
 OWNER_APP_BASE_URL=https://app.example.com
 CUSTOMER_APP_BASE_URL=https://order.example.com
 ONBOARDING_TOKEN_TTL_HOURS=72
-STRIPE_SECRET_KEY=sk_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+HITPAY_API_KEY=<hitpay business api key>
+HITPAY_WEBHOOK_SALT=<hitpay webhook salt>
+HITPAY_API_URL=https://api.sandbox.hit-pay.com
 ```
 
 Customer web image build argument:
@@ -90,9 +91,6 @@ NEXT_PUBLIC_API_BASE_URL=https://api.example.com/api/v1
 This is embedded into the browser bundle at build time. Build separate staging
 and production customer images when those environments use different API
 domains.
-
-Do not set `STRIPE_API_HOST`, `STRIPE_API_PORT`, or `STRIPE_API_PROTOCOL` in
-production. Those variables are only for the local Stripe stub.
 
 Do not run the demo seed in production.
 
@@ -152,28 +150,21 @@ Before every production migration:
 1. Take or verify a recent database backup.
 2. Review the migration SQL.
 3. Apply it to staging.
-4. Run API and payment smoke tests.
+4. Run API and payment tests.
 5. Apply it once to production.
 6. Deploy the matching application image.
 
-## Stripe
+## HitPay
 
 Configure:
 
 ```text
-https://api.example.com/api/v1/webhooks/stripe
+https://api.example.com/api/v1/webhooks/hitpay
 ```
 
-Subscribe to:
-
-- `checkout.session.completed`
-- `checkout.session.async_payment_succeeded`
-- `checkout.session.async_payment_failed`
-- `checkout.session.expired`
-
-Use separate Stripe test and live webhook endpoints and secrets. Confirm a real
-test card payment and a real PayNow test before production approval. Browser
-success redirects must never be used as proof of payment.
+Use separate HitPay sandbox and live webhook configurations. Confirm a real
+sandbox card or wallet payment before production approval. Browser success
+redirects still must never be used as proof of payment on their own.
 
 ## Printer Agent
 
@@ -205,7 +196,7 @@ primary printer, retry, backup printer, and restart behavior.
 5. Wait for `/api/v1/health`.
 6. Deploy the customer web image with the matching API base URL.
 7. Verify login, QR resolution, menu loading, and payment availability.
-8. Run Stripe and printer smoke tests in staging.
+8. Run HitPay sandbox and printer smoke tests in staging.
 9. Promote the same images to production.
 
 ## CI Deployment Proof
@@ -231,4 +222,4 @@ Complete these before accepting live restaurant payments:
 - Define backup retention and prove a restore.
 - Configure secret rotation and least-privilege database credentials.
 - Add a Redis Socket.IO adapter before running multiple API replicas.
-- Complete real Stripe and physical printer acceptance tests.
+- Complete real HitPay sandbox and physical printer acceptance tests.

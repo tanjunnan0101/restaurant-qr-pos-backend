@@ -5,7 +5,6 @@ import {
   CreditCard,
   Minus,
   Plus,
-  QrCode,
   ShieldCheck,
   Trash2,
   X,
@@ -21,15 +20,7 @@ const paymentCopy: Record<
 > = {
   STRIPE_CARD: {
     title: 'Card or wallet',
-    description: 'Secure checkout with Stripe',
-  },
-  STRIPE_PAYNOW: {
-    title: 'PayNow',
-    description: 'Scan the Stripe PayNow QR',
-  },
-  MANUAL_PAYNOW: {
-    title: 'Restaurant PayNow',
-    description: 'Staff verifies the transfer',
+    description: 'Secure checkout with HitPay',
   },
 };
 
@@ -63,9 +54,9 @@ export function CartDrawer({
 }) {
   const methods = useMemo(
     () =>
-      (
-        ['STRIPE_CARD', 'STRIPE_PAYNOW', 'MANUAL_PAYNOW'] as PaymentMethod[]
-      ).filter((paymentMethod) => qr.paymentAvailability[paymentMethod]),
+      (['STRIPE_CARD'] as PaymentMethod[]).filter(
+        (paymentMethod) => qr.paymentAvailability[paymentMethod],
+      ),
     [qr.paymentAvailability],
   );
   const [method, setMethod] = useState<PaymentMethod>(
@@ -221,11 +212,7 @@ export function CartDrawer({
                     onChange={() => setMethod(paymentMethod)}
                   />
                   <span className="payment-icon" aria-hidden="true">
-                    {paymentMethod === 'STRIPE_CARD' ? (
-                      <CreditCard size={21} />
-                    ) : (
-                      <QrCode size={21} />
-                    )}
+                    <CreditCard size={21} />
                   </span>
                   <span>
                     <strong>{paymentCopy[paymentMethod].title}</strong>
@@ -245,7 +232,7 @@ export function CartDrawer({
 
           <div className="secure-note">
             <ShieldCheck size={18} aria-hidden="true" />
-            Stripe handles card and PayNow details securely.
+            HitPay handles card and wallet details securely.
           </div>
         </div>
 

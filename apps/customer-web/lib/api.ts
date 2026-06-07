@@ -76,7 +76,7 @@ export function createCheckout(input: {
   token: string;
   orderId: string;
   idempotencyKey: string;
-  paymentMethod: Exclude<PaymentMethod, 'MANUAL_PAYNOW'>;
+  paymentMethod: PaymentMethod;
   successUrl: string;
   cancelUrl: string;
 }) {
@@ -89,6 +89,29 @@ export function createCheckout(input: {
         paymentMethod: input.paymentMethod,
         successUrl: input.successUrl,
         cancelUrl: input.cancelUrl,
+      }),
+    },
+  );
+}
+
+export function reconcileHitPayReturn(input: {
+  publicCode: string;
+  token: string;
+  orderId: string;
+  reference?: string | null;
+  status?: string | null;
+}) {
+  return request<{
+    reconciled: boolean;
+    released?: boolean;
+    providerStatus?: string;
+  }>(
+    `/public/qr/${encodeURIComponent(input.publicCode)}/${encodeURIComponent(input.token)}/orders/${encodeURIComponent(input.orderId)}/payment/return`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        ...(input.reference ? { reference: input.reference } : {}),
+        ...(input.status ? { status: input.status } : {}),
       }),
     },
   );

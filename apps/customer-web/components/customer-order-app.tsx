@@ -169,14 +169,6 @@ export function CustomerOrderApp({
       const order = pendingOrder.current;
       const routeBase = `${window.location.origin}/q/${encodeURIComponent(publicCode)}/${encodeURIComponent(token)}/payment`;
 
-      if (method === 'MANUAL_PAYNOW') {
-        setCart([]);
-        window.location.assign(
-          `${routeBase}/success?order_id=${encodeURIComponent(order.orderId)}&manual=1`,
-        );
-        return;
-      }
-
       paymentKey.current ??= crypto.randomUUID();
       const payment = await createCheckout({
         publicCode,

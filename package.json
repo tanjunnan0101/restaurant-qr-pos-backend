@@ -21,7 +21,6 @@
     "prisma:migrate": "npm run prisma:migrate --workspace @restaurant-pos/db",
     "prisma:deploy": "npm run prisma:deploy --workspace @restaurant-pos/db",
     "prisma:seed": "npm run prisma:seed --workspace @restaurant-pos/db",
-    "smoke:stripe": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/stripe-e2e-smoke.ps1",
     "check": "npm run format:check && npm run prisma:validate && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "engines": {

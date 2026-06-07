@@ -5,6 +5,58 @@ Status date: 2026-06-07
 Repository:
 `https://github.com/tanjunnan0101/restaurant-qr-pos-backend`
 
+## Latest Update: HitPay Migration
+
+Status date: 2026-06-07
+
+The repository is no longer Stripe-based for customer checkout. The active
+continuation baseline now uses HitPay hosted checkout and disables the
+customer-facing PayNow paths.
+
+What changed in the working tree:
+
+- Replaced Stripe checkout creation with HitPay payment-request creation.
+- Replaced the public webhook endpoint with
+  `POST /api/v1/webhooks/hitpay`.
+- Added signed HitPay webhook verification using `Hitpay-Signature` and the
+  configured webhook salt.
+- Added public return reconciliation so the customer success page can ask the
+  API to fetch the latest HitPay payment-request status after redirect.
+- Removed PayNow from the customer checkout UI and limited public order /
+  checkout creation to the single hosted checkout method.
+- Default outlet, onboarding, and seed payment settings now enable only the
+  hosted card or wallet checkout path.
+- Added Prisma migration
+  `packages/db/prisma/migrations/20260607153000_add_hitpay_provider`
+  so new online payments are stored under `PaymentProvider.HITPAY`.
+
+Important note:
+
+- The public payment method enum still uses the legacy key `STRIPE_CARD` for
+  the current hosted checkout option. This is intentional for the safer
+  continuation-ready migration and should be normalized in a later cleanup
+  pass after staging is stable.
+
+What was validated after the migration:
+
+- `npm run prisma:generate`
+- `npm run typecheck`
+- `npm run test`
+- `npm run build`
+
+What must be done before the next staging payment test:
+
+1. Update Render API environment variables from Stripe to HitPay:
+   `HITPAY_API_KEY`, `HITPAY_WEBHOOK_SALT`, and `HITPAY_API_URL`.
+2. Remove old Stripe secrets from the Render API service.
+3. Run the new Prisma migration in staging.
+4. Redeploy the API and customer web services.
+5. Create a HitPay sandbox webhook endpoint pointing to
+   `https://<api-host>/api/v1/webhooks/hitpay`.
+6. Use the customer web to run one real HitPay sandbox card or wallet payment.
+7. Confirm the redirect reconciliation and webhook both leave the order paid
+   exactly once and release the kitchen once.
+
 ## Latest Continuation Update
 
 This repository was audited, repaired, and locally validated on 2026-06-07.
