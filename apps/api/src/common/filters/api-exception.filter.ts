@@ -19,6 +19,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
         : HttpStatus.INTERNAL_SERVER_ERROR;
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
+    const errorMessage =
+      exception instanceof Error ? exception.message : 'Internal server error';
+    const errorStack = exception instanceof Error ? exception.stack : undefined;
+    const requestId = request.id ?? 'unknown';
 
     const message =
       typeof exceptionResponse === 'string'
@@ -27,7 +31,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
             exceptionResponse !== null &&
             'message' in exceptionResponse
           ? exceptionResponse.message
-          : 'Internal server error';
+          : errorMessage;
+
+    if (!(exception instanceof HttpException)) {
+      console.error('[ApiExceptionFilter] Unhandled exception', {
+        requestId,
+        path: request.originalUrl,
+        method: request.method,
+        message: errorMessage,
+        stack: errorStack,
+      });
+    }
 
     response.status(status).json({
       error: {
@@ -36,7 +50,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
             ? exception.name.replace(/Exception$/, '').toUpperCase()
             : 'INTERNAL_SERVER_ERROR',
         message,
-        request_id: request.id ?? 'unknown',
+        request_id: requestId,
       },
     });
   }
