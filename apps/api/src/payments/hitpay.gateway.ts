@@ -55,39 +55,57 @@ export class HitPayGateway {
     input: CreateHitPayPaymentRequestInput,
   ): Promise<HitPayPaymentRequest> {
     this.assertApiKey();
-    const response = await fetch(`${this.apiUrl}/v1/payment-requests`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-BUSINESS-API-KEY': this.apiKey,
-      },
-      body: JSON.stringify({
-        amount: input.amount,
-        currency: input.currency.toUpperCase(),
-        payment_methods: input.paymentMethods,
-        purpose: input.purpose,
-        reference_number: input.referenceNumber,
-        redirect_url: input.redirectUrl,
-        send_email: false,
-        send_sms: false,
-        metadata: input.metadata,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.apiUrl}/v1/payment-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-BUSINESS-API-KEY': this.apiKey,
+        },
+        body: JSON.stringify({
+          amount: input.amount,
+          currency: input.currency.toUpperCase(),
+          payment_methods: input.paymentMethods,
+          purpose: input.purpose,
+          reference_number: input.referenceNumber,
+          redirect_url: input.redirectUrl,
+          send_email: false,
+          send_sms: false,
+          metadata: input.metadata,
+        }),
+      });
+    } catch (error) {
+      throw new BadGatewayException(
+        `HitPay request failed before a response was received: ${
+          error instanceof Error ? error.message : 'Unknown fetch error'
+        }.`,
+      );
+    }
 
     return this.parseResponse(response, 'create a HitPay payment request');
   }
 
   async getPaymentRequest(requestId: string): Promise<HitPayPaymentRequest> {
     this.assertApiKey();
-    const response = await fetch(
-      `${this.apiUrl}/v1/payment-requests/${encodeURIComponent(requestId)}`,
-      {
-        method: 'GET',
-        headers: {
-          'X-BUSINESS-API-KEY': this.apiKey,
+    let response: Response;
+    try {
+      response = await fetch(
+        `${this.apiUrl}/v1/payment-requests/${encodeURIComponent(requestId)}`,
+        {
+          method: 'GET',
+          headers: {
+            'X-BUSINESS-API-KEY': this.apiKey,
+          },
         },
-      },
-    );
+      );
+    } catch (error) {
+      throw new BadGatewayException(
+        `HitPay status lookup failed before a response was received: ${
+          error instanceof Error ? error.message : 'Unknown fetch error'
+        }.`,
+      );
+    }
 
     return this.parseResponse(response, 'load a HitPay payment request');
   }
