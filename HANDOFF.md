@@ -159,11 +159,13 @@ npm run build
 
 1. Use `docs/runbooks/staging-rollout.md` and
    `docs/runbooks/production-readiness.md` as the operational checklist.
-2. Validate one real Windows printer-agent machine against the target thermal
-   printer, including the new customer-receipt output.
-3. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
+2. Do not block continuation on printer validation. Go straight into
+   `owner-web` continuation first.
+3. Validate one real Windows printer-agent machine against the target thermal
+   printer later, including the new customer-receipt output.
+4. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
    column names after staging is stable.
-4. Start the next frontend phase:
+5. Start the next frontend phase:
    - `apps/staff-web`
    - `apps/owner-web`
 
