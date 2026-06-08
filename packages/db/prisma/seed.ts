@@ -1,6 +1,11 @@
 import 'dotenv/config';
 import { hash } from 'bcryptjs';
-import { DatabaseClient, PaymentMethod, permissionCatalog } from '../src';
+import {
+  DatabaseClient,
+  defaultRoleTemplates,
+  PaymentMethod,
+  permissionCatalog,
+} from '../src';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -76,7 +81,7 @@ async function main(): Promise<void> {
     },
   });
 
-  const role = await prisma.role.upsert({
+  const ownerRole = await prisma.role.upsert({
     where: {
       companyId_systemKey: {
         companyId: company.id,
@@ -96,20 +101,62 @@ async function main(): Promise<void> {
     where: { key: { in: permissionCatalog.map(({ key }) => key) } },
   });
 
+  const permissionIdByKey = new Map(
+    permissionRows.map((permission) => [permission.key, permission.id]),
+  );
+
   await prisma.rolePermission.createMany({
     data: permissionRows.map((permission) => ({
-      roleId: role.id,
+      roleId: ownerRole.id,
       permissionId: permission.id,
     })),
     skipDuplicates: true,
   });
+
+  for (const template of defaultRoleTemplates) {
+    const role =
+      template.systemKey === 'OWNER'
+        ? ownerRole
+        : await prisma.role.upsert({
+            where: {
+              companyId_systemKey: {
+                companyId: company.id,
+                systemKey: template.systemKey,
+              },
+            },
+            update: {
+              name: template.name,
+              description: template.description,
+            },
+            create: {
+              companyId: company.id,
+              name: template.name,
+              systemKey: template.systemKey,
+              description: template.description,
+            },
+          });
+
+    await prisma.rolePermission.createMany({
+      data: template.permissions.map((permissionKey) => {
+        const permissionId = permissionIdByKey.get(permissionKey);
+        if (!permissionId) {
+          throw new Error(`Permission ${permissionKey} is missing from seed.`);
+        }
+        return {
+          roleId: role.id,
+          permissionId,
+        };
+      }),
+      skipDuplicates: true,
+    });
+  }
 
   await prisma.userOutletAccess.upsert({
     where: {
       userId_outletId_roleId: {
         userId: owner.id,
         outletId: outlet.id,
-        roleId: role.id,
+        roleId: ownerRole.id,
       },
     },
     update: {},
@@ -117,7 +164,7 @@ async function main(): Promise<void> {
       companyId: company.id,
       userId: owner.id,
       outletId: outlet.id,
-      roleId: role.id,
+      roleId: ownerRole.id,
     },
   });
 
