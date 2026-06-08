@@ -71,6 +71,8 @@ export type OwnerOrderStatus =
 export interface OwnerOrderListEntry {
   id: string;
   orderNumber: string;
+  source: string;
+  serviceType: string;
   status: OwnerOrderStatus;
   paymentStatus: string;
   currency: string;
@@ -91,6 +93,94 @@ export interface OwnerOrderListEntry {
     id: string;
     status: string;
     stationId: string;
+  }>;
+}
+
+export interface OwnerOrderDetail {
+  id: string;
+  orderNumber: string;
+  source: string;
+  serviceType: string;
+  status: string;
+  paymentStatus: string;
+  currency: string;
+  subtotalCents: number;
+  discountTotalCents: number;
+  serviceChargeTotalCents: number;
+  gstTotalCents: number;
+  roundingAdjustmentCents: number;
+  grandTotalCents: number;
+  customerName: string | null;
+  customerPhone: string | null;
+  paidAt: string | null;
+  sentToKitchenAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  table: {
+    id: string;
+    tableCode: string;
+    displayName: string;
+    zone: {
+      name: string;
+    } | null;
+  } | null;
+  items: Array<{
+    id: string;
+    itemName: string;
+    sku: string | null;
+    variantName: string | null;
+    quantity: number;
+    unitPriceCents: number;
+    lineTotalCents: number;
+    remarks: string | null;
+    modifiers: Array<{
+      id: string;
+      modifierGroupName: string;
+      modifierOptionName: string;
+      priceDeltaCents: number;
+    }>;
+  }>;
+  payments: Array<{
+    id: string;
+    provider: string;
+    method: string;
+    status: string;
+    amountCents: number;
+    currency: string;
+    manualReference: string | null;
+    providerFeeCents: number | null;
+    netAmountCents: number | null;
+    verifiedAt: string | null;
+    paidAt: string | null;
+    failedAt: string | null;
+    failureReason: string | null;
+    createdAt: string;
+  }>;
+  kitchenTickets: Array<{
+    id: string;
+    status: string;
+    sentAt: string | null;
+    readyAt: string | null;
+    completedAt: string | null;
+    station: {
+      id: string;
+      key: string;
+      name: string;
+    };
+  }>;
+  printJobs: Array<{
+    id: string;
+    template: string;
+    status: string;
+    lastError: string | null;
+    printedAt: string | null;
+    printer: {
+      id: string;
+      name: string;
+      role: string;
+    } | null;
   }>;
 }
 

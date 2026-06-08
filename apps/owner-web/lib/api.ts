@@ -3,6 +3,7 @@ import type {
   LoginResponse,
   MenuDetail,
   MenuListEntry,
+  OwnerOrderDetail,
   OutletAuditEntry,
   OutletAuditResponse,
   OwnerOrderListEntry,
@@ -170,6 +171,19 @@ export function getOrders(
     status && status !== 'ALL' ? `?status=${encodeURIComponent(status)}` : '';
   return request<OwnerOrderListEntry[]>(
     `/admin/outlets/${encodeURIComponent(outletId)}/orders${query}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function getOrderDetail(
+  token: string,
+  outletId: string,
+  orderId: string,
+) {
+  return request<OwnerOrderDetail>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/orders/${encodeURIComponent(orderId)}`,
     {
       headers: authHeaders(token),
     },

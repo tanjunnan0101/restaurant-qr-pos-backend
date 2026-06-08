@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { getOrders } from '@/lib/api';
-import type { OwnerOrderListEntry, OwnerOrderStatus } from '@/lib/types';
+import { getOrderDetail, getOrders } from '@/lib/api';
+import type {
+  OwnerOrderDetail,
+  OwnerOrderListEntry,
+  OwnerOrderStatus,
+} from '@/lib/types';
 import {
   OutletHeader,
   OutletPageLayout,
@@ -57,7 +61,15 @@ export function OutletReportsPage() {
   const [windowFilter, setWindowFilter] = useState<TimeWindow>('7D');
   const [statusFilter, setStatusFilter] = useState<OwnerOrderStatus | 'ALL'>('ALL');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('ALL');
+  const [sourceFilter, setSourceFilter] = useState<string>('ALL');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>('ALL');
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [detailBusyOrderId, setDetailBusyOrderId] = useState<string | null>(null);
+  const [orderDetails, setOrderDetails] = useState<Record<string, OwnerOrderDetail>>(
+    {},
+  );
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -119,6 +131,16 @@ export function OutletReportsPage() {
     return ['ALL', ...[...methods].sort()];
   }, [scopedOrders]);
 
+  const sourceOptions = useMemo(
+    () => ['ALL', ...new Set(scopedOrders.map((order) => order.source))].flat(),
+    [scopedOrders],
+  );
+
+  const serviceTypeOptions = useMemo(
+    () => ['ALL', ...new Set(scopedOrders.map((order) => order.serviceType))].flat(),
+    [scopedOrders],
+  );
+
   const filteredOrders = useMemo(() => {
     return scopedOrders.filter((order) => {
       if (statusFilter !== 'ALL' && order.status !== statusFilter) {
@@ -132,9 +154,21 @@ export function OutletReportsPage() {
           return false;
         }
       }
+      if (sourceFilter !== 'ALL' && order.source !== sourceFilter) {
+        return false;
+      }
+      if (serviceTypeFilter !== 'ALL' && order.serviceType !== serviceTypeFilter) {
+        return false;
+      }
       return true;
     });
-  }, [paymentMethodFilter, scopedOrders, statusFilter]);
+  }, [
+    paymentMethodFilter,
+    scopedOrders,
+    serviceTypeFilter,
+    sourceFilter,
+    statusFilter,
+  ]);
 
   const previousWindowOrders = useMemo(() => {
     const range = getWindowRange(windowFilter);
@@ -243,6 +277,26 @@ export function OutletReportsPage() {
       .slice(0, 5);
   }, [filteredOrders]);
 
+  const sourceBreakdown = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const order of filteredOrders) {
+      totals.set(order.source, (totals.get(order.source) ?? 0) + 1);
+    }
+    return [...totals.entries()]
+      .map(([source, count]) => ({ source, count }))
+      .sort((left, right) => right.count - left.count);
+  }, [filteredOrders]);
+
+  const serviceTypeBreakdown = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const order of filteredOrders) {
+      totals.set(order.serviceType, (totals.get(order.serviceType) ?? 0) + 1);
+    }
+    return [...totals.entries()]
+      .map(([serviceType, count]) => ({ serviceType, count }))
+      .sort((left, right) => right.count - left.count);
+  }, [filteredOrders]);
+
   const trendPoints = useMemo(
     () => buildTrendPoints(filteredOrders, windowFilter),
     [filteredOrders, windowFilter],
@@ -258,6 +312,20 @@ export function OutletReportsPage() {
       `Outlet report summary`,
       `Outlet: ${outlet?.name ?? 'Unknown outlet'}`,
       `Window: ${periodLabel}`,
+      `Status filter: ${statusFilter === 'ALL' ? 'All statuses' : formatEnum(statusFilter)}`,
+      `Payment filter: ${
+        paymentMethodFilter === 'ALL'
+          ? 'All payment methods'
+          : formatEnum(paymentMethodFilter)
+      }`,
+      `Source filter: ${
+        sourceFilter === 'ALL' ? 'All sources' : formatEnum(sourceFilter)
+      }`,
+      `Service filter: ${
+        serviceTypeFilter === 'ALL'
+          ? 'All service types'
+          : formatEnum(serviceTypeFilter)
+      }`,
       `Orders: ${metrics.orderCount}`,
       `Paid orders: ${metrics.paidOrderCount}`,
       `Gross paid sales: ${formatCurrency(outlet?.currency ?? 'SGD', metrics.grossSalesCents)}`,
@@ -283,6 +351,10 @@ export function OutletReportsPage() {
     outlet,
     paymentMethodBreakdown,
     previousMetrics.grossSalesCents,
+    paymentMethodFilter,
+    serviceTypeFilter,
+    sourceFilter,
+    statusFilter,
     topTables,
     windowFilter,
   ]);
@@ -298,6 +370,67 @@ export function OutletReportsPage() {
     } catch {
       setCopySuccess('Copy failed. You can still select and copy manually.');
     }
+  }
+
+  function handleDownloadCsv() {
+    if (typeof window === 'undefined') {
+      setDownloadSuccess('CSV download is not available in this browser.');
+      return;
+    }
+
+    const csv = buildOrdersCsv(filteredOrders);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const outletSlug = (outlet?.name ?? 'outlet')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    anchor.href = url;
+    anchor.download = `${outletSlug || 'outlet'}-orders-${windowFilter.toLowerCase()}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+    setDownloadSuccess('CSV export downloaded.');
+  }
+
+  async function handleToggleOrderDetail(order: OwnerOrderListEntry) {
+    if (expandedOrderId === order.id) {
+      setExpandedOrderId(null);
+      return;
+    }
+    setExpandedOrderId(order.id);
+    if (orderDetails[order.id] || !session?.accessToken) {
+      return;
+    }
+
+    setDetailBusyOrderId(order.id);
+    try {
+      const detail = await getOrderDetail(session.accessToken, outletId, order.id);
+      setOrderDetails((current) => ({
+        ...current,
+        [order.id]: detail,
+      }));
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : 'Failed to load order detail.',
+      );
+    } finally {
+      setDetailBusyOrderId(null);
+    }
+  }
+
+  function resetFilters() {
+    setWindowFilter('7D');
+    setStatusFilter('ALL');
+    setPaymentMethodFilter('ALL');
+    setSourceFilter('ALL');
+    setServiceTypeFilter('ALL');
+    setCopySuccess(null);
+    setDownloadSuccess(null);
   }
 
   return (
@@ -342,6 +475,13 @@ export function OutletReportsPage() {
                   without leaving the outlet workspace.
                 </p>
               </div>
+              <button
+                className="secondary-button"
+                onClick={() => resetFilters()}
+                type="button"
+              >
+                Reset filters
+              </button>
             </div>
 
             <div className="filter-chip-row">
@@ -390,6 +530,36 @@ export function OutletReportsPage() {
                   {paymentMethodOptions.map((method) => (
                     <option key={method} value={method}>
                       {method === 'ALL' ? 'All payment methods' : formatEnum(method)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="report-source-filter">Order source</label>
+                <select
+                  id="report-source-filter"
+                  onChange={(event) => setSourceFilter(event.target.value)}
+                  value={sourceFilter}
+                >
+                  {sourceOptions.map((source) => (
+                    <option key={source} value={source}>
+                      {source === 'ALL' ? 'All sources' : formatEnum(source)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="report-service-type-filter">Service type</label>
+                <select
+                  id="report-service-type-filter"
+                  onChange={(event) => setServiceTypeFilter(event.target.value)}
+                  value={serviceTypeFilter}
+                >
+                  {serviceTypeOptions.map((serviceType) => (
+                    <option key={serviceType} value={serviceType}>
+                      {serviceType === 'ALL'
+                        ? 'All service types'
+                        : formatEnum(serviceType)}
                     </option>
                   ))}
                 </select>
@@ -551,21 +721,33 @@ export function OutletReportsPage() {
                 <p className="eyebrow">Owner export</p>
                 <h2 className="serif">Export-ready summary</h2>
                 <p>
-                  Copy this block into a handover note, ops update, or client
-                  summary while deeper export tooling is still pending.
+                  Copy the summary or download filtered order rows for handover
+                  notes, ops updates, and owner exports.
                 </p>
               </div>
-              <button
-                className="secondary-button"
-                onClick={() => void handleCopySummary()}
-                type="button"
-              >
-                Copy summary
-              </button>
+              <div className="action-row">
+                <button
+                  className="secondary-button"
+                  onClick={() => handleDownloadCsv()}
+                  type="button"
+                >
+                  Download CSV
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() => void handleCopySummary()}
+                  type="button"
+                >
+                  Copy summary
+                </button>
+              </div>
             </div>
 
             {copySuccess ? (
               <div className="alert success">{copySuccess}</div>
+            ) : null}
+            {downloadSuccess ? (
+              <div className="alert success">{downloadSuccess}</div>
             ) : null}
 
             <div className="field">
@@ -641,6 +823,38 @@ export function OutletReportsPage() {
                   )}
                 </div>
               </article>
+
+              <article className="list-item">
+                <h3>Order sources</h3>
+                <div className="list-block">
+                  {sourceBreakdown.length === 0 ? (
+                    <p className="muted">No source data yet.</p>
+                  ) : (
+                    sourceBreakdown.map((entry) => (
+                      <div className="split-line" key={entry.source}>
+                        <span>{formatEnum(entry.source)}</span>
+                        <strong>{entry.count}</strong>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
+
+              <article className="list-item">
+                <h3>Service types</h3>
+                <div className="list-block">
+                  {serviceTypeBreakdown.length === 0 ? (
+                    <p className="muted">No service type data yet.</p>
+                  ) : (
+                    serviceTypeBreakdown.map((entry) => (
+                      <div className="split-line" key={entry.serviceType}>
+                        <span>{formatEnum(entry.serviceType)}</span>
+                        <strong>{entry.count}</strong>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
             </div>
           </section>
 
@@ -668,7 +882,8 @@ export function OutletReportsPage() {
                       <div>
                         <h3>#{order.orderNumber}</h3>
                         <p>
-                          {order.customerName || order.table?.displayName || 'Guest order'}
+                          {order.customerName || order.table?.displayName || 'Guest order'} |{' '}
+                          {formatEnum(order.source)} | {formatEnum(order.serviceType)}
                         </p>
                       </div>
                       <div className="badge-row">
@@ -708,6 +923,24 @@ export function OutletReportsPage() {
                         </span>
                       </article>
                     </div>
+                    <div className="action-row">
+                      <button
+                        className="secondary-button"
+                        onClick={() => void handleToggleOrderDetail(order)}
+                        type="button"
+                      >
+                        {expandedOrderId === order.id ? 'Hide details' : 'View details'}
+                      </button>
+                    </div>
+                    {expandedOrderId === order.id ? (
+                      detailBusyOrderId === order.id ? (
+                        <div className="info-card">
+                          <p>Loading order detail...</p>
+                        </div>
+                      ) : orderDetails[order.id] ? (
+                        <OrderDetailPanel detail={orderDetails[order.id]} />
+                      ) : null
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -830,4 +1063,194 @@ function formatEnum(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function buildOrdersCsv(orders: OwnerOrderListEntry[]) {
+  const rows = [
+    [
+      'Order Number',
+      'Source',
+      'Service Type',
+      'Status',
+      'Payment Status',
+      'Created At',
+      'Updated At',
+      'Customer',
+      'Phone',
+      'Table Code',
+      'Table Name',
+      'Payment Methods',
+      'Payment States',
+      'Kitchen Ticket States',
+      'Grand Total',
+    ],
+    ...orders.map((order) => [
+      order.orderNumber,
+      formatEnum(order.source),
+      formatEnum(order.serviceType),
+      formatEnum(order.status),
+      formatEnum(order.paymentStatus),
+      order.createdAt,
+      order.updatedAt,
+      order.customerName ?? '',
+      order.customerPhone ?? '',
+      order.table?.tableCode ?? '',
+      order.table?.displayName ?? '',
+      order.payments.map((payment) => formatEnum(payment.method)).join(', '),
+      order.payments.map((payment) => formatEnum(payment.status)).join(', '),
+      order.kitchenTickets.map((ticket) => formatEnum(ticket.status)).join(', '),
+      centsToDecimal(order.grandTotalCents),
+    ]),
+  ];
+
+  return rows
+    .map((row) => row.map((value) => escapeCsvCell(value)).join(','))
+    .join('\n');
+}
+
+function escapeCsvCell(value: string) {
+  const normalized = value.replace(/"/g, '""');
+  if (/[",\n]/.test(normalized)) {
+    return `"${normalized}"`;
+  }
+  return normalized;
+}
+
+function centsToDecimal(value: number) {
+  return (value / 100).toFixed(2);
+}
+
+function OrderDetailPanel({ detail }: { detail: OwnerOrderDetail }) {
+  return (
+    <div className="list-block">
+      <div className="detail-grid">
+        <article className="info-card">
+          <span className="metric-label">Source</span>
+          <span className="scope-card-value">
+            {formatEnum(detail.source)} | {formatEnum(detail.serviceType)}
+          </span>
+        </article>
+        <article className="info-card">
+          <span className="metric-label">Table</span>
+          <span className="scope-card-value">
+            {detail.table
+              ? `${detail.table.displayName} (${detail.table.zone?.name ?? 'No zone'})`
+              : 'No table'}
+          </span>
+        </article>
+        <article className="info-card">
+          <span className="metric-label">Timeline</span>
+          <span className="scope-card-value">
+            {detail.paidAt ? `Paid ${formatDateTime(detail.paidAt)}` : 'Not paid yet'}
+          </span>
+          <p className="metric-note">
+            Updated {formatDateTime(detail.updatedAt)}
+          </p>
+        </article>
+      </div>
+
+      <article className="list-item">
+        <h4>Items</h4>
+        <div className="list-block">
+          {detail.items.map((item) => (
+            <div className="split-line" key={item.id}>
+              <span>
+                {item.quantity}x {item.itemName}
+                {item.variantName ? ` | ${item.variantName}` : ''}
+                {item.modifiers.length
+                  ? ` | ${item.modifiers
+                      .map((modifier) => modifier.modifierOptionName)
+                      .join(', ')}`
+                  : ''}
+              </span>
+              <strong>{formatCurrency(detail.currency, item.lineTotalCents)}</strong>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <div className="outlet-grid">
+        <article className="list-item">
+          <h4>Payments</h4>
+          <div className="list-block">
+            {detail.payments.length === 0 ? (
+              <p className="muted">No payment records.</p>
+            ) : (
+              detail.payments.map((payment) => (
+                <div className="split-line" key={payment.id}>
+                  <span>
+                    {formatEnum(payment.method)} | {formatEnum(payment.status)}
+                  </span>
+                  <strong>
+                    {formatCurrency(payment.currency, payment.amountCents)}
+                  </strong>
+                </div>
+              ))
+            )}
+          </div>
+        </article>
+
+        <article className="list-item">
+          <h4>Kitchen tickets</h4>
+          <div className="list-block">
+            {detail.kitchenTickets.length === 0 ? (
+              <p className="muted">No kitchen tickets.</p>
+            ) : (
+              detail.kitchenTickets.map((ticket) => (
+                <div className="split-line" key={ticket.id}>
+                  <span>{ticket.station.name}</span>
+                  <strong>{formatEnum(ticket.status)}</strong>
+                </div>
+              ))
+            )}
+          </div>
+        </article>
+
+        <article className="list-item">
+          <h4>Print jobs</h4>
+          <div className="list-block">
+            {detail.printJobs.length === 0 ? (
+              <p className="muted">No print jobs.</p>
+            ) : (
+              detail.printJobs.map((job) => (
+                <div className="split-line" key={job.id}>
+                  <span>
+                    {formatEnum(job.template)} | {job.printer?.name ?? 'Unassigned'}
+                  </span>
+                  <strong>{formatEnum(job.status)}</strong>
+                </div>
+              ))
+            )}
+          </div>
+        </article>
+      </div>
+
+      <div className="detail-grid">
+        <article className="info-card">
+          <span className="metric-label">Subtotal</span>
+          <span className="scope-card-value">
+            {formatCurrency(detail.currency, detail.subtotalCents)}
+          </span>
+        </article>
+        <article className="info-card">
+          <span className="metric-label">Service charge</span>
+          <span className="scope-card-value">
+            {formatCurrency(detail.currency, detail.serviceChargeTotalCents)}
+          </span>
+        </article>
+        <article className="info-card">
+          <span className="metric-label">GST</span>
+          <span className="scope-card-value">
+            {formatCurrency(detail.currency, detail.gstTotalCents)}
+          </span>
+        </article>
+        <article className="info-card">
+          <span className="metric-label">Total</span>
+          <span className="scope-card-value">
+            {formatCurrency(detail.currency, detail.grandTotalCents)}
+          </span>
+        </article>
+      </div>
+    </div>
+  );
 }
