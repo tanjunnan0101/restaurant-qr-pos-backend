@@ -440,6 +440,13 @@ export function OutletKdsPage() {
         new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
     )[0];
   const nextAction = selectedOrder ? nextKitchenAction(selectedOrder.status) : null;
+  const sentToKitchenCount =
+    groupedOrders.find((entry) => entry.status === 'SENT_TO_KITCHEN')?.orders.length ??
+    0;
+  const preparingCount =
+    groupedOrders.find((entry) => entry.status === 'PREPARING')?.orders.length ?? 0;
+  const readyCount =
+    groupedOrders.find((entry) => entry.status === 'READY')?.orders.length ?? 0;
 
   return (
     <OutletPageLayout
@@ -465,6 +472,69 @@ export function OutletKdsPage() {
           <div className="alert error">{error}</div>
         </section>
       ) : null}
+
+      <section className="workspace-hero workspace-hero--staff">
+        <div className="workspace-hero__header">
+          <div className="workspace-hero__copy">
+            <p className="eyebrow">Kitchen rhythm</p>
+            <h2 className="section-title serif">Run the line with clarity</h2>
+            <p className="supporting-copy">
+              Surface what just landed, what is in prep, and what is ready for
+              handoff so the kitchen board reads like a live production system.
+            </p>
+          </div>
+          <div className="workspace-pill-grid">
+            <div className="workspace-pill current">
+              <span>Realtime</span>
+              <strong>{formatRealtimeStatus(realtimeStatus)}</strong>
+            </div>
+            <div className="workspace-pill">
+              <span>Stations</span>
+              <strong>
+                {stationOptions.length === 0
+                  ? 'No station filter'
+                  : `${stationOptions.length} active`}
+              </strong>
+            </div>
+          </div>
+        </div>
+        <div className="operations-summary-grid">
+          <article className="operations-summary-card">
+            <span className="metric-label">New tickets</span>
+            <strong>{sentToKitchenCount}</strong>
+            <p className="supporting-copy">
+              Paid tickets waiting to enter active prep.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">In prep</span>
+            <strong>{preparingCount}</strong>
+            <p className="supporting-copy">
+              Tickets currently being worked on by the kitchen.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Ready</span>
+            <strong>{readyCount}</strong>
+            <p className="supporting-copy">
+              Orders waiting for service handoff or pickup.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Oldest wait</span>
+            <strong>
+              {oldestQueuedOrder
+                ? formatRelativeTime(oldestQueuedOrder.createdAt)
+                : 'None'}
+            </strong>
+            <p className="supporting-copy">
+              {oldestQueuedOrder
+                ? `Ticket #${oldestQueuedOrder.orderNumber} has been in queue the longest.`
+                : 'No active kitchen wait at the moment.'}
+            </p>
+          </article>
+        </div>
+      </section>
 
       <section className="metric-board">
         {groupedOrders.map((entry) => (
@@ -510,7 +580,7 @@ export function OutletKdsPage() {
       </section>
 
       <section className="operations-layout">
-        <div className="panel section-panel">
+        <div className="panel section-panel queue-card--upgraded">
           <div className="section-header">
             <div>
               <p className="eyebrow">Kitchen queue</p>
@@ -579,7 +649,7 @@ export function OutletKdsPage() {
           ) : (
             <div className="operations-grid">
               {groupedOrders.map((entry) => (
-                <article className="sub-panel" key={entry.status}>
+                <article className="sub-panel queue-column-card" key={entry.status}>
                   <div className="section-header">
                     <div>
                       <h3>{formatEnum(entry.status)}</h3>
@@ -600,8 +670,8 @@ export function OutletKdsPage() {
                         <button
                           className={
                             selectedOrderId === order.id
-                              ? 'order-list-item current'
-                              : 'order-list-item'
+                              ? 'order-list-item order-list-item--upgraded current'
+                              : 'order-list-item order-list-item--upgraded'
                           }
                           key={order.id}
                           onClick={() => setSelectedOrderId(order.id)}
@@ -662,7 +732,7 @@ export function OutletKdsPage() {
           )}
         </div>
 
-        <div className="panel section-panel detail-panel">
+        <div className="panel section-panel detail-panel detail-panel--upgraded">
           {detailBusy ? (
             <p className="supporting-copy">Loading ticket detail...</p>
           ) : !selectedOrder ? (
@@ -700,7 +770,7 @@ export function OutletKdsPage() {
                 </div>
               </div>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Items to prepare</h3>
                 <div className="stack-list">
                   {selectedOrder.items.map((item) => (
@@ -732,7 +802,7 @@ export function OutletKdsPage() {
                 </div>
               </article>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Kitchen tickets</h3>
                 <div className="stack-list">
                   {selectedOrder.kitchenTickets.map((ticket) => (
@@ -751,7 +821,7 @@ export function OutletKdsPage() {
                 </div>
               </article>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Next kitchen action</h3>
                 {nextAction ? (
                   <form className="form-grid" onSubmit={submitKitchenAction}>

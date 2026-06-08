@@ -828,8 +828,36 @@ button {
   box-shadow: 0 0 0 3px rgba(202, 90, 51, 0.12);
 }
 
+.order-list-item--upgraded {
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(247, 239, 227, 0.98));
+}
+
 .queue-card--upgraded {
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(248, 241, 231, 0.98));
+}
+
+.operations-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.operations-summary-card {
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  background: rgba(255, 253, 248, 0.82);
+  border: 1px solid rgba(29, 23, 18, 0.08);
+  color: var(--ink);
+}
+
+.operations-summary-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 1.6rem;
+}
+
+.operations-summary-card p {
+  margin: 10px 0 0;
 }
 
 .pos-summary-grid {
@@ -898,6 +926,26 @@ button {
 
 .totals-hero {
   background: rgba(255, 253, 248, 0.9);
+}
+
+.detail-panel--upgraded {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(244, 236, 223, 0.98));
+}
+
+.surface-panel {
+  background: rgba(255, 252, 246, 0.92);
+}
+
+.zone-card--upgraded {
+  background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(248, 241, 231, 0.98));
+}
+
+.table-card--upgraded {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(245, 237, 225, 0.98));
+}
+
+.queue-column-card {
+  background: rgba(255, 252, 246, 0.9);
 }
 
 .queue-metrics {
@@ -1059,6 +1107,7 @@ button {
 
   .workspace-hero__header,
   .workspace-meta-grid,
+  .operations-summary-grid,
   .pos-summary-grid {
     grid-template-columns: 1fr;
   }

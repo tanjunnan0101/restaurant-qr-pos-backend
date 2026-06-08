@@ -300,6 +300,16 @@ export function OutletOrdersPage() {
     (selectedOrder.status === 'DRAFT' ||
       selectedOrder.status === 'PENDING_PAYMENT' ||
       selectedOrder.status === 'PAYMENT_PROCESSING');
+  const liveQueueCount = filteredOrders.length;
+  const actionNowCount = filteredOrders.filter((order) =>
+    Boolean(nextStatusAction(order.status)),
+  ).length;
+  const paymentAttentionCount = orders.filter(
+    (order) =>
+      order.status === 'PENDING_PAYMENT' ||
+      order.status === 'PAYMENT_PROCESSING',
+  ).length;
+  const draftCount = orders.filter((order) => order.status === 'DRAFT').length;
 
   useEffect(() => {
     setCheckoutResult(null);
@@ -589,8 +599,65 @@ export function OutletOrdersPage() {
         </section>
       ) : null}
 
+      <section className="workspace-hero workspace-hero--staff">
+        <div className="workspace-hero__header">
+          <div className="workspace-hero__copy">
+            <p className="eyebrow">Service flow</p>
+            <h2 className="section-title serif">Keep the queue moving</h2>
+            <p className="supporting-copy">
+              Track live checkout outcomes, catch anything stuck between payment
+              and service, and move the floor forward with fewer clicks.
+            </p>
+          </div>
+          <div className="workspace-pill-grid">
+            <div className="workspace-pill current">
+              <span>Realtime</span>
+              <strong>{formatRealtimeStatus(realtimeStatus)}</strong>
+            </div>
+            <div className="workspace-pill">
+              <span>Focus</span>
+              <strong>
+                {focusedTable
+                  ? `${focusedTable.displayName} (${focusedTable.tableCode})`
+                  : 'All outlet tickets'}
+              </strong>
+            </div>
+          </div>
+        </div>
+        <div className="operations-summary-grid">
+          <article className="operations-summary-card">
+            <span className="metric-label">Visible tickets</span>
+            <strong>{liveQueueCount}</strong>
+            <p className="supporting-copy">
+              Orders currently in this search and status view.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Action now</span>
+            <strong>{actionNowCount}</strong>
+            <p className="supporting-copy">
+              Tickets ready for the next service status change.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Payment attention</span>
+            <strong>{paymentAttentionCount}</strong>
+            <p className="supporting-copy">
+              Orders waiting on payment completion or verification.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Held drafts</span>
+            <strong>{draftCount}</strong>
+            <p className="supporting-copy">
+              Draft tickets still waiting to be resumed at service.
+            </p>
+          </article>
+        </div>
+      </section>
+
       <section className="operations-layout">
-        <div className="panel section-panel">
+        <div className="panel section-panel queue-card--upgraded">
           <div className="section-header">
             <div>
               <p className="eyebrow">Queue filter</p>
@@ -671,8 +738,8 @@ export function OutletOrdersPage() {
                 <button
                   className={
                     selectedOrderId === order.id
-                      ? 'order-list-item current'
-                      : 'order-list-item'
+                      ? 'order-list-item order-list-item--upgraded current'
+                      : 'order-list-item order-list-item--upgraded'
                   }
                   key={order.id}
                   onClick={() => {
@@ -729,7 +796,7 @@ export function OutletOrdersPage() {
           )}
         </div>
 
-        <div className="panel section-panel detail-panel">
+        <div className="panel section-panel detail-panel detail-panel--upgraded">
           {detailBusy ? (
             <p className="supporting-copy">Loading order detail...</p>
           ) : !selectedOrder ? (
@@ -770,7 +837,7 @@ export function OutletOrdersPage() {
               </div>
 
               <div className="detail-grid">
-                <article className="sub-panel">
+                <article className="sub-panel surface-panel">
                   <h3>Items</h3>
                   <div className="stack-list">
                     {selectedOrder.items.map((item) => (
@@ -810,7 +877,7 @@ export function OutletOrdersPage() {
                   </div>
                 </article>
 
-                <article className="sub-panel">
+                <article className="sub-panel surface-panel">
                   <h3>Payments and tickets</h3>
                   <div className="stack-list">
                     {selectedOrder.payments.map((payment) => (
@@ -855,7 +922,7 @@ export function OutletOrdersPage() {
                 </article>
               </div>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Edit unpaid order</h3>
                 {supportsAmendment ? (
                   <div className="form-grid">
@@ -880,7 +947,7 @@ export function OutletOrdersPage() {
                 )}
               </article>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Payment actions</h3>
                 {supportsOnlineCheckout ? (
                   <div className="form-grid">
@@ -972,7 +1039,7 @@ export function OutletOrdersPage() {
                 )}
               </article>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Void order</h3>
                 {supportsCancellation ? (
                   <form className="form-grid" onSubmit={handleCancelOrder}>
@@ -1008,7 +1075,7 @@ export function OutletOrdersPage() {
                 )}
               </article>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Bill summary</h3>
                 <div className="queue-metrics">
                   <div className="metric-inline">
@@ -1050,7 +1117,7 @@ export function OutletOrdersPage() {
                 </div>
               </article>
 
-              <article className="sub-panel">
+              <article className="sub-panel surface-panel">
                 <h3>Next service action</h3>
                 {nextAction ? (
                   <form className="form-grid" onSubmit={submitNextStatus}>

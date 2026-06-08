@@ -242,6 +242,7 @@ export function OutletTablesPage() {
       0,
     ),
   };
+  const activeZoneCount = filteredZones.length;
 
   async function handleTableAction(
     tableId: string,
@@ -369,6 +370,63 @@ export function OutletTablesPage() {
         </section>
       ) : null}
 
+      <section className="workspace-hero workspace-hero--staff">
+        <div className="workspace-hero__header">
+          <div className="workspace-hero__copy">
+            <p className="eyebrow">Floor visibility</p>
+            <h2 className="section-title serif">See the room at a glance</h2>
+            <p className="supporting-copy">
+              Monitor seating pressure, QR readiness, and guest help requests
+              from one view before you jump into POS or the order queue.
+            </p>
+          </div>
+          <div className="workspace-pill-grid">
+            <div className="workspace-pill current">
+              <span>Realtime</span>
+              <strong>{formatRealtimeStatus(realtimeStatus)}</strong>
+            </div>
+            <div className="workspace-pill">
+              <span>Controls</span>
+              <strong>
+                {canManageTables || canManageQr ? 'Live actions enabled' : 'View only'}
+              </strong>
+            </div>
+          </div>
+        </div>
+        <div className="operations-summary-grid">
+          <article className="operations-summary-card">
+            <span className="metric-label">Zones in view</span>
+            <strong>{activeZoneCount}</strong>
+            <p className="supporting-copy">
+              Floor sections currently visible after search and filters.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Occupied</span>
+            <strong>{summary.occupied}</strong>
+            <p className="supporting-copy">
+              Tables actively in service right now.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Help requests</span>
+            <strong>{summary.helpRequests}</strong>
+            <p className="supporting-copy">
+              Guest assistance requests still open on the floor.
+            </p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">QR coverage</span>
+            <strong>
+              {summary.total === 0 ? '0/0' : `${summary.withQr}/${summary.total}`}
+            </strong>
+            <p className="supporting-copy">
+              Tables with an active QR code attached.
+            </p>
+          </article>
+        </div>
+      </section>
+
       <section className="metric-board">
         <article className="panel metric-card">
           <span className="metric-label">Total tables</span>
@@ -400,7 +458,7 @@ export function OutletTablesPage() {
         </article>
       </section>
 
-      <section className="panel section-panel">
+      <section className="panel section-panel queue-card--upgraded">
         <div className="section-header">
           <div>
             <p className="eyebrow">Floor controls</p>
@@ -466,7 +524,7 @@ export function OutletTablesPage() {
           </article>
         ) : (
           filteredZones.map((zone) => (
-            <article className="panel section-panel" key={zone.id}>
+            <article className="panel section-panel zone-card--upgraded" key={zone.id}>
               <div className="section-header">
                 <div>
                   <p className="eyebrow">Zone</p>
@@ -484,7 +542,7 @@ export function OutletTablesPage() {
 
               <div className="table-grid">
                 {zone.tables.map((table) => (
-                  <article className="table-card" key={table.id}>
+                  <article className="table-card table-card--upgraded" key={table.id}>
                     <div className="section-header">
                       <div>
                         <strong>{table.displayName}</strong>
@@ -528,7 +586,7 @@ export function OutletTablesPage() {
                       </p>
                     ) : null}
                     {table.serviceRequests.length > 0 ? (
-                      <div className="sub-panel">
+                      <div className="sub-panel surface-panel">
                         <div className="section-header">
                           <div>
                             <strong>Guest needs help</strong>
