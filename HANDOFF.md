@@ -97,8 +97,19 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Hydrated the owner dashboard from real backend APIs.
 - Added outlet menu management flows including menu setup, draft replacement,
   clone-to-draft, publish, and sold-out toggles.
+- Upgraded the owner menu workspace with a structured draft editor for:
+  - modifier groups and option pricing
+  - item-level modifier-group assignment
+  - item variants and price deltas
+  - direct category and item editing without relying only on a raw textarea
 - Added table and QR setup flows including QR rotation.
 - Added payment-settings controls and printing configuration/test/retry flows.
+- Added first owner reporting snapshots on the dashboard using existing admin
+  order list endpoints:
+  - outlet order counts
+  - live order counts
+  - paid order counts
+  - gross paid sales totals
 
 ### Staff web
 
@@ -177,7 +188,8 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Authenticated Socket.IO subscriptions.
 - Production rate limiting and abuse protection.
 - Error tracking, alerting, and backup/restore drills.
-- Full reporting, inventory, attendance, and operational dashboards.
+- Deeper reporting, inventory, attendance, and operational dashboards beyond
+  the current first owner reporting snapshot.
 
 ## Remaining development work
 
@@ -356,6 +368,19 @@ Goal:
 
 - Improve owner-web from a usable baseline into a stronger operator-facing admin
   product.
+
+Current implementation status:
+
+- In progress with two major blocks already landed.
+- Implemented now:
+  - structured owner menu draft editor for modifier groups, option pricing,
+    item variants, and item-level modifier assignment
+  - first reporting snapshot on the owner dashboard using existing order list
+    APIs for total orders, live orders, paid orders, and gross paid sales
+- Remaining inside Phase 3:
+  - improve draft and publish workflow clarity further if desired
+  - add deeper reporting views such as time-window summaries or outlet trends
+  - add finer floor/table visual editing if product wants it
 
 Scope:
 

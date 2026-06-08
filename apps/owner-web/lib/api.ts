@@ -3,6 +3,8 @@ import type {
   LoginResponse,
   MenuDetail,
   MenuListEntry,
+  OwnerOrderListEntry,
+  OwnerOrderStatus,
   OutletSummary,
   PaymentScope,
   PaymentSettingsResponse,
@@ -88,6 +90,21 @@ export function getOutlets(token: string) {
   return request<OutletSummary[]>('/admin/outlets', {
     headers: authHeaders(token),
   });
+}
+
+export function getOrders(
+  token: string,
+  outletId: string,
+  status?: OwnerOrderStatus | 'ALL',
+) {
+  const query =
+    status && status !== 'ALL' ? `?status=${encodeURIComponent(status)}` : '';
+  return request<OwnerOrderListEntry[]>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/orders${query}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
 }
 
 export function getMenus(token: string, outletId: string) {

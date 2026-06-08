@@ -24,6 +24,18 @@ import {
 } from './outlet-page-base';
 
 const MENU_CHANNELS: MenuChannel[] = ['BOTH', 'QR', 'POS'];
+const DEFAULT_PREPARATION_STATION = 'main-kitchen';
+
+type DraftMenuContent = {
+  modifierGroups: NonNullable<ReplaceMenuDraftInput['modifierGroups']>;
+  categories: ReplaceMenuDraftInput['categories'];
+};
+
+type DraftMenuCategory = DraftMenuContent['categories'][number];
+type DraftMenuItem = DraftMenuCategory['items'][number];
+type DraftModifierGroup = DraftMenuContent['modifierGroups'][number];
+type DraftModifierOption = DraftModifierGroup['options'][number];
+type DraftVariant = NonNullable<DraftMenuItem['variants']>[number];
 
 export function OutletMenusPage() {
   const {
@@ -68,7 +80,9 @@ export function OutletMenusPage() {
   const [draftIsDefault, setDraftIsDefault] = useState<Record<string, boolean>>(
     {},
   );
-  const [draftLines, setDraftLines] = useState<Record<string, string>>({});
+  const [draftContent, setDraftContent] = useState<
+    Record<string, DraftMenuContent>
+  >({});
   const [soldOutReason, setSoldOutReason] = useState<Record<string, string>>(
     {},
   );
@@ -89,14 +103,16 @@ export function OutletMenusPage() {
 
   function seedDraftEditor(detail: MenuDetail) {
     const editableVersion = getEditableVersion(detail);
-    const content = versionToMenuLines(editableVersion);
     setDraftName((current) => ({ ...current, [detail.id]: detail.name }));
     setDraftChannel((current) => ({ ...current, [detail.id]: detail.channel }));
     setDraftIsDefault((current) => ({
       ...current,
       [detail.id]: detail.isDefault,
     }));
-    setDraftLines((current) => ({ ...current, [detail.id]: content }));
+    setDraftContent((current) => ({
+      ...current,
+      [detail.id]: versionToDraftContent(editableVersion),
+    }));
   }
 
   useEffect(() => {
@@ -146,6 +162,347 @@ export function OutletMenusPage() {
       return slugify(menuName);
     });
   }, [menuName]);
+
+  function updateDraftContentState(
+    menuId: string,
+    updater: (content: DraftMenuContent) => DraftMenuContent,
+  ) {
+    setDraftContent((current) => {
+      const existing = current[menuId] ?? createEmptyDraftContent();
+      return {
+        ...current,
+        [menuId]: updater(existing),
+      };
+    });
+  }
+
+  function addModifierGroup(menuId: string) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      modifierGroups: [
+        ...content.modifierGroups,
+        createEmptyModifierGroup(content.modifierGroups.length),
+      ],
+    }));
+  }
+
+  function updateModifierGroupField(
+    menuId: string,
+    groupIndex: number,
+    field: keyof Omit<DraftModifierGroup, 'options'>,
+    value: string | number | boolean,
+  ) {
+    updateDraftContentState(menuId, (content) => {
+      const groups = content.modifierGroups.map((group, index) =>
+        index === groupIndex ? { ...group } : group,
+      );
+      const targetGroup = groups[groupIndex];
+      if (!targetGroup) {
+        return content;
+      }
+
+      if (field === 'key') {
+        const previousKey = targetGroup.key;
+        const nextKey = slugify(String(value));
+        targetGroup.key = nextKey;
+        return {
+          ...content,
+          modifierGroups: groups,
+          categories: content.categories.map((category) => ({
+            ...category,
+            items: category.items.map((item) => ({
+              ...item,
+              modifierGroupKeys: (item.modifierGroupKeys ?? []).map((key) =>
+                key === previousKey ? nextKey : key,
+              ),
+            })),
+          })),
+        };
+      }
+
+      Object.assign(targetGroup, { [field]: value });
+      return {
+        ...content,
+        modifierGroups: groups,
+      };
+    });
+  }
+
+  function removeModifierGroup(menuId: string, groupIndex: number) {
+    updateDraftContentState(menuId, (content) => {
+      const removedKey = content.modifierGroups[groupIndex]?.key;
+      return {
+        ...content,
+        modifierGroups: content.modifierGroups.filter(
+          (_, index) => index !== groupIndex,
+        ),
+        categories: content.categories.map((category) => ({
+          ...category,
+          items: category.items.map((item) => ({
+            ...item,
+            modifierGroupKeys: (item.modifierGroupKeys ?? []).filter(
+              (key) => key !== removedKey,
+            ),
+          })),
+        })),
+      };
+    });
+  }
+
+  function addModifierOption(menuId: string, groupIndex: number) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      modifierGroups: content.modifierGroups.map((group, index) =>
+        index === groupIndex
+          ? {
+              ...group,
+              options: [...group.options, createEmptyModifierOption(group.options.length)],
+            }
+          : group,
+      ),
+    }));
+  }
+
+  function updateModifierOptionField(
+    menuId: string,
+    groupIndex: number,
+    optionIndex: number,
+    field: keyof DraftModifierOption,
+    value: string | number,
+  ) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      modifierGroups: content.modifierGroups.map((group, index) =>
+        index === groupIndex
+          ? {
+              ...group,
+              options: group.options.map((option, currentIndex) =>
+                currentIndex === optionIndex
+                  ? { ...option, [field]: value }
+                  : option,
+              ),
+            }
+          : group,
+      ),
+    }));
+  }
+
+  function removeModifierOption(
+    menuId: string,
+    groupIndex: number,
+    optionIndex: number,
+  ) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      modifierGroups: content.modifierGroups.map((group, index) =>
+        index === groupIndex
+          ? {
+              ...group,
+              options:
+                group.options.length > 1
+                  ? group.options.filter(
+                      (_, currentIndex) => currentIndex !== optionIndex,
+                    )
+                  : group.options,
+            }
+          : group,
+      ),
+    }));
+  }
+
+  function addCategory(menuId: string) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: [...content.categories, createEmptyCategory(content.categories.length)],
+    }));
+  }
+
+  function updateCategoryField(
+    menuId: string,
+    categoryIndex: number,
+    field: keyof Omit<DraftMenuCategory, 'items'>,
+    value: string | number | boolean,
+  ) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, index) =>
+        index === categoryIndex ? { ...category, [field]: value } : category,
+      ),
+    }));
+  }
+
+  function removeCategory(menuId: string, categoryIndex: number) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.filter((_, index) => index !== categoryIndex),
+    }));
+  }
+
+  function addItem(menuId: string, categoryIndex: number) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, index) =>
+        index === categoryIndex
+          ? {
+              ...category,
+              items: [...category.items, createEmptyItem(category.items.length)],
+            }
+          : category,
+      ),
+    }));
+  }
+
+  function updateItemField(
+    menuId: string,
+    categoryIndex: number,
+    itemIndex: number,
+    field: keyof DraftMenuItem,
+    value: string | number | boolean | string[],
+  ) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, currentCategoryIndex) =>
+        currentCategoryIndex === categoryIndex
+          ? {
+              ...category,
+              items: category.items.map((item, currentItemIndex) =>
+                currentItemIndex === itemIndex
+                  ? { ...item, [field]: value }
+                  : item,
+              ),
+            }
+          : category,
+      ),
+    }));
+  }
+
+  function removeItem(menuId: string, categoryIndex: number, itemIndex: number) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, index) =>
+        index === categoryIndex
+          ? {
+              ...category,
+              items: category.items.filter(
+                (_, currentItemIndex) => currentItemIndex !== itemIndex,
+              ),
+            }
+          : category,
+      ),
+    }));
+  }
+
+  function toggleItemModifierGroup(
+    menuId: string,
+    categoryIndex: number,
+    itemIndex: number,
+    groupKey: string,
+  ) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, currentCategoryIndex) =>
+        currentCategoryIndex === categoryIndex
+          ? {
+              ...category,
+              items: category.items.map((item, currentItemIndex) => {
+                if (currentItemIndex !== itemIndex) {
+                  return item;
+                }
+                const keys = item.modifierGroupKeys ?? [];
+                const nextKeys = keys.includes(groupKey)
+                  ? keys.filter((key) => key !== groupKey)
+                  : [...keys, groupKey];
+                return { ...item, modifierGroupKeys: nextKeys };
+              }),
+            }
+          : category,
+      ),
+    }));
+  }
+
+  function addVariant(menuId: string, categoryIndex: number, itemIndex: number) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, currentCategoryIndex) =>
+        currentCategoryIndex === categoryIndex
+          ? {
+              ...category,
+              items: category.items.map((item, currentItemIndex) =>
+                currentItemIndex === itemIndex
+                  ? {
+                      ...item,
+                      variants: [
+                        ...(item.variants ?? []),
+                        createEmptyVariant((item.variants ?? []).length),
+                      ],
+                    }
+                  : item,
+              ),
+            }
+          : category,
+      ),
+    }));
+  }
+
+  function updateVariantField(
+    menuId: string,
+    categoryIndex: number,
+    itemIndex: number,
+    variantIndex: number,
+    field: keyof DraftVariant,
+    value: string | number,
+  ) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, currentCategoryIndex) =>
+        currentCategoryIndex === categoryIndex
+          ? {
+              ...category,
+              items: category.items.map((item, currentItemIndex) =>
+                currentItemIndex === itemIndex
+                  ? {
+                      ...item,
+                      variants: (item.variants ?? []).map((variant, currentVariantIndex) =>
+                        currentVariantIndex === variantIndex
+                          ? { ...variant, [field]: value }
+                          : variant,
+                      ),
+                    }
+                  : item,
+              ),
+            }
+          : category,
+      ),
+    }));
+  }
+
+  function removeVariant(
+    menuId: string,
+    categoryIndex: number,
+    itemIndex: number,
+    variantIndex: number,
+  ) {
+    updateDraftContentState(menuId, (content) => ({
+      ...content,
+      categories: content.categories.map((category, currentCategoryIndex) =>
+        currentCategoryIndex === categoryIndex
+          ? {
+              ...category,
+              items: category.items.map((item, currentItemIndex) =>
+                currentItemIndex === itemIndex
+                  ? {
+                      ...item,
+                      variants: (item.variants ?? []).filter(
+                        (_, currentVariantIndex) => currentVariantIndex !== variantIndex,
+                      ),
+                    }
+                  : item,
+              ),
+            }
+          : category,
+      ),
+    }));
+  }
 
   async function handleSetupSubmit() {
     if (!session?.accessToken) {
@@ -297,9 +654,14 @@ export function OutletMenusPage() {
       return;
     }
 
-    const parsed = parseMenuLines(draftLines[menuId] ?? '');
-    if ('error' in parsed) {
-      setActionError(parsed.error);
+    const content = draftContent[menuId];
+    if (!content || content.categories.length === 0) {
+      setActionError('Add at least one category before saving this draft.');
+      setActionSuccess(null);
+      return;
+    }
+    if (content.categories.some((category) => category.items.length === 0)) {
+      setActionError('Every category must contain at least one item.');
       setActionSuccess(null);
       return;
     }
@@ -308,8 +670,8 @@ export function OutletMenusPage() {
       name: draftName[menuId]?.trim() || menuNameValue,
       channel: draftChannel[menuId] ?? 'BOTH',
       isDefault: draftIsDefault[menuId] ?? false,
-      categories: parsed.categories,
-      modifierGroups: [],
+      categories: content.categories,
+      modifierGroups: content.modifierGroups,
     };
 
     setSaveDraftBusyMenuId(menuId);
@@ -680,26 +1042,639 @@ export function OutletMenusPage() {
                         <span>Keep this menu as the outlet default.</span>
                       </label>
 
-                      <div className="field">
-                        <label htmlFor={`draft-lines-${menu.id}`}>
-                          Draft editor
-                        </label>
-                        <textarea
-                          id={`draft-lines-${menu.id}`}
-                          onChange={(event) =>
-                            setDraftLines((current) => ({
-                              ...current,
-                              [menu.id]: event.target.value,
-                            }))
-                          }
-                          rows={12}
-                          value={draftLines[menu.id] ?? ''}
-                        />
-                        <span className="helper-text">
-                          This editor uses the same simple format as initial
-                          menu setup. Save replaces the current draft version
-                          content.
-                        </span>
+                      <div className="structured-editor">
+                        <div className="section-header">
+                          <div>
+                            <label>Modifier groups</label>
+                            <p className="helper-text">
+                              Build reusable choice groups, then assign them to
+                              items below.
+                            </p>
+                          </div>
+                          <button
+                            className="secondary-button"
+                            onClick={() => addModifierGroup(menu.id)}
+                            type="button"
+                          >
+                            Add modifier group
+                          </button>
+                        </div>
+
+                        {(draftContent[menu.id]?.modifierGroups ?? []).length ===
+                        0 ? (
+                          <div className="empty-state">
+                            <strong>No modifier groups yet.</strong>
+                            <p>
+                              Add one when an item needs choices like spice
+                              level, toppings, or drink size.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="editor-stack">
+                            {(draftContent[menu.id]?.modifierGroups ?? []).map(
+                              (group, groupIndex) => (
+                                <article className="editor-card" key={`${menu.id}-group-${groupIndex}`}>
+                                  <div className="section-header">
+                                    <div>
+                                      <h4>{group.name || `Modifier group ${groupIndex + 1}`}</h4>
+                                      <p className="helper-text">
+                                        Key `{group.key || 'set-a-key'}` powers
+                                        item assignments.
+                                      </p>
+                                    </div>
+                                    <button
+                                      className="ghost-button"
+                                      onClick={() =>
+                                        removeModifierGroup(menu.id, groupIndex)
+                                      }
+                                      type="button"
+                                    >
+                                      Remove group
+                                    </button>
+                                  </div>
+
+                                  <div className="detail-grid">
+                                    <div className="field">
+                                      <label>Key</label>
+                                      <input
+                                        onChange={(event) =>
+                                          updateModifierGroupField(
+                                            menu.id,
+                                            groupIndex,
+                                            'key',
+                                            event.target.value,
+                                          )
+                                        }
+                                        placeholder="spice-level"
+                                        value={group.key}
+                                      />
+                                    </div>
+                                    <div className="field">
+                                      <label>Name</label>
+                                      <input
+                                        onChange={(event) =>
+                                          updateModifierGroupField(
+                                            menu.id,
+                                            groupIndex,
+                                            'name',
+                                            event.target.value,
+                                          )
+                                        }
+                                        placeholder="Spice level"
+                                        value={group.name}
+                                      />
+                                    </div>
+                                    <div className="field">
+                                      <label>Minimum selections</label>
+                                      <input
+                                        min={0}
+                                        onChange={(event) =>
+                                          updateModifierGroupField(
+                                            menu.id,
+                                            groupIndex,
+                                            'minSelect',
+                                            Number.parseInt(event.target.value || '0', 10),
+                                          )
+                                        }
+                                        type="number"
+                                        value={group.minSelect}
+                                      />
+                                    </div>
+                                    <div className="field">
+                                      <label>Maximum selections</label>
+                                      <input
+                                        min={1}
+                                        onChange={(event) =>
+                                          updateModifierGroupField(
+                                            menu.id,
+                                            groupIndex,
+                                            'maxSelect',
+                                            Number.parseInt(event.target.value || '1', 10),
+                                          )
+                                        }
+                                        type="number"
+                                        value={group.maxSelect}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <label className="checkbox-row">
+                                    <input
+                                      checked={group.required}
+                                      onChange={(event) =>
+                                        updateModifierGroupField(
+                                          menu.id,
+                                          groupIndex,
+                                          'required',
+                                          event.target.checked,
+                                        )
+                                      }
+                                      type="checkbox"
+                                    />
+                                    <span>Guests must choose from this group.</span>
+                                  </label>
+
+                                  <div className="section-header">
+                                    <div>
+                                      <label>Options</label>
+                                      <p className="helper-text">
+                                        Add each option and its price difference.
+                                      </p>
+                                    </div>
+                                    <button
+                                      className="secondary-button"
+                                      onClick={() => addModifierOption(menu.id, groupIndex)}
+                                      type="button"
+                                    >
+                                      Add option
+                                    </button>
+                                  </div>
+
+                                  <div className="editor-stack">
+                                    {group.options.map((option, optionIndex) => (
+                                      <article
+                                        className="sub-editor-card"
+                                        key={`${menu.id}-group-${groupIndex}-option-${optionIndex}`}
+                                      >
+                                        <div className="detail-grid">
+                                          <div className="field">
+                                            <label>Option name</label>
+                                            <input
+                                              onChange={(event) =>
+                                                updateModifierOptionField(
+                                                  menu.id,
+                                                  groupIndex,
+                                                  optionIndex,
+                                                  'name',
+                                                  event.target.value,
+                                                )
+                                              }
+                                              placeholder="Extra noodles"
+                                              value={option.name}
+                                            />
+                                          </div>
+                                          <div className="field">
+                                            <label>Price delta</label>
+                                            <input
+                                              inputMode="decimal"
+                                              onChange={(event) =>
+                                                updateModifierOptionField(
+                                                  menu.id,
+                                                  groupIndex,
+                                                  optionIndex,
+                                                  'priceDeltaCents',
+                                                  parsePriceToCents(event.target.value) ?? 0,
+                                                )
+                                              }
+                                              placeholder="0.00"
+                                              value={formatPrice(option.priceDeltaCents, false)}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="action-row">
+                                          <button
+                                            className="ghost-button"
+                                            disabled={group.options.length <= 1}
+                                            onClick={() =>
+                                              removeModifierOption(
+                                                menu.id,
+                                                groupIndex,
+                                                optionIndex,
+                                              )
+                                            }
+                                            type="button"
+                                          >
+                                            Remove option
+                                          </button>
+                                        </div>
+                                      </article>
+                                    ))}
+                                  </div>
+                                </article>
+                              ),
+                            )}
+                          </div>
+                        )}
+
+                        <div className="section-header">
+                          <div>
+                            <label>Categories and items</label>
+                            <p className="helper-text">
+                              Manage menu structure, assign modifier groups, and
+                              define item variants directly here.
+                            </p>
+                          </div>
+                          <button
+                            className="secondary-button"
+                            onClick={() => addCategory(menu.id)}
+                            type="button"
+                          >
+                            Add category
+                          </button>
+                        </div>
+
+                        <div className="editor-stack">
+                          {(draftContent[menu.id]?.categories ?? []).map(
+                            (category, categoryIndex) => (
+                              <article className="editor-card" key={`${menu.id}-category-${categoryIndex}`}>
+                                <div className="section-header">
+                                  <div>
+                                    <h4>{category.name || `Category ${categoryIndex + 1}`}</h4>
+                                    <p className="helper-text">
+                                      Organize visible menu sections for QR and
+                                      POS channels.
+                                    </p>
+                                  </div>
+                                  <button
+                                    className="ghost-button"
+                                    onClick={() =>
+                                      removeCategory(menu.id, categoryIndex)
+                                    }
+                                    type="button"
+                                  >
+                                    Remove category
+                                  </button>
+                                </div>
+
+                                <div className="detail-grid">
+                                  <div className="field">
+                                    <label>Category name</label>
+                                    <input
+                                      onChange={(event) =>
+                                        updateCategoryField(
+                                          menu.id,
+                                          categoryIndex,
+                                          'name',
+                                          event.target.value,
+                                        )
+                                      }
+                                      placeholder="Signatures"
+                                      value={category.name}
+                                    />
+                                  </div>
+                                </div>
+
+                                <label className="checkbox-row">
+                                  <input
+                                    checked={category.active ?? true}
+                                    onChange={(event) =>
+                                      updateCategoryField(
+                                        menu.id,
+                                        categoryIndex,
+                                        'active',
+                                        event.target.checked,
+                                      )
+                                    }
+                                    type="checkbox"
+                                  />
+                                  <span>Category is active and visible.</span>
+                                </label>
+
+                                <div className="section-header">
+                                  <div>
+                                    <label>Items</label>
+                                    <p className="helper-text">
+                                      Build the items inside this category.
+                                    </p>
+                                  </div>
+                                  <button
+                                    className="secondary-button"
+                                    onClick={() => addItem(menu.id, categoryIndex)}
+                                    type="button"
+                                  >
+                                    Add item
+                                  </button>
+                                </div>
+
+                                <div className="editor-stack">
+                                  {category.items.map((item, itemIndex) => (
+                                    <article
+                                      className="sub-editor-card"
+                                      key={`${menu.id}-category-${categoryIndex}-item-${itemIndex}`}
+                                    >
+                                      <div className="section-header">
+                                        <div>
+                                          <h5>{item.name || `Item ${itemIndex + 1}`}</h5>
+                                          <p className="helper-text">
+                                            Configure pricing, variants, and
+                                            guest choices for this item.
+                                          </p>
+                                        </div>
+                                        <button
+                                          className="ghost-button"
+                                          onClick={() =>
+                                            removeItem(
+                                              menu.id,
+                                              categoryIndex,
+                                              itemIndex,
+                                            )
+                                          }
+                                          type="button"
+                                        >
+                                          Remove item
+                                        </button>
+                                      </div>
+
+                                      <div className="detail-grid">
+                                        <div className="field">
+                                          <label>Item name</label>
+                                          <input
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'name',
+                                                event.target.value,
+                                              )
+                                            }
+                                            placeholder="Signature Noodles"
+                                            value={item.name}
+                                          />
+                                        </div>
+                                        <div className="field">
+                                          <label>SKU</label>
+                                          <input
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'sku',
+                                                event.target.value,
+                                              )
+                                            }
+                                            placeholder="SIG-NOODLES"
+                                            value={item.sku ?? ''}
+                                          />
+                                        </div>
+                                        <div className="field">
+                                          <label>Base price</label>
+                                          <input
+                                            inputMode="decimal"
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'basePriceCents',
+                                                parsePriceToCents(event.target.value) ?? 0,
+                                              )
+                                            }
+                                            placeholder="6.50"
+                                            value={formatPrice(item.basePriceCents, false)}
+                                          />
+                                        </div>
+                                        <div className="field">
+                                          <label>Preparation station</label>
+                                          <input
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'preparationStationKey',
+                                                slugify(event.target.value) ||
+                                                  DEFAULT_PREPARATION_STATION,
+                                              )
+                                            }
+                                            placeholder="main-kitchen"
+                                            value={
+                                              item.preparationStationKey ??
+                                              DEFAULT_PREPARATION_STATION
+                                            }
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="field">
+                                        <label>Description</label>
+                                        <textarea
+                                          onChange={(event) =>
+                                            updateItemField(
+                                              menu.id,
+                                              categoryIndex,
+                                              itemIndex,
+                                              'description',
+                                              event.target.value,
+                                            )
+                                          }
+                                          rows={3}
+                                          value={item.description ?? ''}
+                                        />
+                                      </div>
+
+                                      <div className="checkbox-grid">
+                                        <label className="checkbox-row">
+                                          <input
+                                            checked={item.active ?? true}
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'active',
+                                                event.target.checked,
+                                              )
+                                            }
+                                            type="checkbox"
+                                          />
+                                          <span>Active</span>
+                                        </label>
+                                        <label className="checkbox-row">
+                                          <input
+                                            checked={item.taxable ?? true}
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'taxable',
+                                                event.target.checked,
+                                              )
+                                            }
+                                            type="checkbox"
+                                          />
+                                          <span>Taxable</span>
+                                        </label>
+                                        <label className="checkbox-row">
+                                          <input
+                                            checked={item.serviceChargeable ?? true}
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'serviceChargeable',
+                                                event.target.checked,
+                                              )
+                                            }
+                                            type="checkbox"
+                                          />
+                                          <span>Service chargeable</span>
+                                        </label>
+                                        <label className="checkbox-row">
+                                          <input
+                                            checked={item.soldOut ?? false}
+                                            onChange={(event) =>
+                                              updateItemField(
+                                                menu.id,
+                                                categoryIndex,
+                                                itemIndex,
+                                                'soldOut',
+                                                event.target.checked,
+                                              )
+                                            }
+                                            type="checkbox"
+                                          />
+                                          <span>Start as sold out</span>
+                                        </label>
+                                      </div>
+
+                                      <div className="field">
+                                        <label>Assigned modifier groups</label>
+                                        <div className="assignment-grid">
+                                          {(draftContent[menu.id]?.modifierGroups ?? []).map(
+                                            (group) => (
+                                              <label
+                                                className="checkbox-row"
+                                                key={`${menu.id}-${categoryIndex}-${itemIndex}-${group.key}`}
+                                              >
+                                                <input
+                                                  checked={(item.modifierGroupKeys ?? []).includes(
+                                                    group.key,
+                                                  )}
+                                                  onChange={() =>
+                                                    toggleItemModifierGroup(
+                                                      menu.id,
+                                                      categoryIndex,
+                                                      itemIndex,
+                                                      group.key,
+                                                    )
+                                                  }
+                                                  type="checkbox"
+                                                />
+                                                <span>
+                                                  {group.name || group.key || 'Unnamed group'}
+                                                </span>
+                                              </label>
+                                            ),
+                                          )}
+                                        </div>
+                                        {(draftContent[menu.id]?.modifierGroups ?? []).length ===
+                                        0 ? (
+                                          <span className="helper-text">
+                                            Add modifier groups above to assign
+                                            guest choices here.
+                                          </span>
+                                        ) : null}
+                                      </div>
+
+                                      <div className="section-header">
+                                        <div>
+                                          <label>Variants</label>
+                                          <p className="helper-text">
+                                            Optional sizes or styles with price
+                                            differences.
+                                          </p>
+                                        </div>
+                                        <button
+                                          className="secondary-button"
+                                          onClick={() =>
+                                            addVariant(
+                                              menu.id,
+                                              categoryIndex,
+                                              itemIndex,
+                                            )
+                                          }
+                                          type="button"
+                                        >
+                                          Add variant
+                                        </button>
+                                      </div>
+
+                                      {(item.variants ?? []).length > 0 ? (
+                                        <div className="editor-stack">
+                                          {(item.variants ?? []).map(
+                                            (variant, variantIndex) => (
+                                              <article
+                                                className="sub-editor-card"
+                                                key={`${menu.id}-${categoryIndex}-${itemIndex}-variant-${variantIndex}`}
+                                              >
+                                                <div className="detail-grid">
+                                                  <div className="field">
+                                                    <label>Variant name</label>
+                                                    <input
+                                                      onChange={(event) =>
+                                                        updateVariantField(
+                                                          menu.id,
+                                                          categoryIndex,
+                                                          itemIndex,
+                                                          variantIndex,
+                                                          'name',
+                                                          event.target.value,
+                                                        )
+                                                      }
+                                                      placeholder="Large"
+                                                      value={variant.name}
+                                                    />
+                                                  </div>
+                                                  <div className="field">
+                                                    <label>Price delta</label>
+                                                    <input
+                                                      inputMode="decimal"
+                                                      onChange={(event) =>
+                                                        updateVariantField(
+                                                          menu.id,
+                                                          categoryIndex,
+                                                          itemIndex,
+                                                          variantIndex,
+                                                          'priceDeltaCents',
+                                                          parsePriceToCents(
+                                                            event.target.value,
+                                                          ) ?? 0,
+                                                        )
+                                                      }
+                                                      placeholder="1.00"
+                                                      value={formatPrice(
+                                                        variant.priceDeltaCents,
+                                                        false,
+                                                      )}
+                                                    />
+                                                  </div>
+                                                </div>
+                                                <div className="action-row">
+                                                  <button
+                                                    className="ghost-button"
+                                                    onClick={() =>
+                                                      removeVariant(
+                                                        menu.id,
+                                                        categoryIndex,
+                                                        itemIndex,
+                                                        variantIndex,
+                                                      )
+                                                    }
+                                                    type="button"
+                                                  >
+                                                    Remove variant
+                                                  </button>
+                                                </div>
+                                              </article>
+                                            ),
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="helper-text">
+                                          No variants yet for this item.
+                                        </span>
+                                      )}
+                                    </article>
+                                  ))}
+                                </div>
+                              </article>
+                            ),
+                          )}
+                        </div>
                       </div>
 
                       <div className="action-row">
@@ -961,30 +1936,113 @@ function getEditableVersion(detail: MenuDetail) {
   );
 }
 
-function versionToMenuLines(
+function versionToDraftContent(
   version: MenuDetail['versions'][number] | undefined,
-) {
+): DraftMenuContent {
   if (!version) {
-    return '';
+    return createEmptyDraftContent();
   }
 
-  return version.categories
-    .map((category) => {
-      const itemLines = category.items.map((item) => {
-        const parts = [
-          item.name,
-          formatPrice(item.basePriceCents, false),
-          item.description ?? '',
-          item.sku ?? '',
-        ];
-        while (parts.length > 2 && parts[parts.length - 1] === '') {
-          parts.pop();
-        }
-        return parts.join(' | ');
-      });
-      return [`# ${category.name}`, ...itemLines].join('\n');
-    })
-    .join('\n\n');
+  return {
+    modifierGroups: version.modifierGroups.map((group) => ({
+      key: group.key,
+      name: group.name,
+      minSelect: group.minSelect,
+      maxSelect: group.maxSelect,
+      required: group.required,
+      displayOrder: group.displayOrder,
+      options: group.options.map((option) => ({
+        name: option.name,
+        priceDeltaCents: option.priceDeltaCents,
+        displayOrder: option.displayOrder,
+      })),
+    })),
+    categories: version.categories.map((category) => ({
+      name: category.name,
+      displayOrder: category.displayOrder,
+      active: category.active,
+      items: category.items.map((item) => ({
+        sku: item.sku ?? undefined,
+        name: item.name,
+        description: item.description ?? undefined,
+        basePriceCents: item.basePriceCents,
+        taxable: item.taxable,
+        serviceChargeable: item.serviceChargeable,
+        preparationStationKey:
+          item.preparationStationKey ?? DEFAULT_PREPARATION_STATION,
+        active: item.active,
+        soldOut: item.soldOut,
+        displayOrder: item.displayOrder,
+        variants: item.variants.map((variant) => ({
+          name: variant.name,
+          priceDeltaCents: variant.priceDeltaCents,
+          displayOrder: variant.displayOrder,
+        })),
+        modifierGroupKeys: item.itemModifierGroups.map(
+          ({ modifierGroup }) => modifierGroup.key,
+        ),
+      })),
+    })),
+  };
+}
+
+function createEmptyDraftContent(): DraftMenuContent {
+  return {
+    modifierGroups: [],
+    categories: [createEmptyCategory(0)],
+  };
+}
+
+function createEmptyModifierGroup(index: number): DraftModifierGroup {
+  return {
+    key: `modifier-group-${index + 1}`,
+    name: '',
+    minSelect: 0,
+    maxSelect: 1,
+    required: false,
+    displayOrder: index,
+    options: [createEmptyModifierOption(0)],
+  };
+}
+
+function createEmptyModifierOption(index: number): DraftModifierOption {
+  return {
+    name: '',
+    priceDeltaCents: 0,
+    displayOrder: index,
+  };
+}
+
+function createEmptyCategory(index: number): DraftMenuCategory {
+  return {
+    name: '',
+    displayOrder: index,
+    active: true,
+    items: [createEmptyItem(0)],
+  };
+}
+
+function createEmptyItem(index: number): DraftMenuItem {
+  return {
+    name: '',
+    basePriceCents: 0,
+    taxable: true,
+    serviceChargeable: true,
+    preparationStationKey: DEFAULT_PREPARATION_STATION,
+    active: true,
+    soldOut: false,
+    displayOrder: index,
+    variants: [],
+    modifierGroupKeys: [],
+  };
+}
+
+function createEmptyVariant(index: number): DraftVariant {
+  return {
+    name: '',
+    priceDeltaCents: 0,
+    displayOrder: index,
+  };
 }
 
 function formatPrice(cents: number, withCurrency = true) {

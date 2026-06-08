@@ -57,6 +57,43 @@ export interface OutletSummary {
   status: string;
 }
 
+export type OwnerOrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'PAYMENT_PROCESSING'
+  | 'PAID'
+  | 'SENT_TO_KITCHEN'
+  | 'PREPARING'
+  | 'READY'
+  | 'SERVED'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+export interface OwnerOrderListEntry {
+  id: string;
+  orderNumber: string;
+  status: OwnerOrderStatus;
+  paymentStatus: string;
+  currency: string;
+  grandTotalCents: number;
+  createdAt: string;
+  updatedAt: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  table: {
+    tableCode: string;
+    displayName: string;
+  } | null;
+  payments: Array<{
+    method: string;
+    status: string;
+  }>;
+  kitchenTickets: Array<{
+    id: string;
+    status: string;
+    stationId: string;
+  }>;
+}
+
 export interface MenuListEntry {
   id: string;
   name: string;
@@ -109,6 +146,11 @@ export interface SetupMenuInput {
       active?: boolean;
       soldOut?: boolean;
       displayOrder?: number;
+      variants?: Array<{
+        name: string;
+        priceDeltaCents: number;
+        displayOrder?: number;
+      }>;
       modifierGroupKeys?: string[];
     }>;
   }>;
@@ -152,6 +194,20 @@ export interface MenuDetail {
         active: boolean;
         soldOut: boolean;
         displayOrder: number;
+        variants: Array<{
+          id: string;
+          name: string;
+          priceDeltaCents: number;
+          displayOrder: number;
+        }>;
+        itemModifierGroups: Array<{
+          modifierGroup: {
+            id: string;
+            key: string;
+            name: string;
+          };
+          displayOrder: number;
+        }>;
       }>;
     }>;
     modifierGroups: Array<{
@@ -374,6 +430,10 @@ export interface OutletDashboardData {
   outlet: OutletSummary;
   menuCount: number;
   latestMenuVersion: string | null;
+  totalOrders: number;
+  liveOrders: number;
+  paidOrders: number;
+  grossSalesCents: number;
   zoneCount: number;
   tableCount: number;
   qrCount: number;

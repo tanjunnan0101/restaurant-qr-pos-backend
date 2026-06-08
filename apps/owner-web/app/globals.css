@@ -318,6 +318,31 @@ button {
   color: var(--muted);
 }
 
+.structured-editor,
+.editor-stack,
+.checkbox-grid,
+.assignment-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.editor-card,
+.sub-editor-card {
+  border: 1px solid rgba(220, 207, 192, 0.9);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  padding: 18px;
+}
+
+.sub-editor-card {
+  background: var(--surface);
+}
+
+.checkbox-grid,
+.assignment-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
 .alert {
   padding: 14px 16px;
   border-radius: 16px;
