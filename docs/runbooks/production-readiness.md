@@ -18,6 +18,7 @@ Use this after staging is stable and before accepting real restaurant payments.
 - `PLATFORM_ADMIN_API_KEY` rotated and stored securely
 - Live `HITPAY_API_KEY` configured only in production
 - Live `HITPAY_WEBHOOK_SALT` configured only in production
+- `ERROR_WEBHOOK_URL` points to the chosen incident or alert destination
 - Any sandbox keys or salts exposed in chat or screenshots rotated
 - Production webhook configured at `/api/v1/webhooks/hitpay`
 
@@ -25,6 +26,7 @@ Use this after staging is stable and before accepting real restaurant payments.
 
 - Latest Prisma migrations applied exactly once
 - Recent verified database backup available before deploy
+- Backup and restore drill completed recently
 - API and customer web images match the same Git commit
 - `npm run check` passes before release
 
@@ -47,9 +49,8 @@ Use this after staging is stable and before accepting real restaurant payments.
 
 ## Known remaining gaps
 
-- Staff POS frontend not built yet
 - KDS frontend not built yet
-- Owner dashboard frontend not built yet
+- Physical printer validation still pending
 - Authenticated Socket.IO rooms still pending
-- Rate limiting and abuse protection still pending
-- Error tracking, alerting, and restore drills still pending
+- Error tracking, centralized log shipping, and alerting still pending
+- Deploy-time verification of rate-limit headers and Swagger exposure still pending

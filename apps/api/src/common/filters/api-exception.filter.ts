@@ -6,9 +6,12 @@ import {
   type ExceptionFilter,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { ErrorTrackingService } from '../observability/error-tracking.service';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  constructor(private readonly errorTracking: ErrorTrackingService) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const response = context.getResponse<Response>();
@@ -39,6 +42,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
         path: request.originalUrl,
         method: request.method,
         message: errorMessage,
+        stack: errorStack,
+      });
+    }
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.errorTracking.captureServerError({
+        requestId,
+        path: request.originalUrl,
+        method: request.method,
+        statusCode: status,
+        message: typeof message === 'string' ? message : JSON.stringify(message),
         stack: errorStack,
       });
     }

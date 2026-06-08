@@ -27,7 +27,9 @@ the initial client count. Tenant access is controlled by authenticated company
 and outlet membership, not by domain.
 
 For a concrete pre-production rollout sequence, see
-[docs/runbooks/staging-rollout.md](docs/runbooks/staging-rollout.md).
+[docs/runbooks/staging-rollout.md](docs/runbooks/staging-rollout.md). For
+restore validation, also use
+[docs/runbooks/backup-restore-drill.md](docs/runbooks/backup-restore-drill.md).
 
 ## Required Services
 
@@ -69,6 +71,8 @@ Required:
 NODE_ENV=production
 PORT=3001
 API_CORS_ORIGINS=https://order.example.com,https://app.example.com
+API_TRUST_PROXY=true
+SWAGGER_ENABLED=false
 DATABASE_URL=postgresql://...
 REDIS_URL=rediss://...
 JWT_SECRET=<at least 32 random characters>
@@ -80,6 +84,17 @@ ONBOARDING_TOKEN_TTL_HOURS=72
 HITPAY_API_KEY=<hitpay business api key>
 HITPAY_WEBHOOK_SALT=<hitpay webhook salt>
 HITPAY_API_URL=<hitpay api base url for the target environment>
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_AUTH_WINDOW_MS=300000
+RATE_LIMIT_AUTH_MAX=20
+RATE_LIMIT_PUBLIC_WINDOW_MS=60000
+RATE_LIMIT_PUBLIC_MAX=120
+RATE_LIMIT_ADMIN_WINDOW_MS=60000
+RATE_LIMIT_ADMIN_MAX=300
+REQUEST_LOGGING_ENABLED=true
+REQUEST_LOGGING_SLOW_MS=1500
+ERROR_TRACKING_ENABLED=true
+ERROR_WEBHOOK_URL=https://alerts.example.com/restaurant-pos
 ```
 
 Customer web image build argument:
@@ -154,6 +169,9 @@ Before every production migration:
 5. Apply it once to production.
 6. Deploy the matching application image.
 
+Run the full restore rehearsal separately with
+[docs/runbooks/backup-restore-drill.md](docs/runbooks/backup-restore-drill.md).
+
 ## HitPay
 
 Configure:
@@ -196,8 +214,10 @@ primary printer, retry, backup printer, and restart behavior.
 5. Wait for `/api/v1/health`.
 6. Deploy the customer web image with the matching API base URL.
 7. Verify login, QR resolution, menu loading, and payment availability.
-8. Run HitPay sandbox and printer smoke tests in staging.
-9. Promote the same images to production.
+8. Verify request logging, rate-limit headers, and Swagger exposure behave as
+   expected for the target environment.
+9. Run HitPay sandbox and printer smoke tests in staging.
+10. Promote the same images to production.
 
 ## CI Deployment Proof
 
@@ -214,12 +234,12 @@ GitHub Actions verifies the deployment contract on every push and pull request:
 
 Complete these before accepting live restaurant payments:
 
-- Restrict Swagger or disable it in production.
-- Add rate limiting to public, login, and platform endpoints.
 - Authenticate Socket.IO connections and outlet-room joins.
-- Add error tracking and structured log shipping.
-- Add uptime, queue, failed-webhook, and failed-print alerts.
-- Define backup retention and prove a restore.
+- Point `ERROR_WEBHOOK_URL` at a real incident destination and add centralized
+  log shipping.
+- Add uptime, queue, failed-webhook, failed-print, and repeated-429 alerts.
+- Prove the restore drill in
+  [docs/runbooks/backup-restore-drill.md](docs/runbooks/backup-restore-drill.md).
 - Configure secret rotation and least-privilege database credentials.
 - Add a Redis Socket.IO adapter before running multiple API replicas.
 - Complete real HitPay sandbox and physical printer acceptance tests.

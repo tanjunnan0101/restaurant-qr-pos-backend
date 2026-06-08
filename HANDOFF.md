@@ -21,6 +21,13 @@ Current deployed/staging truth at the end of this session:
 - The staff web baseline is implemented and wired to live order, table, menu,
   and payment APIs.
 - The remaining unvalidated area is physical printer hardware.
+- Phase 4 has now started locally with configurable API rate limiting and
+  abuse-protection middleware. This hardening block still needs deployment
+  validation on staging or production.
+- Phase 4 now also includes request lifecycle logging, production Swagger
+  toggling, and a backup or restore drill runbook.
+- Phase 4 now also includes a generic 5xx error webhook hook for future alert
+  routing.
 
 The live customer checkout baseline is now:
 
@@ -47,6 +54,12 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
    menu maintenance including advanced menu controls, and printing actions.
 7. Replaced the placeholder `staff-web` app with a real Next.js operations
    baseline for staff login, live orders, and table visibility.
+8. Started Phase 4 by adding proxy-aware, configurable API rate limiting for
+   auth, public QR, and admin traffic.
+9. Added request lifecycle logging, configurable Swagger exposure, and a
+   backup or restore drill runbook for Phase 4 operations.
+10. Added an injectable 5xx error tracking hook that can forward incidents to a
+    configured webhook without committing to a vendor yet.
 
 ## Entire work completed so far
 
@@ -58,6 +71,15 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   outlet, tables, menus, and activation flow can be provisioned from the API.
 - Added outlet management, menu management, table and QR management, payment
   controls, order flows, and printing flows under the admin API.
+- Added proxy-aware rate limiting middleware with separate auth, public, and
+  admin traffic buckets, while exempting health, webhook, docs, and
+  printer-agent routes.
+- Added request lifecycle logging with request IDs, client IP capture, and
+  slow or error request warnings.
+- Added a configuration path to disable Swagger in production while keeping it
+  available in local or staging environments when desired.
+- Added a generic server-error tracking hook so 5xx events can be forwarded to
+  an incident webhook through configuration.
 
 ### Customer ordering flow
 
@@ -164,6 +186,7 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Updated the main repo README, deployment context, design-system notes, and
   handoff documentation to reflect the current architecture and active payment
   provider.
+- Added a backup or restore drill runbook for production readiness.
 - Preserved the repo as continuation-ready so the next developer can continue
   from owner-web and staff-web baselines instead of scaffolding again.
 
@@ -197,8 +220,9 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   baseline.
 - Real outlet printer validation on physical hardware.
 - Authenticated Socket.IO subscriptions.
-- Production rate limiting and abuse protection.
-- Error tracking, alerting, and backup/restore drills.
+- Deployed validation of production rate limiting, request logging, and Swagger
+  exposure settings.
+- Error tracking, centralized log shipping, and operational alerting.
 - Deeper reporting, inventory, attendance, and operational dashboards beyond
   the current first owner reporting snapshot.
 
@@ -446,6 +470,34 @@ Scope:
 - Review and clean legacy internal `stripe_*` naming where safe
 - Decide whether to deprecate the `STRIPE_PAYNOW` compatibility path
 
+Current Phase 4 progress:
+
+- Completed locally:
+  - Configurable API rate limiting middleware is implemented.
+  - Separate auth, public QR, and admin rate-limit policies exist.
+  - Proxy-aware client resolution is supported through `API_TRUST_PROXY`.
+  - Health, docs, HitPay webhook, and printer-agent routes are exempted.
+  - Request lifecycle logging is implemented with request IDs, duration, and
+    warning or error escalation.
+  - Swagger exposure is configurable through `SWAGGER_ENABLED`.
+  - The global exception filter can forward 5xx events to `ERROR_WEBHOOK_URL`
+    when enabled.
+  - Backup or restore drill steps are documented in
+    `docs/runbooks/backup-restore-drill.md`.
+  - Middleware tests, API typecheck, and API build are passing.
+- Still remaining:
+  - Deploy the Phase 4 env vars to staging or production and verify
+    rate-limit headers, request logs, Swagger exposure, and the error webhook
+    path on Render.
+  - Validate one real Windows printer-agent machine with a real thermal
+    printer.
+  - Confirm kitchen receipt plus customer receipt behavior on physical outlet
+    hardware.
+  - Point the generic error hook at the team's real incident destination, then
+    add centralized log shipping and alerting.
+  - Run the backup or restore drill for real against the target hosting setup.
+  - Review safe cleanup of remaining internal `stripe_*` compatibility naming.
+
 Primary ownership:
 
 - `apps/printer-agent`
@@ -520,6 +572,18 @@ typecheck, and production builds.
 The staff-web implementation was also validated through full repo checks,
 typecheck, and production builds.
 
+The first Phase 4 hardening block was validated through:
+
+- `npm run typecheck --workspace @restaurant-pos/api`
+- `npm run test --workspace @restaurant-pos/api`
+- `npm run build --workspace @restaurant-pos/api`
+
+The second Phase 4 operations block was validated through:
+
+- `npm run typecheck --workspace @restaurant-pos/api`
+- `npm run test --workspace @restaurant-pos/api`
+- `npm run build --workspace @restaurant-pos/api`
+
 ## What was validated in deployed staging
 
 - `GET /api/v1/health` returned `status: ok`.
@@ -529,6 +593,15 @@ typecheck, and production builds.
 - Paid orders were recorded correctly and visible in the HitPay sandbox
   dashboard.
 - The deployed flow now shows HitPay, not Stripe, to the customer.
+
+The new Phase 4 rate-limiting middleware has not been validated on deployed
+staging yet in this handoff state.
+
+The new Phase 4 request logging and Swagger toggle have not been validated on
+deployed staging yet in this handoff state.
+
+The new Phase 4 error webhook hook has not been validated on deployed staging
+yet in this handoff state.
 
 ## Required deployment notes
 
@@ -540,9 +613,22 @@ For staging or production, the important API environment variables are:
 - `PLATFORM_ADMIN_API_KEY`
 - `OWNER_APP_BASE_URL`
 - `CUSTOMER_APP_BASE_URL`
+- `API_TRUST_PROXY`
+- `SWAGGER_ENABLED`
 - `HITPAY_API_KEY`
 - `HITPAY_WEBHOOK_SALT`
 - `HITPAY_API_URL`
+- `RATE_LIMIT_ENABLED`
+- `RATE_LIMIT_AUTH_WINDOW_MS`
+- `RATE_LIMIT_AUTH_MAX`
+- `RATE_LIMIT_PUBLIC_WINDOW_MS`
+- `RATE_LIMIT_PUBLIC_MAX`
+- `RATE_LIMIT_ADMIN_WINDOW_MS`
+- `RATE_LIMIT_ADMIN_MAX`
+- `REQUEST_LOGGING_ENABLED`
+- `REQUEST_LOGGING_SLOW_MS`
+- `ERROR_TRACKING_ENABLED`
+- `ERROR_WEBHOOK_URL`
 
 Important:
 
@@ -598,7 +684,8 @@ npm run build
 ## Where the next developer should resume
 
 1. Use `docs/runbooks/staging-rollout.md` and
-   `docs/runbooks/production-readiness.md` as the operational checklist.
+   `docs/runbooks/production-readiness.md` as the operational checklist, plus
+   `docs/runbooks/backup-restore-drill.md` for restore rehearsal.
 2. Do not block continuation on printer validation.
 3. Validate one real Windows printer-agent machine against the target thermal
    printer later, including the new customer-receipt output.
@@ -607,8 +694,8 @@ npm run build
 5. Continue from the current owner-web and staff-web baselines rather than
    scaffolding from scratch.
 6. Next frontend priorities:
-   - complete walk-in POS order entry in `apps/staff-web`
    - decide whether KDS should be its own app or a focused staff-web mode
+   - add authenticated realtime updates for staff and future kitchen screens
 
 The payment flow no longer needs rescue work unless HitPay credentials are
 rotated or the deployment environment changes.

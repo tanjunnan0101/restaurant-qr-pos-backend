@@ -12,6 +12,11 @@ async function bootstrap(): Promise<void> {
     rawBody: true,
   });
   const config = app.get(ConfigService);
+  const trustProxy = config.get<boolean>('API_TRUST_PROXY') ?? true;
+
+  if (trustProxy) {
+    app.getHttpAdapter().getInstance().set('trust proxy', true);
+  }
 
   app.setGlobalPrefix('api/v1');
   app.use(helmet());
@@ -29,7 +34,7 @@ async function bootstrap(): Promise<void> {
       whitelist: true,
     }),
   );
-  app.useGlobalFilters(new ApiExceptionFilter());
+  app.useGlobalFilters(app.get(ApiExceptionFilter));
   app.enableShutdownHooks();
 
   const swaggerConfig = new DocumentBuilder()
@@ -38,8 +43,10 @@ async function bootstrap(): Promise<void> {
     .setVersion('0.1.0')
     .addBearerAuth()
     .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  if (config.get<boolean>('SWAGGER_ENABLED') ?? true) {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document);
+  }
 
   await app.listen(config.getOrThrow<number>('PORT'), '0.0.0.0');
 }

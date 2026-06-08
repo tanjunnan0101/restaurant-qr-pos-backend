@@ -9,6 +9,7 @@ deployment and rollout, use:
 - [docs/deployment.md](docs/deployment.md)
 - [docs/runbooks/staging-rollout.md](docs/runbooks/staging-rollout.md)
 - [docs/runbooks/production-readiness.md](docs/runbooks/production-readiness.md)
+- [docs/runbooks/backup-restore-drill.md](docs/runbooks/backup-restore-drill.md)
 
 ## Current baseline
 
@@ -29,13 +30,17 @@ Implemented now:
 - One-call client onboarding and owner activation.
 - Owner-web with activation, login, dashboard hydration, and outlet setup flows.
 - Staff-web with login, operations dashboard, orders board, and table overview.
+- Configurable proxy-aware API rate limiting for auth, public QR, and admin
+  traffic classes.
+- Request lifecycle logging with request IDs, client IP capture, and slow/error
+  request warnings.
+- Configurable Swagger exposure for safer production deployments.
 
 Not implemented yet:
 
 - KDS frontend.
-- Full staff walk-in POS order entry.
 - Physical printer acceptance on a real outlet network.
-- Production observability, rate limiting, backup/restore drills, and
+- Error tracking hooks, centralized log shipping, proven restore drills, and
   horizontally scaled Socket.IO.
 
 ## Local setup
@@ -61,6 +66,33 @@ Useful local URLs:
 
 Seeded owner login defaults to `owner@example.com` / `ChangeMe123!` unless
 you override them in `.env`.
+
+## API hardening
+
+The API now includes basic production safeguards for burst traffic:
+
+- proxy-aware rate limiting for `auth`, `public`, and `admin` routes
+- webhook, health, docs, and printer-agent exemptions
+- request lifecycle logging with request IDs and slow/error warnings
+- configurable Swagger enable or disable behavior per environment
+- optional server-error webhook forwarding for 5xx events
+- configurable limits through `.env`
+
+Relevant environment variables:
+
+- `API_TRUST_PROXY`
+- `SWAGGER_ENABLED`
+- `RATE_LIMIT_ENABLED`
+- `RATE_LIMIT_AUTH_WINDOW_MS`
+- `RATE_LIMIT_AUTH_MAX`
+- `RATE_LIMIT_PUBLIC_WINDOW_MS`
+- `RATE_LIMIT_PUBLIC_MAX`
+- `RATE_LIMIT_ADMIN_WINDOW_MS`
+- `RATE_LIMIT_ADMIN_MAX`
+- `REQUEST_LOGGING_ENABLED`
+- `REQUEST_LOGGING_SLOW_MS`
+- `ERROR_TRACKING_ENABLED`
+- `ERROR_WEBHOOK_URL`
 
 ## Public checkout flow
 

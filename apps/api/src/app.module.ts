@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { z } from 'zod';
@@ -6,7 +6,11 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { CompaniesModule } from './companies/companies.module';
+import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
+import { ErrorTrackingService } from './common/observability/error-tracking.service';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
@@ -29,6 +33,14 @@ const environmentSchema = z.object({
   API_CORS_ORIGINS: z
     .string()
     .default('http://localhost:3000,http://localhost:3002'),
+  API_TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  SWAGGER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
@@ -40,6 +52,34 @@ const environmentSchema = z.object({
   HITPAY_API_KEY: z.string().default(''),
   HITPAY_WEBHOOK_SALT: z.string().default(''),
   HITPAY_API_URL: z.string().url().default('https://api.sandbox.hit-pay.com'),
+  RATE_LIMIT_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  RATE_LIMIT_AUTH_WINDOW_MS: z.coerce.number().int().positive().default(300000),
+  RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(20),
+  RATE_LIMIT_PUBLIC_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60000),
+  RATE_LIMIT_PUBLIC_MAX: z.coerce.number().int().positive().default(120),
+  RATE_LIMIT_ADMIN_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60000),
+  RATE_LIMIT_ADMIN_MAX: z.coerce.number().int().positive().default(300),
+  REQUEST_LOGGING_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  REQUEST_LOGGING_SLOW_MS: z.coerce.number().int().positive().default(1500),
+  ERROR_TRACKING_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  ERROR_WEBHOOK_URL: z.string().default(''),
 });
 
 @Module({
@@ -68,7 +108,11 @@ const environmentSchema = z.object({
     HealthModule,
   ],
   providers: [
+    ApiExceptionFilter,
     RequestIdMiddleware,
+    RequestLoggingMiddleware,
+    RateLimitMiddleware,
+    ErrorTrackingService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
@@ -80,7 +124,9 @@ const environmentSchema = z.object({
   ],
 })
 export class AppModule {
-  configure(consumer: import('@nestjs/common').MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(RequestIdMiddleware, RequestLoggingMiddleware, RateLimitMiddleware)
+      .forRoutes('*');
   }
 }
