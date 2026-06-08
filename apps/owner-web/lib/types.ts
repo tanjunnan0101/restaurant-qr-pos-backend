@@ -317,6 +317,91 @@ export interface PaymentSettingsResponse {
   updatedAt: string;
 }
 
+export interface StaffRoleSummary {
+  id: string;
+  systemKey: string;
+  name: string;
+  description: string | null;
+  permissions: string[];
+}
+
+export interface StaffActivationSummary {
+  pending: boolean;
+  expiresAt: string | null;
+}
+
+export interface OutletStaffUser {
+  id: string;
+  email: string;
+  fullName: string;
+  status: string;
+  lastLoginAt: string | null;
+  role: StaffRoleSummary;
+  activation: StaffActivationSummary;
+}
+
+export interface OutletStaffResponse {
+  users: OutletStaffUser[];
+}
+
+export interface OutletStaffRolesResponse {
+  roles: StaffRoleSummary[];
+}
+
+export interface OutletAuditEntry {
+  id: string;
+  actionType: string;
+  entityType: string;
+  entityId: string | null;
+  reason: string | null;
+  requestId: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  actor: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+  outlet?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  before: unknown;
+  after: unknown;
+}
+
+export interface OutletAuditResponse {
+  entries: OutletAuditEntry[];
+}
+
+export interface StaffActivationLinkResponse {
+  userId: string;
+  activation: {
+    token: string | null;
+    expiresAt: string | null;
+    url: string | null;
+  };
+}
+
+export interface RemoveStaffAccessResponse {
+  userId: string;
+  removed: boolean;
+}
+
+export interface CreateStaffUserResponse {
+  id: string;
+  email: string;
+  fullName: string;
+  status: string;
+  role: StaffRoleSummary;
+  activation: {
+    token: string | null;
+    expiresAt: string | null;
+    url: string | null;
+  };
+}
+
 export type PrinterConnectionType =
   | 'EPSON_EPOS'
   | 'ESC_POS_LAN'
@@ -442,4 +527,11 @@ export interface OutletDashboardData {
   printerCount: number;
   agentCount: number;
   failedPrintJobs: number;
+  setupReadinessPercent: number;
+  setupChecklist: {
+    menuPublished: boolean;
+    tablesReady: boolean;
+    checkoutReady: boolean;
+    printingReady: boolean;
+  };
 }

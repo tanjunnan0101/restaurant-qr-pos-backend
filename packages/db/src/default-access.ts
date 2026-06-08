@@ -5,6 +5,11 @@ export const permissionCatalog = [
     category: 'company',
   },
   {
+    key: 'company.manage',
+    description: 'Update company settings',
+    category: 'company',
+  },
+  {
     key: 'outlet.read',
     description: 'View assigned outlets',
     category: 'outlet',

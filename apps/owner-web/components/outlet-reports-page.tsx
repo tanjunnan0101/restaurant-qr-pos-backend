@@ -55,6 +55,8 @@ export function OutletReportsPage() {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [windowFilter, setWindowFilter] = useState<TimeWindow>('7D');
+  const [statusFilter, setStatusFilter] = useState<OwnerOrderStatus | 'ALL'>('ALL');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('ALL');
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,7 +95,7 @@ export function OutletReportsPage() {
     };
   }, [outletId, session]);
 
-  const filteredOrders = useMemo(() => {
+  const scopedOrders = useMemo(() => {
     const cutoff = getCutoffTimestamp(windowFilter);
     const next = cutoff
       ? orders.filter((order) => new Date(order.createdAt).getTime() >= cutoff)
@@ -103,6 +105,36 @@ export function OutletReportsPage() {
         new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
     );
   }, [orders, windowFilter]);
+
+  const paymentMethodOptions = useMemo(() => {
+    const methods = new Set<string>();
+    for (const order of scopedOrders) {
+      if (order.payments.length === 0) {
+        methods.add('UNRECORDED');
+      }
+      for (const payment of order.payments) {
+        methods.add(payment.method);
+      }
+    }
+    return ['ALL', ...[...methods].sort()];
+  }, [scopedOrders]);
+
+  const filteredOrders = useMemo(() => {
+    return scopedOrders.filter((order) => {
+      if (statusFilter !== 'ALL' && order.status !== statusFilter) {
+        return false;
+      }
+      if (paymentMethodFilter !== 'ALL') {
+        const methods = order.payments.length
+          ? order.payments.map((payment) => payment.method)
+          : ['UNRECORDED'];
+        if (!methods.includes(paymentMethodFilter)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [paymentMethodFilter, scopedOrders, statusFilter]);
 
   const previousWindowOrders = useMemo(() => {
     const range = getWindowRange(windowFilter);
@@ -329,6 +361,40 @@ export function OutletReportsPage() {
                 </button>
               ))}
             </div>
+
+            <div className="detail-grid">
+              <div className="field">
+                <label htmlFor="report-status-filter">Order status</label>
+                <select
+                  id="report-status-filter"
+                  onChange={(event) =>
+                    setStatusFilter(event.target.value as OwnerOrderStatus | 'ALL')
+                  }
+                  value={statusFilter}
+                >
+                  <option value="ALL">All statuses</option>
+                  {REPORT_STATUS_ORDER.map((status) => (
+                    <option key={status} value={status}>
+                      {formatEnum(status)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="report-payment-filter">Payment method</label>
+                <select
+                  id="report-payment-filter"
+                  onChange={(event) => setPaymentMethodFilter(event.target.value)}
+                  value={paymentMethodFilter}
+                >
+                  {paymentMethodOptions.map((method) => (
+                    <option key={method} value={method}>
+                      {method === 'ALL' ? 'All payment methods' : formatEnum(method)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </section>
 
           <section className="section-panel">
@@ -480,13 +546,6 @@ export function OutletReportsPage() {
           </section>
 
           <section className="section-panel">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Breakdowns</p>
-                <h2 className="serif">Status, payment mix, and table activity</h2>
-              </div>
-            </div>
-
             <div className="section-header">
               <div>
                 <p className="eyebrow">Owner export</p>

@@ -83,11 +83,15 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
         <div>
           <p className="eyebrow">Outlet context</p>
           <h2 className="serif">{outlet.name}</h2>
-          <p>
-            {outlet.slug} • {outlet.currency} • {outlet.timezone}
-          </p>
+          <p>{outlet.slug} | {outlet.currency} | {outlet.timezone}</p>
         </div>
         <div className="inline-actions">
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/settings`}
+          >
+            Settings
+          </Link>
           <Link
             className="secondary-button"
             href={`/outlets/${outlet.id}/reports`}
@@ -111,6 +115,18 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
             href={`/outlets/${outlet.id}/payment-settings`}
           >
             Payment settings
+          </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/staff`}
+          >
+            Staff
+          </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/audit`}
+          >
+            Audit
           </Link>
           <Link
             className="secondary-button"

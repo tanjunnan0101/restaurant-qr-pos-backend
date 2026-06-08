@@ -3,14 +3,20 @@ import type {
   LoginResponse,
   MenuDetail,
   MenuListEntry,
+  OutletAuditEntry,
+  OutletAuditResponse,
   OwnerOrderListEntry,
   OwnerOrderStatus,
   OutletSummary,
   PaymentScope,
   PaymentSettingsResponse,
   ReplaceMenuDraftInput,
+  CreateStaffUserResponse,
+  OutletStaffResponse,
+  OutletStaffRolesResponse,
   PrintingConfiguration,
   RotateQrResponse,
+  StaffActivationLinkResponse,
   SetupMenuInput,
   SetupPrintingInput,
   SetupPrintingResponse,
@@ -86,10 +92,73 @@ export function getCurrentCompany(token: string) {
   });
 }
 
+export function updateCurrentCompany(
+  token: string,
+  input: {
+    name?: string;
+    legalName?: string;
+    registrationNumber?: string;
+    defaultCurrency?: string;
+    defaultTimezone?: string;
+    reason: string;
+  },
+) {
+  return request<CompanyProfile>('/admin/company', {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+}
+
 export function getOutlets(token: string) {
   return request<OutletSummary[]>('/admin/outlets', {
     headers: authHeaders(token),
   });
+}
+
+export function createOutlet(
+  token: string,
+  input: {
+    name: string;
+    slug: string;
+    timezone?: string;
+    currency?: string;
+    gstEnabled?: boolean;
+    gstRateBps?: number;
+    serviceChargeEnabled?: boolean;
+    serviceChargeBps?: number;
+  },
+) {
+  return request<OutletSummary>('/admin/outlets', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateOutlet(
+  token: string,
+  outletId: string,
+  input: {
+    name?: string;
+    slug?: string;
+    timezone?: string;
+    currency?: string;
+    gstEnabled?: boolean;
+    gstRateBps?: number;
+    serviceChargeEnabled?: boolean;
+    serviceChargeBps?: number;
+    reason: string;
+  },
+) {
+  return request<OutletSummary>(
+    `/admin/outlets/${encodeURIComponent(outletId)}`,
+    {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export function getOrders(
@@ -353,6 +422,162 @@ export function reprintJob(
       method: 'POST',
       headers: authHeaders(token),
       body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getOutletStaff(token: string, outletId: string) {
+  return request<OutletStaffResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/staff`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function getOutletStaffRoles(token: string, outletId: string) {
+  return request<OutletStaffRolesResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/staff/roles`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function createOutletStaffUser(
+  token: string,
+  outletId: string,
+  input: {
+    email: string;
+    fullName: string;
+    roleKey: string;
+  },
+) {
+  return request<CreateStaffUserResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/staff`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function updateOutletStaffRole(
+  token: string,
+  outletId: string,
+  userId: string,
+  input: {
+    roleKey: string;
+    reason: string;
+  },
+) {
+  return request<{
+    userId: string;
+    role: {
+      id: string;
+      systemKey: string;
+      name: string;
+      permissions: string[];
+    };
+  }>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/staff/${encodeURIComponent(userId)}/role`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function reissueOutletStaffActivation(
+  token: string,
+  outletId: string,
+  userId: string,
+  input: {
+    reason: string;
+  },
+) {
+  return request<StaffActivationLinkResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/staff/${encodeURIComponent(userId)}/reissue-activation`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function removeOutletStaffAccess(
+  token: string,
+  outletId: string,
+  userId: string,
+  input: {
+    reason: string;
+  },
+) {
+  return request<{
+    userId: string;
+    removed: boolean;
+  }>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/staff/${encodeURIComponent(userId)}/remove-access`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getOutletAuditLogs(
+  token: string,
+  outletId: string,
+  input?: {
+    limit?: number;
+    actionType?: string;
+  },
+) {
+  const params = new URLSearchParams();
+  if (input?.limit) {
+    params.set('limit', String(input.limit));
+  }
+  if (input?.actionType) {
+    params.set('actionType', input.actionType);
+  }
+  const query = params.toString();
+
+  return request<OutletAuditResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/audit-logs${query ? `?${query}` : ''}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function getCompanyAuditLogs(
+  token: string,
+  input?: {
+    limit?: number;
+    actionType?: string;
+    outletId?: string;
+  },
+) {
+  const params = new URLSearchParams();
+  if (input?.limit) {
+    params.set('limit', String(input.limit));
+  }
+  if (input?.actionType) {
+    params.set('actionType', input.actionType);
+  }
+  if (input?.outletId) {
+    params.set('outletId', input.outletId);
+  }
+  const query = params.toString();
+
+  return request<{ entries: OutletAuditEntry[] }>(
+    `/admin/company/audit-logs${query ? `?${query}` : ''}`,
+    {
+      headers: authHeaders(token),
     },
   );
 }

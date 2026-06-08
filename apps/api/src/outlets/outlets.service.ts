@@ -1,8 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PaymentMethod, type Prisma } from '@restaurant-pos/db';
 import type { AuthenticatedUser } from '../common/types/authenticated-user';
 import { PrismaService } from '../database/prisma.service';
 import type { CreateOutletDto } from './dto/create-outlet.dto';
+import type { UpdateOutletDto } from './dto/update-outlet.dto';
 
 @Injectable()
 export class OutletsService {
@@ -108,6 +109,107 @@ export class OutletsService {
           entityId: outlet.id,
           afterJson: outlet as unknown as Prisma.InputJsonValue,
           reason: 'Outlet created through administration API.',
+        },
+      });
+
+      return outlet;
+    });
+  }
+
+  async update(
+    user: AuthenticatedUser,
+    outletId: string,
+    dto: UpdateOutletDto,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    const existing = await this.prisma.outlet.findFirst({
+      where: {
+        id: outletId,
+        companyId: user.companyId,
+        userAccess: {
+          some: {
+            userId: user.userId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        companyId: true,
+        name: true,
+        slug: true,
+        timezone: true,
+        currency: true,
+        gstEnabled: true,
+        gstRateBps: true,
+        serviceChargeEnabled: true,
+        serviceChargeBps: true,
+        status: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Outlet not found.');
+    }
+
+    if (dto.slug && dto.slug !== existing.slug) {
+      const slugConflict = await this.prisma.outlet.findFirst({
+        where: {
+          companyId: user.companyId,
+          slug: dto.slug,
+          id: {
+            not: outletId,
+          },
+        },
+        select: { id: true },
+      });
+      if (slugConflict) {
+        throw new ConflictException('Outlet slug already exists.');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const outlet = await tx.outlet.update({
+        where: {
+          id: outletId,
+        },
+        data: {
+          name: dto.name ?? undefined,
+          slug: dto.slug ?? undefined,
+          timezone: dto.timezone ?? undefined,
+          currency: dto.currency ?? undefined,
+          gstEnabled: dto.gstEnabled ?? undefined,
+          gstRateBps: dto.gstRateBps ?? undefined,
+          serviceChargeEnabled: dto.serviceChargeEnabled ?? undefined,
+          serviceChargeBps: dto.serviceChargeBps ?? undefined,
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          timezone: true,
+          currency: true,
+          gstEnabled: true,
+          gstRateBps: true,
+          serviceChargeEnabled: true,
+          serviceChargeBps: true,
+          status: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          actorUserId: user.userId,
+          actionType: 'OUTLET_UPDATED',
+          entityType: 'outlet',
+          entityId: outletId,
+          reason: dto.reason,
+          beforeJson: existing as Prisma.InputJsonValue,
+          afterJson: outlet as Prisma.InputJsonValue,
+          requestId,
+          ipAddress,
         },
       });
 

@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { z } from 'zod';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
@@ -24,6 +25,7 @@ import { PrintingModule } from './printing/printing.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { TablesModule } from './tables/tables.module';
 import { TenantModule } from './tenant/tenant.module';
+import { UsersModule } from './users/users.module';
 
 const environmentSchema = z.object({
   NODE_ENV: z
@@ -96,6 +98,7 @@ const environmentSchema = z.object({
     RealtimeModule,
     TenantModule,
     AuthModule,
+    AuditModule,
     CompaniesModule,
     OutletsModule,
     PaymentSettingsModule,
@@ -105,6 +108,7 @@ const environmentSchema = z.object({
     PaymentsModule,
     PrintingModule,
     PlatformModule,
+    UsersModule,
     HealthModule,
   ],
   providers: [
