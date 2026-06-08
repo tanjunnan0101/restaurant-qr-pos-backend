@@ -1,6 +1,6 @@
 # Backend Handoff
 
-Status date: 2026-06-08
+Status date: 2026-06-09
 
 Repository:
 `https://github.com/tanjunnan0101/restaurant-qr-pos-backend`
@@ -13,6 +13,7 @@ the owner web app, the staff web baseline, and the printer-agent foundation.
 Current deployed/staging truth at the end of this session:
 
 - Render API and customer web deployment are up.
+- Render owner web and staff web deployments are also up.
 - Render PostgreSQL and Redis are connected and healthy.
 - HitPay sandbox checkout is working end to end.
 - Successful payments are visible in the HitPay sandbox dashboard.
@@ -20,6 +21,11 @@ Current deployed/staging truth at the end of this session:
 - The owner web app is implemented and wired to the live backend APIs.
 - The staff web baseline is implemented and wired to live order, table, menu,
   and payment APIs.
+- The current custom-domain staging URLs are:
+  - API: `https://api.sakorio.com`
+  - Customer QR web: `https://order.sakorio.com`
+  - Owner web: `https://app.sakorio.com`
+  - Staff web: `https://staff.sakorio.com`
 - Customer-web fallback copy now directs guests to the cashier when online
   payment is unavailable.
 - Staff POS now has a live `ONLINE_CARD` on/off toggle backed by the outlet
@@ -51,6 +57,9 @@ Current deployed/staging truth at the end of this session:
   toggling, and a backup or restore drill runbook.
 - Phase 4 now also includes a generic 5xx error webhook hook for future alert
   routing.
+- Owner-web and staff-web have now received a major UI polish pass so the
+  staging dashboards are presentable for product walkthroughs instead of
+  looking like internal scaffolds.
 
 The live customer checkout baseline is now:
 
@@ -99,6 +108,10 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 18. Extended cashier order flow with held drafts, order-level discounts,
     pre-payment bill printing, and automatic inventory deduction on kitchen
     release.
+19. Fixed staging custom-domain rollout across `api.sakorio.com`,
+    `order.sakorio.com`, `app.sakorio.com`, and `staff.sakorio.com`.
+20. Upgraded owner-web and staff-web shell, navigation, dashboard hierarchy,
+    and auth screens into a more product-ready UI baseline.
 
 ## Entire work completed so far
 
@@ -164,6 +177,12 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Replaced the owner-web placeholder with a real Next.js app.
 - Added owner activation and login using the live backend auth endpoints.
 - Hydrated the owner dashboard from real backend APIs.
+- Polished the owner-web UI significantly:
+  - richer signed-in shell with tenant and outlet context
+  - stronger navigation for dashboard and outlet workspaces
+  - upgraded dashboard hierarchy with executive summary, launch watchlist, and
+    cleaner outlet health presentation
+  - improved login and activation screens to match the customer-web quality bar
 - Added outlet menu management flows including menu setup, draft replacement,
   clone-to-draft, publish, and sold-out toggles.
 - Upgraded the owner menu workspace with a structured draft editor for:
@@ -202,6 +221,10 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Replaced the staff-web placeholder with a real Next.js app baseline.
 - Added staff login using the live JWT auth flow.
 - Added a staff dashboard with outlet-level live queue and table summaries.
+- Polished the staff-web UI significantly:
+  - stronger live-operations shell with clearer outlet context
+  - upgraded dashboard hero, KPI cards, and service-priority panels
+  - improved staff login screen and shared navigation hierarchy
 - Added a live orders board with status progression from kitchen release through
   completion.
 - Added authenticated realtime sync for the staff order board so outlet events
@@ -718,6 +741,11 @@ The second Phase 4 operations block was validated through:
 - Paid orders were recorded correctly and visible in the HitPay sandbox
   dashboard.
 - The deployed flow now shows HitPay, not Stripe, to the customer.
+- Owner login is working on `https://app.sakorio.com/login`.
+- Staff login is working on `https://staff.sakorio.com/login`.
+- Owner dashboard remained functional after the owner-web live API wiring.
+- Staff can see resulting orders after customer checkout in staging.
+- Custom-domain API health works at `https://api.sakorio.com/api/v1/health`.
 
 The new Phase 4 rate-limiting middleware has not been validated on deployed
 staging yet in this handoff state.
@@ -761,6 +789,12 @@ Important:
   chat, screenshots, or temporary notes.
 - Do not commit `.env`, payment secrets, database credentials, or printer-agent
   keys.
+- The owner/staff UI polish commit is `461c525` with message
+  `Polish owner and staff dashboard UX`.
+- If owner-web or staff-web do not yet reflect the improved dashboard design,
+  redeploy these two Render services to commit `461c525`:
+  - `restaurant-pos-staging-owner-web`
+  - `restaurant-pos-staging-staff-web`
 
 ## Current topology
 
@@ -818,12 +852,17 @@ npm run build
    column names after staging is stable.
 5. Continue from the current owner-web and staff-web baselines rather than
    scaffolding from scratch.
-6. Next frontend priorities:
+6. The owner-web and staff-web UI baseline is now good enough for continued
+   product work; do not spend the next cycle redoing the shell again unless the
+   product direction changes materially.
+7. If staging visuals look outdated, verify Render has redeployed owner-web and
+   staff-web to commit `461c525`.
+8. Next frontend priorities:
    - refine the new KDS mode with station filters, expo handling, and deeper
      kitchen ergonomics
    - decide later whether KDS should stay inside staff-web or split into its
      own dedicated app
-7. Note on cashier permissions:
+9. Note on cashier permissions:
    - newly provisioned cashier roles now include `payment.settings.manage`
    - existing tenants are covered by Prisma migration
      `20260608170000_backfill_cashier_payment_settings_manage`
