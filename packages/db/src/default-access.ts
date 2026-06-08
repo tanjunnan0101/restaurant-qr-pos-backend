@@ -98,6 +98,7 @@ export const defaultRoleTemplates = [
     permissions: [
       'outlet.read',
       'payment.settings.read',
+      'payment.settings.manage',
       'menu.read',
       'table.read',
       'order.read',

@@ -6,6 +6,8 @@ import type {
   OrderDetail,
   OrderListEntry,
   OutletSummary,
+  PaymentScope,
+  PaymentSettingsResponse,
   StaffMenuDetail,
   StaffOrderStatus,
   TableZone,
@@ -233,6 +235,52 @@ export function cancelOrder(
 ) {
   return request<OrderDetail>(
     `/admin/outlets/${encodeURIComponent(outletId)}/orders/${encodeURIComponent(orderId)}/cancel`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getPaymentSettings(token: string, outletId: string) {
+  return request<PaymentSettingsResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/payment-settings`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function disablePaymentScope(
+  token: string,
+  outletId: string,
+  input: {
+    scope: PaymentScope;
+    reason: string;
+    until?: string;
+  },
+) {
+  return request<PaymentSettingsResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/payment-settings/disable`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function enablePaymentScope(
+  token: string,
+  outletId: string,
+  input: {
+    scope: PaymentScope;
+    reason: string;
+  },
+) {
+  return request<PaymentSettingsResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/payment-settings/enable`,
     {
       method: 'POST',
       headers: authHeaders(token),

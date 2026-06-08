@@ -31,14 +31,14 @@ const PAYMENT_SCOPE_DESCRIPTORS: Record<PaymentScope, ScopeCardDescriptor> = {
     scope: 'STRIPE',
     label: 'Hosted checkout provider gate',
     description:
-      'Still stored in a legacy STRIPE field, but it currently gates the hosted checkout path used by customer payments.',
+      'Still stored in a legacy STRIPE field, but it currently gates the hosted checkout path now used by HitPay customer payments.',
     legacyNote: 'Backend rename still pending after the HitPay migration.',
   },
   ONLINE_CARD: {
     scope: 'ONLINE_CARD',
     label: 'Card or wallet checkout',
     description:
-      'This is the live customer payment method for hosted card or wallet checkout.',
+      'This is the live customer payment method for hosted HitPay card or wallet checkout.',
   },
   STRIPE_PAYNOW: {
     scope: 'STRIPE_PAYNOW',
@@ -211,6 +211,11 @@ export function OutletPaymentSettingsPage() {
         },
       ]
     : [];
+  const onlineCardMethod =
+    settings?.methods.find((method) => method.method === 'ONLINE_CARD') ?? null;
+  const additionalMethodCards = settings
+    ? settings.methods.filter((method) => method.method !== 'ONLINE_CARD')
+    : [];
 
   return (
     <OutletPageLayout
@@ -266,7 +271,113 @@ export function OutletPaymentSettingsPage() {
                   Legacy internal field still gates the hosted checkout path.
                 </p>
               </article>
+              <article className="dashboard-card">
+                <span className="metric-label">Card or wallet checkout</span>
+                <span className="metric-value">
+                  {onlineCardMethod?.effectiveEnabled ? 'Live' : 'Off'}
+                </span>
+                <p className="metric-note">
+                  Main customer-facing HitPay checkout availability.
+                </p>
+              </article>
             </div>
+
+            {onlineCardMethod ? (
+              <article className="list-item">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Primary checkout toggle</p>
+                    <h3>{PAYMENT_SCOPE_DESCRIPTORS.ONLINE_CARD.label}</h3>
+                    <p>{PAYMENT_SCOPE_DESCRIPTORS.ONLINE_CARD.description}</p>
+                  </div>
+                  <div className="badge-row">
+                    <span
+                      className={
+                        onlineCardMethod.effectiveEnabled
+                          ? 'badge success'
+                          : 'badge danger'
+                      }
+                    >
+                      {onlineCardMethod.effectiveEnabled ? 'Live' : 'Blocked'}
+                    </span>
+                    <span
+                      className={
+                        onlineCardMethod.configuredEnabled
+                          ? 'badge'
+                          : 'badge warn'
+                      }
+                    >
+                      {onlineCardMethod.configuredEnabled
+                        ? 'Configured on'
+                        : 'Configured off'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="detail-grid">
+                  <article className="info-card">
+                    <span className="metric-label">Current state</span>
+                    <span className="metric-value scope-card-value">
+                      {onlineCardMethod.effectiveEnabled
+                        ? 'Customers can pay by card or wallet.'
+                        : 'Customers cannot start card or wallet checkout.'}
+                    </span>
+                    <p className="metric-note">
+                      {onlineCardMethod.reason ??
+                        'No active override reason is recorded.'}
+                    </p>
+                  </article>
+                  <article className="info-card">
+                    <span className="metric-label">Disabled until</span>
+                    <span className="metric-value scope-card-value">
+                      {formatDateTime(onlineCardMethod.disabledUntil) ??
+                        'No scheduled resume'}
+                    </span>
+                    <p className="metric-note">
+                      Use the quick owner toggle below for immediate business
+                      control, or open the detailed card to schedule a timed
+                      recovery.
+                    </p>
+                  </article>
+                </div>
+
+                <div className="action-row">
+                  {onlineCardMethod.effectiveEnabled ? (
+                    <button
+                      className="secondary-button"
+                      disabled={submittingScope === 'ONLINE_CARD'}
+                      onClick={() =>
+                        void handleDisable({
+                          scope: 'ONLINE_CARD',
+                          reason: 'Disabled from owner payment settings.',
+                        })
+                      }
+                      type="button"
+                    >
+                      {submittingScope === 'ONLINE_CARD'
+                        ? 'Saving...'
+                        : 'Turn off card or wallet checkout'}
+                    </button>
+                  ) : (
+                    <button
+                      className="primary-button"
+                      disabled={submittingScope === 'ONLINE_CARD'}
+                      onClick={() =>
+                        void handleEnable({
+                          scope: 'ONLINE_CARD',
+                          reason: 'Enabled from owner payment settings.',
+                        })
+                      }
+                      type="button"
+                    >
+                      {submittingScope === 'ONLINE_CARD'
+                        ? 'Saving...'
+                        : 'Turn on card or wallet checkout'}
+                    </button>
+                  )}
+                </div>
+              </article>
+            ) : null}
 
             <div className="list-block">
               {controlCards.map((scope) => (
@@ -286,7 +397,7 @@ export function OutletPaymentSettingsPage() {
                 />
               ))}
 
-              {settings.methods.map((method) => (
+              {additionalMethodCards.map((method) => (
                 <PaymentScopeCard
                   key={method.method}
                   configuredEnabled={method.configuredEnabled}

@@ -6,6 +6,14 @@ export interface OutletAccess {
   permissions: string[];
 }
 
+export type PaymentScope =
+  | 'ONLINE'
+  | 'STRIPE'
+  | 'ONLINE_CARD'
+  | 'STRIPE_PAYNOW'
+  | 'MANUAL_PAYNOW'
+  | 'CASH';
+
 export interface StaffSession {
   accessToken: string;
   expiresAt: string;
@@ -18,6 +26,13 @@ export interface StaffSession {
     outlets: OutletAccess[];
   };
 }
+
+export type RealtimeStatus =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'error'
+  | 'offline';
 
 export interface LoginResponse {
   accessToken: string;
@@ -307,4 +322,26 @@ export interface CheckoutSessionResponse {
   method: StaffPaymentMethod;
   amountCents: number;
   currency: string;
+}
+
+export interface PaymentSettingsResponse {
+  online: {
+    configuredEnabled: boolean;
+    disabledUntil: string | null;
+    reason: string | null;
+  };
+  stripe: {
+    configuredEnabled: boolean;
+    disabledUntil: string | null;
+    reason: string | null;
+  };
+  methods: Array<{
+    method: PaymentScope;
+    configuredEnabled: boolean;
+    disabledUntil: string | null;
+    reason: string | null;
+    effectiveEnabled: boolean;
+  }>;
+  version: number;
+  updatedAt: string;
 }

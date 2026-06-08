@@ -220,6 +220,12 @@ export function DashboardPage() {
                     </Link>
                     <Link
                       className="secondary-button"
+                      href={`/outlets/${entry.outlet.id}/kds`}
+                    >
+                      KDS view
+                    </Link>
+                    <Link
+                      className="secondary-button"
                       href={`/outlets/${entry.outlet.id}/tables`}
                     >
                       View tables

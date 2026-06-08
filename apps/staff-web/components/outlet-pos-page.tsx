@@ -6,9 +6,12 @@ import {
   amendStaffOrder,
   createAdminCheckout,
   createStaffOrder,
+  disablePaymentScope,
+  enablePaymentScope,
   getOrder,
   getMenuDetail,
   getMenus,
+  getPaymentSettings,
   getTables,
 } from '@/lib/api';
 import type {
@@ -17,6 +20,7 @@ import type {
   MenuListEntry,
   OrderDetail,
   OutletSummary,
+  PaymentSettingsResponse,
   StaffMenuDetail,
   StaffPaymentMethod,
   StaffServiceType,
@@ -118,9 +122,13 @@ export function OutletPosPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [paymentSettingsLoading, setPaymentSettingsLoading] = useState(false);
+  const [paymentToggleBusy, setPaymentToggleBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editOrder, setEditOrder] = useState<OrderDetail | null>(null);
+  const [paymentSettings, setPaymentSettings] =
+    useState<PaymentSettingsResponse | null>(null);
   const [resolvedEditMenuForOrderId, setResolvedEditMenuForOrderId] = useState<
     string | null
   >(null);
@@ -139,6 +147,14 @@ export function OutletPosPage() {
     cashTenderedCents?: number;
     changeDueCents?: number;
   } | null>(null);
+  const outletAccess = useMemo(
+    () => session?.user.outlets.find((entry) => entry.id === outletId) ?? null,
+    [outletId, session],
+  );
+  const canReadPaymentSettings =
+    outletAccess?.permissions.includes('payment.settings.read') ?? false;
+  const canManagePaymentSettings =
+    outletAccess?.permissions.includes('payment.settings.manage') ?? false;
 
   useEffect(() => {
     if (!session?.accessToken || !outletId) {
@@ -185,6 +201,43 @@ export function OutletPosPage() {
       cancelled = true;
     };
   }, [outletId, session]);
+
+  useEffect(() => {
+    if (!session?.accessToken || !outletId || !canReadPaymentSettings) {
+      setPaymentSettings(null);
+      return;
+    }
+    const authToken = session.accessToken;
+    let cancelled = false;
+
+    async function loadPaymentSettings() {
+      setPaymentSettingsLoading(true);
+      try {
+        const response = await getPaymentSettings(authToken, outletId);
+        if (!cancelled) {
+          setPaymentSettings(response);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setPaymentSettings(null);
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'POS payment settings failed to load.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setPaymentSettingsLoading(false);
+        }
+      }
+    }
+
+    void loadPaymentSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [canReadPaymentSettings, outletId, session]);
 
   useEffect(() => {
     if (!session?.accessToken || !outletId || !selectedMenuId) {
@@ -253,11 +306,7 @@ export function OutletPosPage() {
           setEditOrder(order);
           setSource(order.source as 'POS' | 'WAITER');
           setServiceType(order.serviceType);
-          setPaymentMethod(
-            order.payments[0]?.method === 'MANUAL_PAYNOW'
-              ? 'MANUAL_PAYNOW'
-              : 'ONLINE_CARD',
-          );
+          setPaymentMethod(toStaffPaymentMethod(order.payments[0]?.method));
           setTableId(order.table?.id ?? '');
           setCustomerName(order.customerName ?? '');
           setCustomerPhone(order.customerPhone ?? '');
@@ -421,6 +470,17 @@ export function OutletPosPage() {
     () => parseCurrencyInputToCents(cashTendered),
     [cashTendered],
   );
+  const enabledPaymentMethodOptions = useMemo(
+    () => resolveEnabledPaymentMethodOptions(paymentSettings),
+    [paymentSettings],
+  );
+  const onlineCardSetting = useMemo(
+    () =>
+      paymentSettings?.methods.find((entry) => entry.method === 'ONLINE_CARD') ??
+      null,
+    [paymentSettings],
+  );
+  const onlineCardEnabled = onlineCardSetting?.effectiveEnabled ?? true;
   const cashChangeDueCents =
     paymentMethod === 'CASH' && cashTenderedCents !== null
       ? cashTenderedCents - summary.grandTotalCents
@@ -428,6 +488,7 @@ export function OutletPosPage() {
   const submitDisabled =
     submitting ||
     cart.length === 0 ||
+    enabledPaymentMethodOptions.length === 0 ||
     (paymentMethod === 'CASH' &&
       (cashTenderedCents === null || cashTenderedCents < summary.grandTotalCents));
 
@@ -440,6 +501,15 @@ export function OutletPosPage() {
       setCashTendered(formatCurrencyInput(summary.grandTotalCents));
     }
   }, [cashTendered, paymentMethod, summary.grandTotalCents]);
+
+  useEffect(() => {
+    if (
+      enabledPaymentMethodOptions.length > 0 &&
+      !enabledPaymentMethodOptions.some((option) => option.value === paymentMethod)
+    ) {
+      setPaymentMethod(enabledPaymentMethodOptions[0].value);
+    }
+  }, [enabledPaymentMethodOptions, paymentMethod]);
 
   async function submitOrder() {
     if (!session?.accessToken || !outlet) {
@@ -455,6 +525,12 @@ export function OutletPosPage() {
     }
     if (serviceType === 'DINE_IN' && !tableId) {
       setError('Choose a table for dine-in orders.');
+      return;
+    }
+    if (!enabledPaymentMethodOptions.some((option) => option.value === paymentMethod)) {
+      setError(
+        'This payment method is currently turned off in the cashier POS.',
+      );
       return;
     }
     if (paymentMethod === 'CASH') {
@@ -558,6 +634,45 @@ export function OutletPosPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function toggleOnlineCardPayment() {
+    if (!session?.accessToken || !outletId || !canManagePaymentSettings) {
+      return;
+    }
+
+    setPaymentToggleBusy(true);
+    setError(null);
+
+    try {
+      const response = onlineCardEnabled
+        ? await disablePaymentScope(session.accessToken, outletId, {
+            scope: 'ONLINE_CARD',
+            reason: 'Disabled from cashier POS.',
+          })
+        : await enablePaymentScope(session.accessToken, outletId, {
+            scope: 'ONLINE_CARD',
+            reason: 'Enabled from cashier POS.',
+          });
+
+      setPaymentSettings(response);
+      if (!resolveEnabledPaymentMethodOptions(response).some(
+        (option) => option.value === paymentMethod,
+      )) {
+        const nextMethod = resolveEnabledPaymentMethodOptions(response)[0];
+        if (nextMethod) {
+          setPaymentMethod(nextMethod.value);
+        }
+      }
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error
+          ? toggleError.message
+          : 'Failed to update online card availability.',
+      );
+    } finally {
+      setPaymentToggleBusy(false);
     }
   }
 
@@ -1041,22 +1156,79 @@ export function OutletPosPage() {
 
             <div className="field">
               <label>Payment method</label>
+              {canReadPaymentSettings ? (
+                <div className="sub-panel">
+                  <div className="section-header">
+                    <div>
+                      <strong>Online card checkout</strong>
+                      <p className="supporting-copy">
+                        Control whether this cashier POS can create HitPay card
+                        or wallet checkout links right now.
+                      </p>
+                    </div>
+                    <span
+                      className={`status-pill ${
+                        onlineCardEnabled ? 'success' : 'warning'
+                      }`}
+                    >
+                      {onlineCardEnabled ? 'On' : 'Off'}
+                    </span>
+                  </div>
+                  {onlineCardSetting?.reason && !onlineCardEnabled ? (
+                    <p className="supporting-copy">
+                      Reason: {onlineCardSetting.reason}
+                    </p>
+                  ) : null}
+                  <div className="inline-actions">
+                    <button
+                      className={
+                        onlineCardEnabled
+                          ? 'secondary-button'
+                          : 'primary-button'
+                      }
+                      disabled={!canManagePaymentSettings || paymentToggleBusy}
+                      onClick={() => void toggleOnlineCardPayment()}
+                      type="button"
+                    >
+                      {paymentToggleBusy
+                        ? 'Updating...'
+                        : onlineCardEnabled
+                          ? 'Turn off online card'
+                          : 'Turn on online card'}
+                    </button>
+                    <span className="supporting-copy">
+                      {paymentSettingsLoading
+                        ? 'Refreshing payment controls...'
+                        : canManagePaymentSettings
+                          ? 'Updates the live outlet payment setting immediately.'
+                          : 'Your current staff access can view payment status but cannot change it.'}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               <div className="payment-choice-list">
-                {paymentMethodOptions.map((option) => (
-                  <button
-                    className={
-                      paymentMethod === option.value
-                        ? 'payment-choice active'
-                        : 'payment-choice'
-                    }
-                    key={option.value}
-                    onClick={() => setPaymentMethod(option.value)}
-                    type="button"
-                  >
-                    <strong>{option.label}</strong>
-                    <span>{option.note}</span>
-                  </button>
-                ))}
+                {enabledPaymentMethodOptions.length === 0 ? (
+                  <div className="alert error">
+                    No cashier payment methods are enabled for this outlet right
+                    now.
+                  </div>
+                ) : (
+                  enabledPaymentMethodOptions.map((option) => (
+                    <button
+                      className={
+                        paymentMethod === option.value
+                          ? 'payment-choice active'
+                          : 'payment-choice'
+                      }
+                      key={option.value}
+                      onClick={() => setPaymentMethod(option.value)}
+                      type="button"
+                    >
+                      <strong>{option.label}</strong>
+                      <span>{option.note}</span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
@@ -1575,4 +1747,35 @@ function createIdempotencyKey() {
 
 function createLocalId() {
   return `cart-${createIdempotencyKey()}`;
+}
+
+function toStaffPaymentMethod(value: string | undefined) {
+  if (value === 'MANUAL_PAYNOW' || value === 'CASH') {
+    return value;
+  }
+  return 'ONLINE_CARD' satisfies StaffPaymentMethod;
+}
+
+function resolveEnabledPaymentMethodOptions(
+  paymentSettings: PaymentSettingsResponse | null,
+) {
+  if (!paymentSettings) {
+    return paymentMethodOptions;
+  }
+
+  const enabledMethods = new Set(
+    paymentSettings.methods
+      .filter(
+        (entry) =>
+          entry.effectiveEnabled &&
+          (entry.method === 'ONLINE_CARD' ||
+            entry.method === 'MANUAL_PAYNOW' ||
+            entry.method === 'CASH'),
+      )
+      .map((entry) => entry.method),
+  );
+
+  return paymentMethodOptions.filter((option) =>
+    enabledMethods.has(option.value),
+  );
 }

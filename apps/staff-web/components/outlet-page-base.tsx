@@ -94,6 +94,9 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
           >
             Orders
           </Link>
+          <Link className="secondary-button" href={`/outlets/${outlet.id}/kds`}>
+            KDS
+          </Link>
           <Link
             className="secondary-button"
             href={`/outlets/${outlet.id}/tables`}

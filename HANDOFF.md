@@ -20,6 +20,16 @@ Current deployed/staging truth at the end of this session:
 - The owner web app is implemented and wired to the live backend APIs.
 - The staff web baseline is implemented and wired to live order, table, menu,
   and payment APIs.
+- Customer-web fallback copy now directs guests to the cashier when online
+  payment is unavailable.
+- Staff POS now has a live `ONLINE_CARD` on/off toggle backed by the outlet
+  payment-settings API.
+- Owner-web now exposes the same `ONLINE_CARD` business toggle prominently in
+  payment settings.
+- Staff order operations now support authenticated live outlet updates through
+  Socket.IO subscriptions.
+- A first KDS screen now exists inside `apps/staff-web` for outlet kitchen
+  queue handling.
 - The remaining unvalidated area is physical printer hardware.
 - Phase 4 has now started locally with configurable API rate limiting and
   abuse-protection middleware. This hardening block still needs deployment
@@ -60,6 +70,15 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
    backup or restore drill runbook for Phase 4 operations.
 10. Added an injectable 5xx error tracking hook that can forward incidents to a
     configured webhook without committing to a vendor yet.
+11. Added authenticated outlet realtime subscriptions for staff operations.
+12. Added an initial KDS view in staff-web backed by the existing order APIs
+    and outlet realtime events.
+13. Updated the customer online-payment fallback copy to point guests to the
+    cashier instead of generic staff help.
+14. Added a live cashier-side `ONLINE_CARD` toggle in staff POS backed by the
+    outlet payment-settings API.
+15. Surfaced the same `ONLINE_CARD` toggle as a top-level owner-web payment
+    control for consistency across admin and cashier flows.
 
 ## Entire work completed so far
 
@@ -151,9 +170,17 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Added a staff dashboard with outlet-level live queue and table summaries.
 - Added a live orders board with status progression from kitchen release through
   completion.
+- Added authenticated realtime sync for the staff order board so outlet events
+  can refresh the queue without manual reload.
 - Added a table overview screen.
 - Added a real walk-in POS composer with menu browsing, cart building, dine-in
   table selection, customer capture, and order submission.
+- Added a first KDS screen at
+  `apps/staff-web/app/outlets/[outletId]/kds/page.tsx` with:
+  - live outlet subscription through the authenticated operations namespace
+  - kitchen-stage queue columns for `SENT_TO_KITCHEN`, `PREPARING`, and `READY`
+  - ticket detail view with items, modifiers, and kitchen ticket status
+  - kitchen-side status progression actions using the existing order-status API
 - Added staff payment recovery actions from the order board:
   - create or reopen HitPay hosted checkout for unpaid online-card orders
   - verify manual PayNow payments and release those orders into the kitchen flow
@@ -178,6 +205,14 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
     orders board
   - cart-line editing so staff can reopen an item and update quantity,
     variants, modifiers, or remarks before saving the ticket
+- Added live POS-side payment availability awareness using the payment-settings
+  API so the cashier payment method list respects outlet settings.
+- Added a cashier-side `ONLINE_CARD` toggle in staff POS:
+  - uses existing owner/admin payment-settings APIs
+  - updates outlet payment availability immediately
+  - automatically removes online-card checkout from the POS method picker when
+    disabled
+  - falls back to other enabled methods if online-card is turned off mid-flow
 - Added a defensive HitPay webhook guard so locally cancelled orders do not get
   revived by late payment status callbacks.
 
@@ -209,35 +244,39 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   outlet management surfaces.
 - Next.js staff operations app with login, dashboard, order queue, tables
   overview, and a real walk-in POS workflow.
+- Shared owner and cashier business controls for outlet-level `ONLINE_CARD`
+  availability.
 - Dockerfiles for API, customer web, and migration job.
 
 ## What is not implemented yet
 
-- KDS frontend.
 - Optional future cashier extensions such as discounts, split-tender flows,
   held or suspended tickets, and any additional offline settlement methods
   beyond the current online-card, manual-PayNow, cash, and void-order
   baseline.
 - Real outlet printer validation on physical hardware.
-- Authenticated Socket.IO subscriptions.
 - Deployed validation of production rate limiting, request logging, and Swagger
   exposure settings.
 - Error tracking, centralized log shipping, and operational alerting.
 - Deeper reporting, inventory, attendance, and operational dashboards beyond
   the current first owner reporting snapshot.
+- Deeper KDS workflow such as station filtering, expo views, and richer kitchen
+  event payloads.
+- Role or access-management UX for adjusting cashier payment-control permission
+  on already-existing staff users if needed operationally.
 
 ## Remaining development work
 
 ### Highest priority next
 
-- Decide whether KDS should be a separate app or a focused real-time staff-web
-  mode.
-- Add authenticated real-time subscriptions so the staff board and future KDS
-  can update without refreshes.
+- Decide whether to keep KDS inside `apps/staff-web` or split it into a
+  dedicated future app after the first in-app KDS iteration.
+- Expand the new realtime-backed KDS flow with station filtering, expo
+  handoff, and richer kitchen-stage behavior.
 
 ### Frontend work still open
 
-- KDS frontend.
+- Expand the initial KDS frontend into a fuller kitchen and expo product.
 - Richer menu editing UX in owner-web for modifier groups, item variants, and
   easier structured editing.
 - Finer-grained table/floor editing UX in owner-web if visual table management
@@ -251,8 +290,8 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   real outlet hardware and LAN conditions.
 - Add production rate limiting, abuse protection, alerting, and backup/restore
   drills.
-- Add authenticated real-time subscriptions if the staff or KDS flow needs live
-  push updates instead of refresh-driven data.
+- Extend the authenticated realtime delivery now in place if the staff or KDS
+  flow needs richer event-driven UX than refresh-triggered updates.
 
 ### Technical cleanup still open
 
@@ -356,16 +395,28 @@ Goal:
 
 - Build the kitchen display system and real-time service update flow.
 
+Current implementation status:
+
+- Started and continuation-ready.
+- Implemented now:
+  - authenticated Socket.IO outlet subscriptions in
+    `apps/api/src/realtime`
+  - live queue refresh wiring in
+    `apps/staff-web/components/outlet-orders-page.tsx`
+  - first KDS route in
+    `apps/staff-web/app/outlets/[outletId]/kds/page.tsx`
+  - first KDS screen in
+    `apps/staff-web/components/outlet-kds-page.tsx`
+
 Scope:
 
 - Decide and implement KDS as either:
   - a new `apps/kds-web`
-  - or a dedicated KDS mode inside `apps/staff-web`
+  - or continue the new dedicated KDS mode inside `apps/staff-web`
 - Build a kitchen queue screen
 - Show tickets by status such as new, preparing, ready, completed
 - Add station filtering if needed
 - Add status actions for kitchen staff
-- Implement authenticated real-time subscriptions
 - Wire event updates for:
   - payment confirmed
   - kitchen ticket created
@@ -373,7 +424,6 @@ Scope:
 
 Expected backend work:
 
-- Authenticated Socket.IO subscriptions
 - Stable realtime event payload shapes
 - Possibly station-focused read endpoints if existing order endpoints are not
   enough
@@ -389,6 +439,8 @@ Definition of done:
 - Kitchen screens update without manual refresh
 - Staff or KDS can move orders through preparation states
 - Newly paid orders appear in the live queue quickly
+- Remaining work is now refinement, richer payloads, and optional dedicated KDS
+  app separation rather than first-time scaffolding
 
 Why Phase 1 and Phase 2 are mergeable:
 
@@ -572,6 +624,23 @@ typecheck, and production builds.
 The staff-web implementation was also validated through full repo checks,
 typecheck, and production builds.
 
+The Phase 2 realtime and first KDS block was validated through:
+
+- `npm run typecheck --workspace @restaurant-pos/api`
+- `npm run test --workspace @restaurant-pos/api`
+- `npm run build --workspace @restaurant-pos/api`
+- `npm run typecheck --workspace @restaurant-pos/staff-web`
+- `npm run build --workspace @restaurant-pos/staff-web`
+
+The cashier and owner payment-control improvements were validated through:
+
+- `npm run typecheck --workspace @restaurant-pos/staff-web`
+- `npm run build --workspace @restaurant-pos/staff-web`
+- `npm run build --workspace @restaurant-pos/customer-web`
+- `npm run typecheck --workspace @restaurant-pos/owner-web`
+- `npm run build --workspace @restaurant-pos/owner-web`
+- `npm run build --workspace @restaurant-pos/db`
+
 The first Phase 4 hardening block was validated through:
 
 - `npm run typecheck --workspace @restaurant-pos/api`
@@ -694,8 +763,16 @@ npm run build
 5. Continue from the current owner-web and staff-web baselines rather than
    scaffolding from scratch.
 6. Next frontend priorities:
-   - decide whether KDS should be its own app or a focused staff-web mode
-   - add authenticated realtime updates for staff and future kitchen screens
+   - refine the new KDS mode with station filters, expo handling, and deeper
+     kitchen ergonomics
+   - decide later whether KDS should stay inside staff-web or split into its
+     own dedicated app
+7. Note on cashier permissions:
+   - newly provisioned cashier roles now include `payment.settings.manage`
+   - existing tenants are covered by Prisma migration
+     `20260608170000_backfill_cashier_payment_settings_manage`
+   - deploy `npm run prisma:deploy` in staging or production before testing the
+     cashier-side online-card toggle with older cashier accounts
 
 The payment flow no longer needs rescue work unless HitPay credentials are
 rotated or the deployment environment changes.
@@ -726,3 +803,10 @@ rotated or the deployment environment changes.
 - The staff-web operations board and walk-in POS baseline are live. Remaining
   POS work is now about cashier refinement and advanced settlement flows rather
   than first-time scaffolding.
+- Customer-web now points guests to the cashier when online payment is turned
+  off instead of showing the older generic staff-help wording.
+- Staff POS and owner-web now share the same live `ONLINE_CARD` business
+  control, and older cashier roles are backfilled by Prisma migration
+  `20260608170000_backfill_cashier_payment_settings_manage`.
+- The first KDS screen now exists, but station-level filtering, expo-specific
+  flow, and stronger kitchen event modeling are still open.

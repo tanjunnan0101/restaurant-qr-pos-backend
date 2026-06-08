@@ -199,8 +199,8 @@ export function CartDrawer({
             <legend>How would you like to pay?</legend>
             {methods.length === 0 ? (
               <div className="inline-alert warning">
-                Online payment is temporarily unavailable. Please ask a staff
-                member for help.
+                Online payment is temporarily unavailable. Please head to the
+                cashier to make payment.
               </div>
             ) : (
               methods.map((paymentMethod) => (

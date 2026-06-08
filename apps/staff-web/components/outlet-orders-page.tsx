@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
 import {
   cancelOrder,
   createAdminCheckout,
@@ -10,10 +10,12 @@ import {
   updateOrderStatus,
   verifyManualPayNow,
 } from '@/lib/api';
+import { createOperationsSocket, outletOperationsEvents } from '@/lib/realtime';
 import type {
   CheckoutSessionResponse,
   OrderDetail,
   OrderListEntry,
+  RealtimeStatus,
   StaffOrderStatus,
 } from '@/lib/types';
 import {
@@ -64,6 +66,19 @@ export function OutletOrdersPage() {
   const [cancelReason, setCancelReason] = useState(
     'Staff voided this order before kitchen release.',
   );
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('idle');
+  const [refreshTick, setRefreshTick] = useState(0);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const queueRefresh = useEffectEvent(() => {
+    if (refreshTimerRef.current) {
+      return;
+    }
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      setRefreshTick((current) => current + 1);
+    }, 250);
+  });
 
   useEffect(() => {
     if (!session?.accessToken || !outletId) {
@@ -104,7 +119,7 @@ export function OutletOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, outletId, session]);
+  }, [filter, outletId, refreshTick, session]);
 
   useEffect(() => {
     if (!session?.accessToken || !selectedOrderId || !outletId) {
@@ -141,7 +156,71 @@ export function OutletOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [outletId, selectedOrderId, session]);
+  }, [outletId, refreshTick, selectedOrderId, session]);
+
+  useEffect(() => {
+    if (!session?.accessToken || !outletId) {
+      setRealtimeStatus('idle');
+      return;
+    }
+
+    setRealtimeStatus('connecting');
+    const socket = createOperationsSocket(session.accessToken);
+
+    const subscribeToOutlet = () => {
+      socket.emit(
+        'subscribe.outlet',
+        { outletId },
+        (response?: { ok?: boolean; message?: string }) => {
+          if (response?.ok) {
+            setRealtimeStatus('connected');
+            setError(null);
+            queueRefresh();
+            return;
+          }
+          setRealtimeStatus('error');
+          if (response?.message) {
+            setError(response.message);
+          }
+        },
+      );
+    };
+
+    const handleConnect = () => {
+      setRealtimeStatus('connecting');
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', () => {
+      setRealtimeStatus('offline');
+    });
+    socket.on('connect_error', (connectError) => {
+      setRealtimeStatus('error');
+      setError(connectError.message || 'Realtime connection failed.');
+    });
+    socket.on('realtime.error', (payload?: { message?: string }) => {
+      setRealtimeStatus('error');
+      setError(payload?.message ?? 'Realtime connection failed.');
+    });
+    socket.on('operations.connected', subscribeToOutlet);
+
+    for (const eventName of outletOperationsEvents) {
+      socket.on(eventName, () => {
+        setError(null);
+        queueRefresh();
+      });
+    }
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      socket.off('connect', handleConnect);
+      socket.off('operations.connected', subscribeToOutlet);
+      socket.disconnect();
+    };
+  }, [outletId, queueRefresh, session]);
 
   const nextAction = selectedOrder
     ? nextStatusAction(selectedOrder.status)
@@ -398,6 +477,9 @@ export function OutletOrdersPage() {
             <div>
               <p className="eyebrow">Queue filter</p>
               <h2 className="section-title serif">Current order board</h2>
+              <p className="supporting-copy">
+                Live sync: {formatRealtimeStatus(realtimeStatus)}
+              </p>
             </div>
             <select
               className="filter-select"
@@ -891,4 +973,19 @@ function createIdempotencyKey() {
     return crypto.randomUUID();
   }
   return `staff-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function formatRealtimeStatus(status: RealtimeStatus) {
+  switch (status) {
+    case 'connected':
+      return 'Connected';
+    case 'connecting':
+      return 'Connecting';
+    case 'error':
+      return 'Attention needed';
+    case 'offline':
+      return 'Disconnected';
+    default:
+      return 'Idle';
+  }
 }
