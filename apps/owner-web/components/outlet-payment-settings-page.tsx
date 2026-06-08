@@ -31,8 +31,9 @@ const PAYMENT_SCOPE_DESCRIPTORS: Record<PaymentScope, ScopeCardDescriptor> = {
     scope: 'STRIPE',
     label: 'Hosted checkout provider gate',
     description:
-      'Still stored in a legacy STRIPE field, but it currently gates the hosted checkout path now used by HitPay customer payments.',
-    legacyNote: 'Backend rename still pending after the HitPay migration.',
+      'Internal provider gate for the live hosted checkout path now used by HitPay customer payments.',
+    legacyNote:
+      'This still uses a legacy backend field name after the HitPay migration.',
   },
   ONLINE_CARD: {
     scope: 'ONLINE_CARD',
@@ -42,9 +43,9 @@ const PAYMENT_SCOPE_DESCRIPTORS: Record<PaymentScope, ScopeCardDescriptor> = {
   },
   STRIPE_PAYNOW: {
     scope: 'STRIPE_PAYNOW',
-    label: 'Legacy hosted PayNow path',
+    label: 'Legacy PayNow compatibility path',
     description:
-      'Deprecated customer path kept only for compatibility with older payment settings data.',
+      'Deprecated compatibility switch kept only for older payment-settings records.',
     legacyNote: 'Not used by the current customer checkout flow.',
   },
   MANUAL_PAYNOW: {
@@ -214,7 +215,20 @@ export function OutletPaymentSettingsPage() {
   const onlineCardMethod =
     settings?.methods.find((method) => method.method === 'ONLINE_CARD') ?? null;
   const additionalMethodCards = settings
-    ? settings.methods.filter((method) => method.method !== 'ONLINE_CARD')
+    ? settings.methods.filter((method) => {
+        if (method.method === 'ONLINE_CARD') {
+          return false;
+        }
+        if (method.method !== 'STRIPE_PAYNOW') {
+          return true;
+        }
+        return Boolean(
+          method.configuredEnabled ||
+            method.effectiveEnabled ||
+            method.disabledUntil ||
+            method.reason,
+        );
+      })
     : [];
 
   return (
@@ -256,7 +270,7 @@ export function OutletPaymentSettingsPage() {
               <article className="dashboard-card">
                 <span className="metric-label">Online payments</span>
                 <span className="metric-value">
-                  {settings.online.configuredEnabled ? 'Configured on' : 'Off'}
+                  {settings.online.configuredEnabled ? 'Enabled' : 'Disabled'}
                 </span>
                 <p className="metric-note">
                   {settings.online.reason ?? 'No override reason set.'}
@@ -265,7 +279,7 @@ export function OutletPaymentSettingsPage() {
               <article className="dashboard-card">
                 <span className="metric-label">Hosted checkout gate</span>
                 <span className="metric-value">
-                  {settings.stripe.configuredEnabled ? 'Configured on' : 'Off'}
+                  {settings.stripe.configuredEnabled ? 'Enabled' : 'Disabled'}
                 </span>
                 <p className="metric-note">
                   Legacy internal field still gates the hosted checkout path.
@@ -308,8 +322,8 @@ export function OutletPaymentSettingsPage() {
                       }
                     >
                       {onlineCardMethod.configuredEnabled
-                        ? 'Configured on'
-                        : 'Configured off'}
+                        ? 'Enabled'
+                        : 'Disabled'}
                     </span>
                   </div>
                 </div>
@@ -509,7 +523,7 @@ function PaymentScopeCard({
             {effectiveEnabled ? 'Live' : 'Blocked'}
           </span>
           <span className={configuredEnabled ? 'badge' : 'badge warn'}>
-            {configuredEnabled ? 'Configured on' : 'Configured off'}
+            {configuredEnabled ? 'Enabled' : 'Disabled'}
           </span>
         </div>
       </div>
