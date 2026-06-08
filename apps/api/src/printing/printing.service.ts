@@ -252,7 +252,7 @@ export class PrintingService {
       });
     });
 
-    return {
+    const response = {
       configuration: await this.list(user, outletId),
       agent:
         agentId === null
@@ -265,6 +265,11 @@ export class PrintingService {
                 : 'Existing key retained. Set rotateKey to receive a new key.',
             },
     };
+    this.operations.publishToOutlet(outletId, 'printing.updated', {
+      outletId,
+      action: 'configured',
+    });
+    return response;
   }
 
   async createTestPrint(
@@ -328,6 +333,11 @@ export class PrintingService {
       });
       return created;
     });
+    this.operations.publishToOutlet(outletId, 'printing.updated', {
+      printerId,
+      printJobId: job.id,
+      action: 'test_queued',
+    });
     return job;
   }
 
@@ -379,7 +389,12 @@ export class PrintingService {
         },
       }),
     ]);
-    return this.prisma.printJob.findUnique({ where: { id: job.id } });
+    const updated = await this.prisma.printJob.findUnique({ where: { id: job.id } });
+    this.operations.publishToOutlet(outletId, 'printing.updated', {
+      printJobId: job.id,
+      action: 'retried',
+    });
+    return updated;
   }
 
   async reprint(
@@ -429,6 +444,11 @@ export class PrintingService {
         },
       });
       return created;
+    });
+    this.operations.publishToOutlet(outletId, 'printing.updated', {
+      printJobId: reprint.id,
+      reprintOfId: source.id,
+      action: 'reprinted',
     });
     return reprint;
   }

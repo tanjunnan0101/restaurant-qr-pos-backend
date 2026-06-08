@@ -1185,6 +1185,11 @@ h2 {
   background: var(--warning-soft);
 }
 
+.inline-alert.success {
+  color: var(--sage);
+  background: var(--sage-soft);
+}
+
 .checkout-button {
   width: 100%;
 }

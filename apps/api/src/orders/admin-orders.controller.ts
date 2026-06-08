@@ -18,6 +18,7 @@ import type { AuthenticatedUser } from '../common/types/authenticated-user';
 import { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import {
   CancelOrderDto,
+  PrintPrePaymentBillDto,
   UpdateOrderStatusDto,
   VerifyManualPayNowDto,
 } from './dto/order-actions.dto';
@@ -57,8 +58,9 @@ export class AdminOrdersController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('outletId') outletId: string,
     @Query('status') status?: OrderStatus,
+    @Query('tableId') tableId?: string,
   ) {
-    return this.orders.listAdmin(user, outletId, status);
+    return this.orders.listAdmin(user, outletId, status, tableId);
   }
 
   @Get(':orderId')
@@ -129,6 +131,26 @@ export class AdminOrdersController {
       orderId,
       idempotencyKey ?? '',
       dto,
+      request.id,
+      ipAddress,
+    );
+  }
+
+  @Post(':orderId/print-bill')
+  @Permissions('order.manage')
+  printPrePaymentBill(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: PrintPrePaymentBillDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.orders.printPrePaymentBill(
+      user,
+      outletId,
+      orderId,
+      dto.reason,
       request.id,
       ipAddress,
     );

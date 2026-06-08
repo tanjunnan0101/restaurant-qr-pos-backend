@@ -80,3 +80,12 @@ export class RotateTableQrDto {
   @Length(3, 500)
   reason!: string;
 }
+
+export class UpdateDiningTableStatusDto {
+  @IsEnum(DiningTableStatus)
+  status!: DiningTableStatus;
+
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
+}

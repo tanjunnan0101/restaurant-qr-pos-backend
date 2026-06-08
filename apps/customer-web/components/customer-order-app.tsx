@@ -12,7 +12,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createCheckout, createOrder, resolveQr } from '@/lib/api';
+import { createCheckout, createOrder, requestHelp, resolveQr } from '@/lib/api';
 import { calculateCartTotals, formatMoney } from '@/lib/money';
 import type {
   CartItem,
@@ -42,6 +42,12 @@ export function CustomerOrderApp({
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [helpBusy, setHelpBusy] = useState(false);
+  const [helpError, setHelpError] = useState<string | null>(null);
+  const [helpSuccess, setHelpSuccess] = useState<string | null>(null);
+  const [activeServiceRequest, setActiveServiceRequest] = useState<
+    PublicQrResponse['activeServiceRequest']
+  >(null);
   const orderKey = useRef<string | null>(null);
   const paymentKey = useRef<string | null>(null);
   const pendingOrder = useRef<PublicOrder | null>(null);
@@ -51,7 +57,9 @@ export function CustomerOrderApp({
     setLoading(true);
     setLoadError(null);
     try {
-      setQr(await resolveQr(publicCode, token));
+      const response = await resolveQr(publicCode, token);
+      setQr(response);
+      setActiveServiceRequest(response.activeServiceRequest);
     } catch (error) {
       setLoadError(
         error instanceof Error
@@ -192,6 +200,35 @@ export function CustomerOrderApp({
     }
   }
 
+  async function handleRequestHelp() {
+    if (!qr || helpBusy || activeServiceRequest) {
+      return;
+    }
+
+    setHelpBusy(true);
+    setHelpError(null);
+    setHelpSuccess(null);
+    try {
+      const response = await requestHelp({
+        publicCode,
+        token,
+      });
+      setActiveServiceRequest({
+        ...response.request,
+        acknowledgedAt: null,
+      });
+      setHelpSuccess(response.message);
+    } catch (error) {
+      setHelpError(
+        error instanceof Error
+          ? error.message
+          : 'We could not notify the staff right now.',
+      );
+    } finally {
+      setHelpBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="menu-page">
@@ -251,9 +288,18 @@ export function CustomerOrderApp({
               <h1>{qr.outlet.name}</h1>
             </div>
           </div>
-          <button className="help-button" type="button" disabled>
+          <button
+            className="help-button"
+            type="button"
+            disabled={helpBusy || Boolean(activeServiceRequest)}
+            onClick={() => void handleRequestHelp()}
+          >
             <CircleHelp size={18} />
-            Help
+            {helpBusy
+              ? 'Calling staff...'
+              : activeServiceRequest
+                ? 'Staff alerted'
+                : 'Help'}
           </button>
         </header>
 
@@ -267,6 +313,23 @@ export function CustomerOrderApp({
           </div>
           <span className="dine-in-badge">Dine in</span>
         </section>
+
+        {helpSuccess ? (
+          <div className="inline-alert success" role="status">
+            {helpSuccess}
+          </div>
+        ) : null}
+        {!helpSuccess && activeServiceRequest ? (
+          <div className="inline-alert warning" role="status">
+            Help has already been requested for this table. A staff member will
+            head over shortly.
+          </div>
+        ) : null}
+        {helpError ? (
+          <div className="inline-alert danger" role="alert">
+            {helpError}
+          </div>
+        ) : null}
 
         <section className="menu-intro">
           <p className="eyebrow">Order at your own pace</p>

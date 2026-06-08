@@ -112,6 +112,12 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
           </Link>
           <Link
             className="secondary-button"
+            href={`/outlets/${outlet.id}/inventory`}
+          >
+            Inventory
+          </Link>
+          <Link
+            className="secondary-button"
             href={`/outlets/${outlet.id}/payment-settings`}
           >
             Payment settings
@@ -121,6 +127,12 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
             href={`/outlets/${outlet.id}/staff`}
           >
             Staff
+          </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/attendance`}
+          >
+            Attendance
           </Link>
           <Link
             className="secondary-button"

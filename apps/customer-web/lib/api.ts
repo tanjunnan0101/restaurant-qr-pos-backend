@@ -4,6 +4,7 @@ import type {
   PaymentMethod,
   PublicOrder,
   PublicQrResponse,
+  ServiceRequestResponse,
 } from './types';
 
 const API_BASE_URL = (
@@ -89,6 +90,22 @@ export function createCheckout(input: {
         paymentMethod: input.paymentMethod,
         successUrl: input.successUrl,
         cancelUrl: input.cancelUrl,
+      }),
+    },
+  );
+}
+
+export function requestHelp(input: {
+  publicCode: string;
+  token: string;
+  note?: string;
+}) {
+  return request<ServiceRequestResponse>(
+    `/public/qr/${encodeURIComponent(input.publicCode)}/${encodeURIComponent(input.token)}/service-requests/help`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        ...(input.note?.trim() ? { note: input.note.trim() } : {}),
       }),
     },
   );

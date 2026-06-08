@@ -5,6 +5,10 @@ import { PrismaService } from '../database/prisma.service';
 import type { CreateOutletDto } from './dto/create-outlet.dto';
 import type { UpdateOutletDto } from './dto/update-outlet.dto';
 
+function attendanceSettings(client: unknown) {
+  return (client as { attendanceSetting: any }).attendanceSetting;
+}
+
 @Injectable()
 export class OutletsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -79,6 +83,15 @@ export class OutletsService {
             method === PaymentMethod.CASH,
           updatedByUserId: user.userId,
         })),
+      });
+
+      await attendanceSettings(tx).create({
+        data: {
+          companyId: user.companyId,
+          outletId: outlet.id,
+          timezone: outlet.timezone,
+          updatedByUserId: user.userId,
+        },
       });
 
       const ownerRole = await tx.role.findFirst({

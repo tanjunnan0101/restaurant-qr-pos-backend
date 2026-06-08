@@ -7,6 +7,7 @@ import {
 import { MenuStatus, MenuVersionStatus, type Prisma } from '@restaurant-pos/db';
 import type { AuthenticatedUser } from '../common/types/authenticated-user';
 import { PrismaService } from '../database/prisma.service';
+import { OperationsGateway } from '../realtime/operations.gateway';
 import { TenantService } from '../tenant/tenant.service';
 import type {
   CreateMenuSetupDto,
@@ -60,6 +61,7 @@ export class MenusService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
+    private readonly operations: OperationsGateway,
   ) {}
 
   async list(user: AuthenticatedUser, outletId: string) {
@@ -183,7 +185,12 @@ export class MenusService {
       return menu.id;
     });
 
-    return this.get(user, outletId, menuId);
+    const menu = await this.get(user, outletId, menuId);
+    this.operations.publishToOutlet(outletId, 'menu.updated', {
+      menuId,
+      action: dto.publish ? 'created_published' : 'created',
+    });
+    return menu;
   }
 
   async replaceDraft(
@@ -262,7 +269,12 @@ export class MenusService {
       });
     });
 
-    return this.get(user, outletId, menuId);
+    const menu = await this.get(user, outletId, menuId);
+    this.operations.publishToOutlet(outletId, 'menu.updated', {
+      menuId,
+      action: 'draft_replaced',
+    });
+    return menu;
   }
 
   async cloneDraft(
@@ -364,7 +376,12 @@ export class MenusService {
       });
     });
 
-    return this.get(user, outletId, menuId);
+    const menu = await this.get(user, outletId, menuId);
+    this.operations.publishToOutlet(outletId, 'menu.updated', {
+      menuId,
+      action: 'draft_cloned',
+    });
+    return menu;
   }
 
   async publish(
@@ -440,7 +457,12 @@ export class MenusService {
       });
     });
 
-    return this.get(user, outletId, menuId);
+    const menu = await this.get(user, outletId, menuId);
+    this.operations.publishToOutlet(outletId, 'menu.updated', {
+      menuId,
+      action: 'published',
+    });
+    return menu;
   }
 
   async setSoldOut(
@@ -498,6 +520,10 @@ export class MenusService {
       }),
     ]);
 
+    this.operations.publishToOutlet(outletId, 'menu.updated', {
+      itemId: item.id,
+      action: soldOut ? 'item_sold_out' : 'item_available',
+    });
     return { id: item.id, soldOut };
   }
 

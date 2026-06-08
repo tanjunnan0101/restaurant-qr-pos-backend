@@ -9,6 +9,7 @@ import { UserStatus, type Prisma } from '@restaurant-pos/db';
 import { createActivationToken } from '../common/security/activation-token';
 import type { AuthenticatedUser } from '../common/types/authenticated-user';
 import { PrismaService } from '../database/prisma.service';
+import { OperationsGateway } from '../realtime/operations.gateway';
 import { TenantService } from '../tenant/tenant.service';
 import { CreateStaffUserDto } from './dto/create-staff-user.dto';
 import { RemoveStaffAccessDto } from './dto/remove-staff-access.dto';
@@ -23,6 +24,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly config: ConfigService,
+    private readonly operations: OperationsGateway,
   ) {}
 
   async listOutletStaff(user: AuthenticatedUser, outletId: string) {
@@ -266,6 +268,10 @@ export class UsersService {
       };
     });
 
+    this.operations.publishToOutlet(outletId, 'staff.updated', {
+      userId: response.id,
+      action: 'assigned',
+    });
     return response;
   }
 
@@ -279,7 +285,7 @@ export class UsersService {
   ) {
     await this.tenant.assertOutlet(actor.companyId, outletId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const response = await this.prisma.$transaction(async (tx) => {
       const access = await tx.userOutletAccess.findFirst({
         where: {
           companyId: actor.companyId,
@@ -362,6 +368,11 @@ export class UsersService {
         },
       };
     });
+    this.operations.publishToOutlet(outletId, 'staff.updated', {
+      userId: response.userId,
+      action: 'role_updated',
+    });
+    return response;
   }
 
   async reissueActivation(
@@ -378,7 +389,7 @@ export class UsersService {
     const ownerBaseUrl = this.ownerBaseUrl();
     const companySlug = await this.companySlug(actor.companyId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const response = await this.prisma.$transaction(async (tx) => {
       const access = await tx.userOutletAccess.findFirst({
         where: {
           companyId: actor.companyId,
@@ -443,6 +454,11 @@ export class UsersService {
         },
       };
     });
+    this.operations.publishToOutlet(outletId, 'staff.updated', {
+      userId: response.userId,
+      action: 'activation_reissued',
+    });
+    return response;
   }
 
   async removeOutletAccess(
@@ -461,7 +477,7 @@ export class UsersService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const response = await this.prisma.$transaction(async (tx) => {
       const access = await tx.userOutletAccess.findFirst({
         where: {
           companyId: actor.companyId,
@@ -528,6 +544,11 @@ export class UsersService {
         removed: true,
       };
     });
+    this.operations.publishToOutlet(outletId, 'staff.updated', {
+      userId: response.userId,
+      action: 'access_removed',
+    });
+    return response;
   }
 
   private activationExpiry(): Date {

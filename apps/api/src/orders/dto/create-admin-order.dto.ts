@@ -2,10 +2,12 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  IsBoolean,
   IsArray,
   IsEnum,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -41,6 +43,20 @@ export class AdminOrderItemDto {
   remarks?: string;
 }
 
+export class OrderDiscountDto {
+  @IsIn(['PERCENT', 'AMOUNT'])
+  type!: 'PERCENT' | 'AMOUNT';
+
+  @IsNumber()
+  @Min(0.01)
+  value!: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 500)
+  reason?: string;
+}
+
 export class CreateAdminOrderDto {
   @IsUUID()
   menuId!: string;
@@ -52,12 +68,13 @@ export class CreateAdminOrderDto {
   @IsEnum(ServiceType)
   serviceType!: ServiceType;
 
+  @IsOptional()
   @IsIn([
     PaymentMethod.ONLINE_CARD,
     PaymentMethod.MANUAL_PAYNOW,
     PaymentMethod.CASH,
   ])
-  paymentMethod!: PaymentMethod;
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsUUID()
@@ -72,6 +89,15 @@ export class CreateAdminOrderDto {
   @IsString()
   @Length(3, 40)
   customerPhone?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  saveAsDraft?: boolean;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrderDiscountDto)
+  discount?: OrderDiscountDto;
 
   @IsArray()
   @ArrayMinSize(1)

@@ -30,6 +30,19 @@ Current deployed/staging truth at the end of this session:
   Socket.IO subscriptions.
 - A first KDS screen now exists inside `apps/staff-web` for outlet kitchen
   queue handling.
+- Attendance management is now implemented in both owner-web and staff-web,
+  backed by live attendance APIs.
+- Inventory Lite is now implemented end to end:
+  - Prisma schema and migration for inventory items, recipes, ingredients, and
+    stock movements
+  - admin inventory APIs for item master, stock in/out, wastage, stock count,
+    and recipe mapping
+  - owner-web and staff-web inventory screens for operational usage
+- Advanced cashier features are now partially implemented:
+  - held draft tickets using `OrderStatus.DRAFT`
+  - order-level discounts with backend repricing
+  - pre-payment bill printing from POS
+  - automatic sale deduction movements when orders are released to kitchen
 - The remaining unvalidated area is physical printer hardware.
 - Phase 4 has now started locally with configurable API rate limiting and
   abuse-protection middleware. This hardening block still needs deployment
@@ -79,6 +92,13 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
     outlet payment-settings API.
 15. Surfaced the same `ONLINE_CARD` toggle as a top-level owner-web payment
     control for consistency across admin and cashier flows.
+16. Built the attendance module with owner/staff views, live settings, and
+    approval or adjustment flows.
+17. Built Inventory Lite across backend, owner-web, and staff-web with item
+    master, stock movements, low-stock visibility, and recipe/BOM mapping.
+18. Extended cashier order flow with held drafts, order-level discounts,
+    pre-payment bill printing, and automatic inventory deduction on kitchen
+    release.
 
 ## Entire work completed so far
 
@@ -99,6 +119,14 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   available in local or staging environments when desired.
 - Added a generic server-error tracking hook so 5xx events can be forwarded to
   an incident webhook through configuration.
+- Added an attendance module with settings, clock-in/out, review, approval,
+  and adjustment flows under outlet-scoped admin APIs.
+- Added Inventory Lite persistence and APIs:
+  - inventory item master
+  - stock movement register
+  - stock in, wastage, manual adjustment, and stock count actions
+  - recipe/BOM mapping for menu items
+  - sale-linked stock deduction when orders are released to kitchen
 
 ### Customer ordering flow
 
@@ -147,6 +175,12 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
     publish
 - Added table and QR setup flows including QR rotation.
 - Added payment-settings controls and printing configuration/test/retry flows.
+- Added owner attendance workspace and attendance settings/review actions.
+- Added owner inventory workspace for:
+  - creating inventory items
+  - recording stock movements
+  - reviewing low-stock items and recent movements
+  - mapping recipe/BOM deduction from published menu items
 - Added first owner reporting snapshots on the dashboard using existing admin
   order list endpoints:
   - outlet order counts
@@ -205,6 +239,12 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
     orders board
   - cart-line editing so staff can reopen an item and update quantity,
     variants, modifiers, or remarks before saving the ticket
+- Added advanced cashier workflow improvements:
+  - hold ticket as draft and reopen it later from the orders board
+  - order-level percentage or fixed-amount discounts
+  - pre-payment bill printing directly from POS edit mode
+  - draft-aware POS amendment flow for both held and unpaid staff-assisted
+    orders
 - Added live POS-side payment availability awareness using the payment-settings
   API so the cashier payment method list respects outlet settings.
 - Added a cashier-side `ONLINE_CARD` toggle in staff POS:
@@ -215,6 +255,9 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   - falls back to other enabled methods if online-card is turned off mid-flow
 - Added a defensive HitPay webhook guard so locally cancelled orders do not get
   revived by late payment status callbacks.
+- Added staff attendance workspace using the live attendance APIs.
+- Added staff inventory workspace for day-to-day stock entry, low-stock
+  visibility, and recipe deduction setup.
 
 ### Documentation and continuation
 
@@ -244,22 +287,23 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   outlet management surfaces.
 - Next.js staff operations app with login, dashboard, order queue, tables
   overview, and a real walk-in POS workflow.
+- Attendance module in backend, owner-web, and staff-web.
+- Inventory Lite module in backend, owner-web, and staff-web.
 - Shared owner and cashier business controls for outlet-level `ONLINE_CARD`
   availability.
 - Dockerfiles for API, customer web, and migration job.
 
 ## What is not implemented yet
 
-- Optional future cashier extensions such as discounts, split-tender flows,
-  held or suspended tickets, and any additional offline settlement methods
-  beyond the current online-card, manual-PayNow, cash, and void-order
-  baseline.
+- Split-tender, split-bill, refund, void-ticket, and deeper cashier settlement
+  features beyond the current draft, discount, online-card, manual-PayNow,
+  cash, and pre-payment-bill baseline.
 - Real outlet printer validation on physical hardware.
 - Deployed validation of production rate limiting, request logging, and Swagger
   exposure settings.
 - Error tracking, centralized log shipping, and operational alerting.
-- Deeper reporting, inventory, attendance, and operational dashboards beyond
-  the current first owner reporting snapshot.
+- Deeper reporting and analytics beyond the current first owner reporting,
+  attendance, and inventory snapshots.
 - Deeper KDS workflow such as station filtering, expo views, and richer kitchen
   event payloads.
 - Role or access-management UX for adjusting cashier payment-control permission
@@ -273,6 +317,12 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   dedicated future app after the first in-app KDS iteration.
 - Expand the new realtime-backed KDS flow with station filtering, expo
   handoff, and richer kitchen-stage behavior.
+- Decide which advanced cashier items should come next after the current draft
+  and discount baseline:
+  - split bill
+  - split tender
+  - refunds or void tickets
+  - cashier close-out workflow
 
 ### Frontend work still open
 
@@ -282,6 +332,9 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Finer-grained table/floor editing UX in owner-web if visual table management
   is desired.
 - Full reporting and operational dashboards for owners or managers.
+- Inventory analytics views such as usage trend, low-stock history, and recipe
+  coverage health.
+- Attendance reporting views such as daily summary, lateness flags, and export.
 
 ### Hardware and operations work still open
 
@@ -348,11 +401,14 @@ Current implementation status:
   - order-board entry into POS edit mode for unpaid staff-assisted orders
   - server-side amendment of unpaid staff-assisted orders with repricing and
     payment reset
+  - held draft tickets using `OrderStatus.DRAFT`
+  - order-level discounts
+  - pre-payment bill printing from cashier flow
 - Phase 1 close-out decision:
-  - discounts, split tenders, suspended tickets, and additional offline
-    settlement methods are explicitly out of current Phase 1 scope
-  - if product wants those later, treat them as a new enhancement stream rather
-    than reopening the completed Phase 1 branch
+  - split tenders, split bills, refunds, and deeper cashier close-out remain
+    outside the current Phase 1 close-out
+  - if product wants those later, treat them as the next cashier enhancement
+    stream rather than reopening the initial POS baseline
 
 Scope:
 

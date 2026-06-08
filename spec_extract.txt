@@ -1,0 +1,4111 @@
+--- PAGE 1 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Restaurant QR Ordering POS System
+Full Development Specification Sheet
+Version 1.8 - Final Senior Developer Handoff Ready
+Prepared for: Product, Engineering, Design, Implementation, and Delivery Management Teams
+Primary market: Singapore F&B, restaurants, cafes, bars, hawkers, food courts, multi-outlet operators, and QR-first service 
+teams
+Primary build objective
+Build, execute, and deploy a restaurant-first QR ordering POS that lets customers scan a table QR, order from their phone, pay 
+in the browser using Stripe card or PayNow, send orders to POS/KDS/printers, and give owners full visibility over sales, 
+inventory, payments, outlet performance, UI/UX-ready product behaviour, and execution-manager-ready delivery controls, 
+employee clock-in/out attendance capture, and mandatory kitchen order receipt printing.
+Reference area World-class product / pattern What to adapt
+Browser POS / offline-lite Odoo POS, open-source POS systems PWA-style POS, session control, menu 
+cache, real-time stock and sales data.
+QR table ordering Square QR Ordering, TabSquare SmartQR Table QR mapping, customer self-ordering, 
+payment before kitchen release, staff alerts.
+Payments Stripe Checkout / Payment Element / 
+PayNow
+Secure browser payments, card/wallets, 
+Singapore PayNow via Stripe, webhook 
+source of truth.
+Kitchen operations Toast KDS, Lightspeed Restaurant Station routing, bump screens, all-day view, 
+expo view, prep status.
+Printing Epson ePOS / ESC-POS patterns Network receipt printers, kitchen tickets, 
+backup printer, print job status.
+Singapore context SGQR, PayNow, GST/service charge 
+practices
+PayNow reconciliation, UEN/SGQR fields, 
+GST/service charge reporting.
+Product polish TabSquare, Loyverse, Square, Toast Guest experience layer, customer display, 
+queue flow, upsell, CRM-ready UI, menu 
+engineering.
+UI/UX system Material Design, Apple HIG, WCAG 2.2, 
+Behance POS references
+Touch-first components, responsive layouts, 
+accessibility, states, design tokens, handoff 
+rules.
+Execution handoff Agile delivery, ADRs, QA test matrix, pilot 
+rollout control
+Scope freeze, sprint roadmap, RACI, 
+hardware test bundle, environment checklist, 
+go/no-go criteria.
+Attendance and workforce ops Modern POS staff management patterns Employee clock-in/out from iPad POS, photo 
+proof, server timestamps, hours calculation, 
+payroll-ready attendance export.
+Kitchen order receipt printing Restaurant KDS and thermal kitchen ticket 
+patterns
+Every paid/confirmed order creates a kitchen 
+ticket and print job, with station routing, 
+modifiers, remarks, reprint and failed-print 
+retry.
+Final deployment handoff - fully polished for senior developer execution, QA, UI/UX implementation and pilot rollout
+
+--- PAGE 2 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+1. Executive Summary
+This document defines the first complete development specification for a deployable restaurant QR ordering POS platform. The 
+system is designed to work on tablets, phones, laptops, and browser-based POS terminals without requiring dedicated proprietary 
+hardware.
+Core operating flow
+Customer scans table QR -> browses menu -> selects modifiers/add-ons -> pays in browser by Stripe card or PayNow -> webhook 
+confirms payment -> order appears in POS and KDS -> receipt/kitchen ticket prints -> inventory deducts -> owner sees sales, 
+payment, and inventory data in the backend dashboard.
+1.1 Product Positioning
+ Restaurant-first POS, not generic retail POS.
+ Mobile-first QR ordering for dine-in, takeaway, pickup, events, and food court style use cases.
+ Designed to reduce cashier workload by allowing customers to order and pay from their own phones.
+ Web-first deployment so the system can run on iPad, Android tablet, phone, desktop browser, touchscreen POS, and kitchen 
+tablet.
+ Singapore-ready payment support including Stripe card, Stripe PayNow, manual PayNow, SGQR/manual settlement workflows, 
+GST, service charge, and PayNow reconciliation.
+2. Goals and Non-Goals
+2.1 Main Goals
+1. Reduce cashier manpower by enabling self-ordering and self-payment through table QR codes.
+2. Allow restaurants to deploy the POS on common tablets and handphones instead of expensive fixed terminals.
+3. Support restaurant-grade order management, kitchen routing, receipt printing, payment tracking, and sales reporting.
+4. Provide a backend owner dashboard for sales, inventory, payments, refunds, PayNow status, GST, service charge, and outlet 
+performance.
+5. Support multi-outlet rollouts where HQ can manage menus, prices, reports, users, and outlet permissions.
+6. Create a modular architecture that can later support loyalty, delivery, accounting, AI reporting, scheduling, and inventory 
+automation.
+2.2 Non-Goals for V1
+ Do not prioritise retail barcode POS over restaurant QR ordering.
+ Do not build full native iOS/Android apps before the web/PWA product is stable.
+ Do not build deep enterprise accounting in V1; provide exports and integration-ready data instead.
+ Do not require customers to create accounts before ordering.
+ Do not depend on one proprietary printer method; build printer abstraction from the start.
+3. Target Users and Responsibilities
+User type Main needs
+Restaurant Owner View sales, inventory, payment status, outlet performance, refunds, 
+discounts, and QR vs cashier performance.
+Outlet Manager Manage live orders, table status, menu availability, printer issues, 
+refunds, voids, and staff permissions.
+Cashier Take counter orders, accept payments, edit bills, split bills, print 
+receipts, and close sessions.
+Waiter / Service Crew View table orders, submit add-ons, call kitchen attention, print bills, 
+serve tables, and handle staff-assisted ordering.
+Kitchen Staff Receive station-routed orders, read modifiers and remarks, mark 
+items preparing/ready, and handle cancellations.
+Customer Scan QR, browse menu, customise order, pay online, receive 
+confirmation, request assistance, and place add-on orders.
+HQ Admin Manage outlets, menus, roles, users, printer settings, reporting, 
+GST/service charge, and integration settings.
+4. Product Modules
+Module Description
+Customer QR Ordering Web App Mobile-first customer menu, cart, modifiers, upsells, browser 
+
+--- PAGE 3 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+payment, receipt, staff call, and add-on ordering.
+Staff POS App Tablet/phone/desktop POS for counter orders, table orders, bill edits, 
+payments, refunds, voids, and receipt printing.
+Kitchen Display System Station-based KDS with tickets, modifiers, status updates, prep 
+timing, and expo view.
+Admin Dashboard Menu, sales, payments, inventory, users, tables, QR codes, printer 
+setup, audit logs, reports.
+Inventory Module Ingredient master, stock movement, recipe/BOM deduction, stock 
+counts, low stock alerts, wastage.
+Payment Layer Stripe, PayNow, manual PayNow, SGQR/manual settlement, cash, 
+vouchers, refunds, reconciliation.
+Printer Layer Receipt printer, kitchen printer, bar printer, ESC/POS bridge, Epson 
+ePOS support, fallback PDF/browser print.
+Reporting Layer Sales, payments, QR vs cashier, GST, service charge, refunds, voids, 
+inventory, outlet performance.
+Integration Layer Webhooks, API keys, future accounting/delivery/loyalty/AI 
+integrations.
+Employee Attendance Module iPad POS clock-in/out, employee photo capture, outlet/device tagging, 
+server timestamps, automatic hours worked calculation, manager 
+review and payroll export.
+Kitchen Receipt Print Flow Mandatory kitchen order ticket creation and printing for every 
+paid/confirmed order, including item modifiers, remarks, station 
+routing, retry and reprint controls.
+5. Customer QR Ordering Web App
+The customer app is the highest-priority business feature. It must be fast, mobile-first, and require no app download or login.
+5.1 Core Customer Requirements
+7. Each table/location has a unique QR code.
+8. QR opens a secure web URL with outlet ID, table/location ID, service mode, and active session token.
+9. Customer can browse menu by category and search items.
+10. Customer can view photos, price, description, allergens, tags, availability, and preparation notes.
+11. Customer can select modifiers such as noodle type, spice level, doneness, toppings, sauce, size, ice level, sugar level, add-ons, 
+and remarks.
+12. Cart must show subtotal, discount, service charge, GST, rounding, and final total before payment.
+13. Customer can pay by Stripe card, Apple Pay/Google Pay where available, Stripe PayNow, or manual PayNow if enabled.
+14. Customer receives confirmation page after successful payment.
+15. Customer can place add-on orders from the same table session.
+16. Customer can call staff from the web app.
+17. Customer can request bill if pay-later mode is enabled.
+5.2 QR Location Modes
+ Table QR
+ Counter QR
+ Takeaway QR
+ Pickup QR
+ Walk-up window QR
+ Parking bay QR
+ Event booth QR
+ Food court stall QR
+ Hotel room service QR
+ Dynamic one-time QR for temporary sessions
+5.3 QR Mapping Fields
+ Company
+ Outlet
+ Table/location
+ Service type
+ Menu version
+ Active session
+ Payment mode
+ Printer/KDS routing rules
+ Language preference
+
+--- PAGE 4 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ Session expiry and anti-tamper token
+5.4 Customer Fallback Modes
+ Staff-assisted order entry for elderly/non-QR customers.
+ Printed menu with waiter order-taking.
+ Counter POS ordering.
+ Pay-at-counter mode.
+ Large-font menu option.
+ Multi-language menu support.
+ Allergen and dietary display.
+ No-signup checkout.
+ Optional receipt by phone/email.
+6. Staff POS App
+The POS interface must work on tablets, iPads, Android tablets, phones, touchscreen terminals, laptops, and desktop browsers. It 
+should behave like a fast restaurant terminal while remaining browser-deployable.
+ Open and close POS session.
+ Select company/outlet.
+ Create counter order.
+ Create table order.
+ Search products quickly.
+ Apply modifiers and remarks.
+ Apply discounts with permission.
+ Change quantity.
+ Void item with reason.
+ Void whole order with reason.
+ Move order to another table.
+ Merge tables.
+ Split bill by item, percentage, or equal split.
+ Print bill.
+ Process payment.
+ Record cash, card, PayNow, Stripe, voucher, staff meal, complimentary.
+ Refund payment.
+ Reprint receipt.
+ Open cash drawer where supported.
+ Offline draft order mode where internet is unstable.
+ Real-time sync with KDS, printers, and dashboard.
+6.1 Bill Editing Rules
+ Unpaid orders may be edited by authorised staff.
+ Paid QR orders should not be freely edited. Any change should create an adjustment, refund, or add-on order.
+ Every void, refund, manual payment verification, and discount must create an audit log.
+ High-risk bill edits require manager PIN based on permission thresholds.
+7. Backend Admin Dashboard
+Dashboard section Key functions
+Live Orders View active table/counter/QR orders, payment state, kitchen state, 
+and table state.
+Sales Overview Gross/net sales, GST, service charge, refunds, discounts, average 
+order value, orders per hour.
+Payments Stripe payments, PayNow payments, cash, manual payment records, 
+payouts, refunds, failed payments.
+Menu Management Categories, items, modifiers, images, outlet-specific pricing, 
+schedules, sold-out control.
+Tables and QR Codes Create tables, zones, QR codes, active sessions, table status, floor 
+plan.
+Inventory Ingredients, stock on hand, stock in/out, purchase history, stock 
+count, low stock, wastage.
+Printers Printer setup, routing rules, test print, print queue, failed job retry, 
+backup printer.
+Staff and Permissions Users, roles, outlet assignment, PIN, action permissions, disabled 
+
+--- PAGE 5 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+accounts.
+Reports Sales, payment, GST, item, category, outlet, staff, void, refund, QR vs 
+cashier, inventory.
+Audit Logs Track high-risk actions with before/after values, reason, user, device, 
+outlet, and timestamp.
+8. Menu Management
+8.1 Menu Entities
+ Menu
+ Category
+ Item
+ Variant
+ Modifier Group
+ Modifier Option
+ Add-on
+ Combo
+ Availability Schedule
+ Outlet-specific Price
+ Image
+ Tax and Service Configuration
+ Stock Link / Recipe BOM
+8.2 Menu Item Fields
+ Item name
+ Internal SKU
+ Category
+ Description
+ Image
+ Base price
+ Cost price
+ Taxable flag
+ Service charge flag
+ Dine-in availability
+ Takeaway availability
+ Active/inactive status
+ Sold-out flag
+ Preparation station
+ Printer routing category
+ Inventory recipe/BOM
+ Modifier groups
+ Tags such as spicy, vegetarian, bestseller, new, limited
+ Display order
+ Outlet availability
+8.3 Image Upload Requirements
+ Upload from dashboard.
+ Auto-compress.
+ Auto-resize.
+ Store in object storage.
+ Generate thumbnail.
+ Support WebP/JPEG/PNG.
+ Validate file size.
+ Allow image replacement.
+ Use CDN-ready path.
+8.4 Menu Publishing Workflow
+Status Meaning
+Draft Internal changes not visible to customers or POS.
+Preview Admin can view customer-facing menu before publishing.
+Scheduled Menu/version/price change is set to publish at a future date/time.
+
+--- PAGE 6 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Published Active on POS and/or QR channels.
+Archived Old menu retained for history and rollback.
+ Preview customer menu before publishing.
+ Schedule menu changes by date/time.
+ Breakfast/lunch/dinner menu timing.
+ Happy hour pricing.
+ Outlet-specific menu availability.
+ Item availability by service type: dine-in, takeaway, pickup, event.
+ Item availability by channel: POS, QR, kiosk, delivery.
+ Future price change scheduling.
+ Menu version history.
+ Rollback to previous menu version.
+ Bulk upload menu by CSV.
+ Bulk image upload.
+ Duplicate menu from another outlet.
+ Disable entire category when unavailable.
+ Hide item from QR but keep item available in staff POS.
+8.5 Price and Sold-Out Control
+ Edit base price and outlet-specific price.
+ Schedule future price changes.
+ Track price history.
+ Require manager/admin permission.
+ Apply prices instantly to customer QR and POS for new orders.
+ Existing paid orders must preserve historical price.
+ Mark item/category sold out from POS or dashboard.
+ Auto-sold-out when inventory reaches zero if enabled.
+ Prevent checkout for sold-out items.
+ Suggest sold-out alternatives in customer app where configured.
+9. Payment Requirements
+9.1 Payment Methods
+Payment method V1 support level Notes
+Stripe card Must-have Use Stripe Checkout or Payment Element to 
+reduce PCI scope.
+Apple Pay / Google Pay via Stripe Should-have Enabled where available through Stripe.
+Stripe PayNow Must-have for Singapore Automated PayNow QR and webhook 
+confirmation.
+Manual PayNow / SGQR Should-have Useful for restaurants using own UEN/SGQR; 
+staff verifies manually.
+Cash Must-have Counter POS and waiter POS use case.
+NETS manual record Should-have SG Can be recorded manually first before deep 
+integration.
+Voucher / staff meal / complimentary Should-have Requires audit trail and reporting category.
+Split payment V1.1 or V2 Split by amount, item, equal split, or payment 
+method.
+9.2 Stripe Card / Wallet Flow
+18. Customer submits cart.
+19. Backend creates order with status pending_payment.
+20. Backend creates Stripe Checkout Session or Payment Intent.
+21. Frontend displays Stripe payment UI.
+22. Customer pays.
+23. Stripe webhook confirms payment.
+24. Backend updates order to paid.
+25. Kitchen ticket is created only after payment success unless pay-later mode is enabled.
+26. Receipt is generated.
+27. Order appears in POS, KDS, and print queue.
+9.3 Stripe PayNow Flow
+28. Customer chooses PayNow.
+
+--- PAGE 7 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+29. Stripe displays PayNow QR.
+30. Customer scans using banking app.
+31. Stripe confirms payment via webhook.
+32. System marks order paid automatically.
+33. Kitchen ticket is released.
+34. Payment dashboard shows Stripe gross, fee, net amount, payout status, and order reference.
+9.4 Manual PayNow / SGQR Flow
+35. Customer chooses manual PayNow.
+36. System displays restaurant PayNow/SGQR QR code.
+37. Customer enters reference or uploads screenshot if enabled.
+38. Order enters manual_verification_required state.
+39. Authorised staff verifies payment.
+40. Staff marks order paid with manager PIN if required.
+41. Audit log records verifier, timestamp, outlet, order, amount, and reference.
+9.5 Payment Statuses
+ pending_payment
+ payment_processing
+ paid
+ partially_paid
+ failed
+ cancelled
+ refunded
+ partially_refunded
+ manual_verification_required
+10. Kitchen Display System and Printer Layer
+10.1 Station-Based KDS
+ Main Kitchen
+ Fryer
+ Noodle Station
+ Drinks/Bar
+ Dessert
+ Grill
+ Expo
+ Pickup Counter
+10.2 KDS Features
+ Real-time incoming orders.
+ Table number and order source.
+ Item names, modifiers, remarks, and quantities.
+ Elapsed time and SLA warning.
+ Item-level bumping.
+ Whole-order bumping.
+ Station-specific view.
+ Expo consolidation view.
+ All-day item count.
+ Production count by station.
+ Colour-coded modifiers.
+ Auto-fire items by prep time.
+ Recalled/completed ticket view.
+ Reprint kitchen ticket.
+ Cancelled item highlight.
+ Large-font kitchen mode.
+ Sound alert for new ticket.
+ KDS offline warning.
+ Kitchen productivity report.
+
+--- PAGE 8 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+10.3 Printer Abstraction Layer
+Printer path Purpose
+Epson ePOS network printer Preferred for web-based restaurant deployment where supported.
+ESC/POS LAN printer Generic network thermal printer support.
+ESC/POS USB printer through local bridge For existing USB printers.
+Bluetooth printer through local bridge For selected low-cost mobile setups.
+Browser print fallback Fallback for bills/receipts if direct printer support fails.
+PDF receipt fallback Fallback for email/download/print workflows.
+10.4 Printer Job Statuses and Settings
+ Statuses: queued, sending, printed, failed, retrying, cancelled, reprinted.
+ Settings: printer name, outlet, station, IP address, port, printer type, paper width, print role, auto-cut, buzzer, cash drawer, backup 
+printer, retry count, last heartbeat, last test result.
+ Dashboard must include Test Print button and failed print queue.
+10.5 Print Templates
+ Customer receipt
+ Pre-payment bill
+ Kitchen ticket
+ Bar ticket
+ Cancelled item ticket
+ Void ticket
+ Refund receipt
+ Daily closing report
+ Shift closing report
+ Stock count sheet
+11. Inventory Tracking
+ Item master and ingredient master.
+ Stock on hand by outlet.
+ Unit of measure and conversion between purchase unit and usage unit.
+ Supplier records.
+ Stock in, stock out, wastage, transfer, manual adjustment.
+ Low stock alerts.
+ Sales-linked deduction through recipe/BOM.
+ Stock count and variance report.
+ Purchase history.
+ Gross margin by item.
+ Theoretical versus actual stock variance.
+11.1 Recipe/BOM Example
+Sellable item Ingredient Deduction
+Normal Mazesoba Noodles 1 portion
+Normal Mazesoba Sauce 50 ml
+Normal Mazesoba Minced meat 80 g
+Normal Mazesoba Egg 1 pc
+Normal Mazesoba Seaweed 1 sheet
+12. Sales, Payment, and Reconciliation Reports
+Report Required data
+Daily/weekly/monthly sales Gross sales, net sales, GST, service charge, refunds, discounts, 
+order count, AOV.
+Sales by source QR ordering versus cashier/waiter POS order revenue and order 
+count.
+Sales by item/category Top items, slow-moving items, margin where cost is available.
+Payment method report Stripe, PayNow, cash, NETS manual, voucher, complimentary, staff 
+meal.
+Stripe report Payment ID, status, gross, fee, net, payout status, refund status.
+Manual PayNow/SGQR report Reference, screenshot URL, verifier, pending verification, variance.
+Refund/void/discount report Who performed action, reason, manager approval, timestamp, 
+
+--- PAGE 9 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+amount.
+Inventory report Current stock, low stock, usage, wastage, purchase history, variance.
+GST/service charge report Taxable sales, GST amount, service charge total, rounding.
+Labour-saving report QR order count, QR revenue, estimated cashier time saved, cashier 
+order share.
+13. Roles, Permissions, and Audit
+13.1 Roles
+ Super Admin
+ HQ Admin
+ Owner
+ Outlet Manager
+ Cashier
+ Waiter
+ Kitchen Staff
+ Accountant
+ Inventory Manager
+ Read-Only Auditor
+13.2 Sensitive Actions
+ Change prices.
+ Apply discounts.
+ Void item/order.
+ Refund payment.
+ Mark manual PayNow as paid.
+ Edit inventory.
+ Export reports.
+ Manage users.
+ Configure printers.
+ Close POS session.
+ Open cash drawer.
+ Delete menu item.
+ Change GST/service charge settings.
+ Reprint receipts.
+13.3 Audit Log Fields
+ User ID
+ Role
+ Outlet
+ Action type
+ Before value
+ After value
+ Reason
+ Manager approval ID
+ Timestamp
+ Device ID
+ IP address
+14. Multi-Outlet and HQ Control
+ One company can have many outlets.
+ Each outlet can have its own menu availability, pricing, tables, printers, inventory, staff, and payment settings.
+ HQ can view all outlets and filter reports by outlet.
+ Outlet managers can only view assigned outlets.
+ HQ can push menu changes to selected outlets.
+ HQ can clone menu from another outlet.
+ HQ can compare outlet performance.
+ HQ can view multi-outlet stock and low-stock alerts.
+
+--- PAGE 10 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+15. Table and Floor Plan Management
+ Create dining zones.
+ Drag and drop tables.
+ Support table shapes: square, circle, rectangle.
+ Set table capacity.
+ Show table status colour.
+ Show active order count.
+ Show payment status.
+ Show time seated.
+ Assign waiter.
+ Merge tables.
+ Split table.
+ Transfer table.
+ Mark table cleaning.
+ Reopen closed table with manager approval.
+ Table occupancy report.
+Table status Meaning
+Available No active customer/session.
+Seated Customer seated but no order yet.
+Ordering Customer is browsing/creating order.
+Ordered Order submitted.
+Preparing Kitchen preparing order.
+Served Items served.
+Bill requested Customer/staff requested bill.
+Payment pending Payment not completed.
+Paid Order/session paid.
+Cleaning Table waiting to be reset.
+Closed Session completed.
+16. Recommended Technical Architecture
+16.1 Frontend
+ Next.js / React.
+ TypeScript.
+ Tailwind CSS.
+ PWA support.
+ Responsive mobile-first layout.
+ WebSocket/SSE client for live updates.
+ IndexedDB for menu cache and offline draft support.
+ Separate interfaces: customer QR app, staff POS app, admin dashboard, KDS, printer setup.
+16.2 Backend
+ Node.js with NestJS or Next.js API routes for MVP.
+ PostgreSQL.
+ Redis.
+ WebSockets or Server-Sent Events.
+ Prisma or Drizzle ORM.
+ Object storage for images.
+ Stripe SDK.
+ Background job queue.
+ RBAC permission middleware.
+ Audit log middleware.
+ Webhook signature verification.
+16.3 Infrastructure
+ Dockerised deployment.
+ Managed PostgreSQL.
+ Managed Redis.
+ S3-compatible object storage.
+ CDN for images.
+
+--- PAGE 11 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ HTTPS enforced.
+ Dev/staging/production environments.
+ CI/CD pipeline.
+ Structured logs.
+ Error tracking.
+ Uptime monitoring.
+ Daily backups.
+ Database restore process.
+16.4 Real-Time Events
+ New QR order.
+ Payment confirmed.
+ Kitchen ticket created.
+ Item ready.
+ Table status changed.
+ Printer failure.
+ Inventory low stock alert.
+ Order cancelled.
+ Refund completed.
+ Manual PayNow verification required.
+ Staff call requested.
+ Device offline/online heartbeat.
+17. Offline and Connectivity Behaviour
+ Customer QR ordering requires internet.
+ Staff POS should cache menu locally.
+ Staff POS should allow draft orders during temporary disconnection.
+ Offline orders sync when connection returns.
+ Payment should not be marked paid offline unless manual cash/PayNow is used by authorised staff.
+ Printer agent should queue print jobs if cloud connection drops.
+ KDS should show connection warning.
+ Admin dashboard should show device heartbeat.
+Device heartbeat field Purpose
+Device ID Track specific POS/KDS/printer bridge device.
+Outlet ID Map device to outlet.
+Device type POS, KDS, printer bridge, dashboard, customer device.
+Last online timestamp Connectivity monitoring.
+App version Troubleshooting and rollout control.
+Browser/device info Compatibility debugging.
+Printer connection status Printer health.
+KDS connection status Kitchen health.
+POS session ID Active session tracking.
+18. Suggested Data Model
+18.1 Core Tables
+ companies
+ outlets
+ users
+ roles
+ permissions
+ user_outlets
+ menus
+ menu_categories
+ menu_items
+ item_variants
+ modifier_groups
+ modifier_options
+ menu_item_modifier_groups
+ tables
+ table_sessions
+
+--- PAGE 12 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ qr_codes
+ orders
+ order_items
+ order_item_modifiers
+ payments
+ refunds
+ receipts
+ print_jobs
+ printers
+ kitchen_tickets
+ inventory_items
+ recipes
+ recipe_ingredients
+ stock_movements
+ suppliers
+ purchase_orders
+ stock_counts
+ audit_logs
+ settings
+ device_heartbeats
+ webhook_events
+18.2 Order Important Fields
+ id
+ company_id
+ outlet_id
+ table_id
+ table_session_id
+ order_number
+ source
+ status
+ subtotal
+ discount_total
+ service_charge_total
+ gst_total
+ rounding_adjustment
+ grand_total
+ payment_status
+ created_by_user_id
+ customer_name
+ customer_phone
+ created_at
+ updated_at
+ completed_at
+18.3 Payment Important Fields
+ id
+ company_id
+ outlet_id
+ order_id
+ provider
+ method
+ status
+ amount
+ currency
+ stripe_payment_intent_id
+ stripe_checkout_session_id
+ stripe_charge_id
+ manual_reference
+ provider_fee
+ net_amount
+ paid_at
+ refunded_amount
+
+--- PAGE 13 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ uen
+ sgqr_reference
+ verification_user_id
+ verification_timestamp
+ metadata
+19. API Requirements
+API group Required endpoints
+Customer Ordering API GET /public/outlets/:outletSlug/menu; GET 
+/public/tables/:tableCode/session; POST /public/orders; POST 
+/public/orders/:id/create-payment; GET /public/orders/:id/status; POST 
+/public/orders/:id/cancel-before-payment; POST 
+/public/tables/:tableCode/call-staff
+POS API POST /pos/sessions/open; POST /pos/sessions/close; GET 
+/pos/orders/live; POST /pos/orders; PATCH /pos/orders/:id; POST 
+/pos/orders/:id/void; POST /pos/orders/:id/refund; POST 
+/pos/orders/:id/print-bill; POST /pos/orders/:id/print-receipt; POST 
+/pos/payments/manual
+Admin API GET /admin/dashboard/summary; GET /admin/reports/sales; GET 
+/admin/reports/payments; GET /admin/reports/inventory; CRUD 
+menu/categories/modifiers/tables/printers/users/inventory; POST 
+/admin/tables/generate-qr; POST /admin/inventory/stock-count; POST 
+/admin/inventory/adjustment
+Webhook API POST /webhooks/stripe; POST /webhooks/printer-agent; future 
+delivery/accounting/loyalty webhook endpoints
+20. Security Requirements
+ Admin and staff login required.
+ Support email/password and POS PIN login.
+ Role-based and outlet-based access control.
+ Session expiry and forced logout when user is disabled.
+ Customer QR must not expose internal IDs directly.
+ Table codes must be randomised.
+ Expired table sessions must not allow old orders.
+ Prevent duplicate payment submission.
+ Recalculate prices server-side to prevent cart tampering.
+ Rate-limit public endpoints.
+ Validate outlet/table/menu availability server-side.
+ Never store raw card details.
+ Verify all Stripe webhooks using signature.
+ Only mark orders paid from trusted webhook or authorised staff action.
+ Use idempotency keys for payment creation.
+ Payment amount must match order amount.
+ Log payment/refund events.
+21. Closing, Shift, and Cash Control
+ Open shift.
+ Close shift.
+ Declare opening cash.
+ Declare closing cash.
+ Cash in/out.
+ Petty cash record.
+ Expected cash calculation.
+ Cash variance.
+ Card total.
+ PayNow total.
+ Stripe total.
+ Refund total.
+ Void total.
+ Discount total.
+ Staff meal total.
+
+--- PAGE 14 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ Manager approval for variance.
+ Closing report printout.
+ Closing report export/email.
+22. Required POS Use Cases
+ID Use case Expected behaviour
+UC01 Customer scans table QR and views menu Customer scans table QR code, opens 
+browser menu, and sees correct outlet/table 
+menu.
+UC02 Customer places dine-in order and pays by 
+card
+Customer adds items, pays by card through 
+browser, and order is released to kitchen 
+after payment confirmation.
+UC03 Customer pays by Stripe PayNow Customer selects PayNow, scans PayNow 
+QR from banking app, and order is confirmed 
+after payment success.
+UC04 Customer adds remarks to item Customer adds less spicy or no onion; 
+kitchen ticket shows the remark clearly.
+UC05 Customer adds extra toppings Customer selects add-ons; price recalculates 
+correctly.
+UC06 Customer places add-on order from same 
+table
+Customer scans again or reopens session 
+and places additional paid order linked to 
+same table.
+UC07 Customer calls staff from QR menu Customer presses Call Staff; waiter 
+dashboard receives table alert.
+UC08 Cashier creates counter order Cashier adds items from POS, accepts 
+payment, and prints receipt.
+UC09 Waiter takes order from tablet Waiter selects table, adds order, and sends 
+to kitchen.
+UC10 Kitchen receives QR order instantly Paid QR order appears on KDS and/or prints 
+kitchen ticket.
+UC11 Kitchen marks item ready Kitchen staff marks item ready; POS updates 
+order status.
+UC12 Manager marks item sold out Manager marks item sold out; item 
+disappears or shows sold out on QR menu 
+and POS.
+UC13 Admin uploads menu item image Admin uploads image; customer menu 
+displays compressed image.
+UC14 Admin changes item price Admin updates price; new orders use new 
+price, old orders keep historical price.
+UC15 Staff prints bill for a table Waiter selects table and prints interim bill.
+UC16 Customer receipt auto-prints after payment After payment success, system prints final 
+receipt to configured printer.
+UC17 Kitchen ticket routes by category Food items print to kitchen, drinks print to 
+bar.
+UC18 Cashier splits bill by item Cashier splits selected items into separate bill 
+and collects payment.
+UC19 Cashier merges two tables Cashier merges orders from two tables into 
+one table session.
+UC20 Waiter transfers order to another table Waiter transfers order from Table 1 to Table 
+5.
+UC21 Manager voids item Manager voids item with reason; system logs 
+action and prints cancellation ticket.
+UC22 Manager refunds paid order Manager processes full or partial refund with 
+reason; payment and sales report update.
+UC23 Owner views daily sales Owner opens dashboard and views gross 
+sales, net sales, GST, service charge, 
+payment methods, and top items.
+UC24 Owner compares QR sales vs cashier sales Dashboard shows revenue and order count 
+from QR self-ordering versus staff-entered 
+orders.
+UC25 Inventory deducts after sale When item is sold, linked ingredients are 
+deducted from stock.
+UC26 Manager performs stock count Manager enters actual stock; system 
+calculates variance.
+UC27 Low stock alert triggers System alerts manager when ingredient falls 
+below reorder level.
+UC28 Staff records wastage Staff records expired/spoiled stock; inventory 
+and wastage report update.
+
+--- PAGE 15 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+UC29 HQ pushes menu to multiple outlets HQ creates menu item and enables it for 
+selected outlets.
+UC30 Outlet uses different price Same menu item can have different price at 
+different outlet.
+UC31 Printer fails and retries Print job fails; system shows error and allows 
+retry.
+UC32 POS works on tablet browser Staff opens POS on iPad/Android tablet and 
+can operate without native app.
+UC33 Customer tries to pay twice System prevents duplicate payment and 
+keeps one valid order/payment record.
+UC34 Manual PayNow verification Customer pays to restaurant PayNow QR; 
+staff verifies and marks order as paid.
+UC35 End-of-day closing Cashier/manager closes POS session and 
+generates closing report by payment method.
+UC36 Admin schedules future menu price change Admin sets new prices to go live next 
+Monday at 9am.
+UC37 Admin creates lunch-only menu Lunch menu appears from 11am to 3pm only.
+UC38 Kitchen receives station-specific orders Drinks go to bar KDS while food goes to 
+kitchen KDS.
+UC39 Expo consolidates all items Expo screen shows complete table order 
+across stations.
+UC40 QR customer receives upsell prompt Customer ordering ramen is prompted to add 
+drink or topping.
+UC41 Webhook delayed for PayNow System shows payment processing and 
+releases order only after payment 
+confirmation.
+UC42 Staff verifies manual PayNow Staff confirms manual PayNow payment and 
+audit log records verifier.
+UC43 Backup printer receives failed job Kitchen printer fails; print job reroutes to 
+backup printer.
+UC44 Manager performs end-day closing Manager declares cash and system 
+calculates variance.
+UC45 Owner checks QR labour-saving report Dashboard shows QR orders, cashier orders, 
+and estimated staff time saved.
+UC46 Outlet manager clones menu Manager duplicates menu from Outlet A to 
+Outlet B and edits outlet-specific prices.
+UC47 Customer uses large-font menu Customer switches QR menu to large-font 
+mode for readability.
+UC48 Staff reopens closed table Staff accidentally closed table and reopens 
+session with manager approval.
+UC49 Admin exports GST report Admin exports daily/monthly GST breakdown 
+for accounting.
+UC50 HQ checks multi-outlet inventory HQ views stock levels across all outlets and 
+low stock alerts.
+UC51 Staff records cash drawer payout Staff records petty cash used to buy urgent 
+ingredients.
+UC52 Customer requests assistance Table 8 presses Call Staff and waiter 
+receives alert.
+UC53 System prevents duplicate QR payment Customer refreshes browser after payment; 
+system prevents second payment/order.
+UC54 Restaurant runs QR-only promotion Admin creates a promotion available only on 
+QR ordering.
+UC55 Staff marks category unavailable Kitchen runs out of noodles; manager 
+disables noodles category temporarily.
+23. MVP Scope and Build Priority
+Priority Scope
+Priority 1 - QR Revenue Flow Table QR, customer menu, cart, modifiers, Stripe card, Stripe 
+PayNow, order confirmation, live POS, KDS, receipt/kitchen printing.
+Priority 2 - Restaurant Control Menu management, price editing, sold-out control, GST/service 
+charge, refund/void, audit log, daily closing.
+Priority 3 - Business Visibility Sales dashboard, payment dashboard, QR vs cashier report, item 
+sales, stock movement, low stock alert.
+Priority 4 - Scale Multi-outlet, HQ menu push, advanced recipe/BOM, printer bridge, 
+integration API, loyalty/CRM.
+
+--- PAGE 16 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+23.1 Must-Have in V1
+ Company/outlet setup.
+ User roles.
+ Menu/category/item/modifier management.
+ Image upload.
+ Table creation.
+ QR code generation.
+ Customer QR ordering.
+ Stripe card payment.
+ Stripe PayNow payment.
+ POS staff order entry.
+ Live order dashboard.
+ Kitchen display.
+ Basic receipt printing.
+ Basic printer configuration.
+ Sales report.
+ Payment report.
+ Manual void/refund records.
+ Basic inventory item master.
+ Basic stock in/out/manual adjustment.
+ Audit logs.
+23.2 Should-Have in V1.1
+ Recipe/BOM stock deduction.
+ Manual PayNow screenshot upload.
+ Advanced bill split.
+ Table merge/transfer.
+ Printer retry queue.
+ Daily closing report.
+ Multi-outlet menu push.
+ GST/service charge configuration.
+ Discount permissions.
+ Staff PIN login.
+ Menu publishing workflow.
+ Floor plan management.
+ Station-specific KDS.
+ Backup printer routing.
+23.3 Future V2
+ Loyalty system.
+ Membership points.
+ Reservation system.
+ Delivery aggregator integration.
+ AI sales forecasting.
+ AI inventory reorder suggestion.
+ Accounting export.
+ Payroll/staff scheduling integration.
+ Customer CRM.
+ Marketing campaign tools.
+ WhatsApp/Telegram customer notifications.
+ Advanced kiosk mode.
+ Offline-first full POS.
+ Native Android/iOS apps.
+24. Development Phase Plan
+Phase Work package
+Phase 1 - Foundation Authentication, company/outlet model, roles/permissions, menu 
+model, admin shell, POS shell, customer QR shell.
+Phase 2 - Menu and QR Ordering Menu CRUD, image upload, modifiers, tables, QR generation, 
+customer cart, order creation.
+Phase 3 - Payments Stripe integration, card payment, PayNow, webhook handling, 
+
+--- PAGE 17 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+payment status, receipt generation.
+Phase 4 - Live POS and Kitchen Live order dashboard, WebSocket/SSE events, KDS, order statuses, 
+staff order entry, kitchen ready flow.
+Phase 5 - Printing Printer configuration, receipt template, kitchen ticket template, Epson 
+ePOS, ESC/POS bridge planning, print job logging.
+Phase 6 - Reporting and Inventory Sales report, payment report, item sales report, inventory master, 
+stock movements, low stock alerts.
+Phase 7 - QA and Deployment End-to-end tests, Stripe test mode, PayNow test flow, printer test, 
+mobile/tablet tests, security tests, production deployment, restaurant 
+pilot.
+25. Acceptance Criteria for V1
+42. Restaurant can create company and outlet.
+43. Restaurant can create menu items with images and prices.
+44. Restaurant can create tables and generate QR codes.
+45. Customer can scan QR on phone.
+46. Customer can place order from browser.
+47. Customer can pay by Stripe card.
+48. Customer can pay by Stripe PayNow.
+49. Paid order appears in live POS dashboard.
+50. Paid order appears on KDS.
+51. Kitchen can mark order ready.
+52. Staff can print customer bill/receipt.
+53. Owner can view sales dashboard.
+54. Owner can view payment method breakdown.
+55. Admin can change menu prices.
+56. Admin can mark item sold out.
+57. Inventory can record stock in/out.
+58. Manager can void/refund with audit log.
+59. System works on tablet and phone browser.
+60. System is deployed with HTTPS.
+61. Stripe webhook correctly updates payment status.
+62. System prevents duplicate payment after refresh.
+63. System can produce a daily closing report.
+64. System can show QR sales versus cashier sales.
+65. System can route food and drinks to different stations/printers.
+66. System can export sales/payment/GST data.
+26. Key Technical Risks and Mitigations
+Risk Mitigation
+Printer compatibility Support Epson ePOS first, then ESC/POS local bridge, then 
+browser/PDF print fallback.
+Payment confirmation delay Use webhook as source of truth and show payment processing until 
+confirmed.
+Duplicate orders from refresh Use idempotency keys and lock order after payment session is 
+created.
+Menu price tampering Calculate all prices server-side.
+Restaurant Wi-Fi instability Cloud QR remains online; staff POS gets cache/draft order mode; 
+printer queue retries.
+Customer resistance to QR-only ordering Keep staff-assisted POS and waiter order-taking available.
+Wrong table orders QR code must be table-specific and confirmation page must clearly 
+show table/location.
+Manual PayNow fraud/variance Require proof/reference, staff verifier, manager PIN threshold, audit 
+log, and reconciliation dashboard.
+27. Open API and Integration Layer
+ Webhook for order created.
+ Webhook for payment completed.
+ Webhook for refund completed.
+ Webhook for item sold out.
+ Webhook for low stock.
+
+--- PAGE 18 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ API key management.
+ Outlet-level API permissions.
+ Rate limiting.
+ Webhook retry.
+ Webhook signing secret.
+27.1 Future Integrations
+ Accounting system.
+ Inventory supplier system.
+ Delivery platforms.
+ Reservation system.
+ Loyalty system.
+ CRM.
+ Staff scheduling.
+ Payroll.
+ WhatsApp/Telegram alerts.
+ AI reporting agent.
+28. Reference Sources and Patterns
+The following references and product patterns were used to benchmark the specification. Developers should review equivalent 
+current documentation before implementation because payment, printer, and API details may change.
+Reference URL
+Odoo POS / self-order / IoT printer patterns https://www.odoo.com/documentation/19.0/applications/sales/
+point_of_sale.html
+Square QR ordering https://squareup.com/gb/en/online-ordering/qr-code-ordering
+TabSquare SmartQR / restaurant self-ordering https://tabsquare.ai/
+Stripe Payment Element https://docs.stripe.com/payments/payment-element
+Stripe PayNow Singapore https://docs.stripe.com/payments/paynow
+Lightspeed Restaurant POS patterns https://www.lightspeedhq.com/au/pos/restaurant/
+Toast KDS operational patterns https://support.toasttab.com/en/article/Get-Started-With-the-Kitchen-
+Display-System
+Open Source POS https://opensourcepos.org/
+Floreant POS https://floreant.org/
+uniCenta POS https://unicenta.com/
+Epson ePOS printer SDK/documentation https://download.epson-biz.com/modules/pos/
+SGQR Singapore standard overview https://www.mas.gov.sg/development/e-payments/sgqr
+29. Developer Summary
+Build principle
+Do not build a generic retail POS first. Build a restaurant-first QR ordering POS that makes table ordering, browser payment, kitchen 
+routing, receipt printing, inventory deduction, and owner reporting extremely reliable before adding advanced features.
+The first workable version must make the revenue flow reliable: scan QR, order, pay, send to kitchen, print, serve, and report. After 
+that, deepen inventory, multi-outlet controls, integrations, loyalty, and AI reporting.
+30. Technical Implementation Appendix
+Purpose of this appendix
+This section converts the product specification into a developer-ready build reference. It defines database shape, entity 
+relationships, state machines, API contracts, idempotency rules, queue jobs, printer architecture, deployment topology, testing 
+requirements, and developer work breakdown.
+30.1 Recommended Build Architecture
+Layer Recommended choice Reason
+Frontend apps Next.js / React / TypeScript / PWA One codebase can support customer QR 
+app, staff POS, admin dashboard, KDS, and 
+
+--- PAGE 19 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+tablet/mobile deployments.
+Backend API NestJS or Next.js API with strict service 
+modules
+Keeps payment, order, inventory, printer, and 
+reporting logic separated and testable.
+Database PostgreSQL Strong relational model, transactions, 
+indexes, constraints, JSONB where needed, 
+and reliable reporting.
+ORM Prisma or Drizzle Typed migrations and safer schema 
+evolution.
+Cache / queue Redis + BullMQ Real-time sessions, print retry queue, 
+webhook processing, background reports, 
+and low-stock alerts.
+Real-time WebSocket or Server-Sent Events Live order updates to POS, KDS, dashboard, 
+printer status, and table status.
+File storage S3-compatible object storage + CDN Menu images, receipt PDFs, PayNow 
+screenshots, exports, and backups.
+Payments Stripe Checkout or Payment Element + Stripe 
+PayNow
+Secure browser payments and lower PCI 
+scope.
+Printing Printer abstraction + Epson ePOS + 
+ESC/POS local bridge
+Avoids being locked into one printer model.
+Observability Structured logs + Sentry + uptime checks Critical for diagnosing payment, printer, and 
+kitchen issues.
+System flow
+High-level request flow:
+Customer QR App -> Backend API -> PostgreSQL
+                  -> Stripe Checkout/Payment Element
+Stripe Webhook -> Backend Webhook Handler -> Order Paid -> KDS Event -> Print Job Queue
+POS/KDS/Admin -> WebSocket/SSE -> Live Order/Table/Printer Updates
+Printer Agent/Epson ePOS -> Print Status Callback -> print_jobs updated
+30.2 Database Design Principles
+ Use UUID primary keys for all public-facing entities.
+ Every tenant-owned table must include company_id and usually outlet_id for tenant isolation and filtering.
+ Store all money values in integer cents, not floating point decimals. Example: S$12.90 = 1290.
+ Use soft deletes with deleted_at for business records such as menu items, users, printers, and inventory items.
+ Use immutable historical snapshots for paid orders, prices, GST, service charge, and modifiers. A paid receipt must not change 
+when an admin edits a menu later.
+ Use ledger tables for stock and payments. Do not rely only on current_balance fields.
+ Use database constraints for uniqueness, foreign keys, and allowed status values where possible.
+ Use idempotency keys for payment creation, order submission, webhook processing, and print job creation.
+ Every high-risk action must write to audit_logs inside the same transaction as the action.
+ Indexes must support live POS/KDS screens, reporting filters, and webhook lookup performance.
+Global column Recommended type Purpose
+id uuid primary key Stable identifier. Avoid exposing sequential 
+IDs to customers.
+company_id uuid foreign key Tenant isolation. Required on tenant-owned 
+records.
+outlet_id uuid foreign key nullable Outlet-level filtering where applicable.
+created_at timestamptz Record creation timestamp.
+updated_at timestamptz Last update timestamp.
+deleted_at timestamptz nullable Soft delete where business history must be 
+retained.
+created_by_user_id uuid nullable Trace staff/admin actions.
+metadata jsonb nullable Provider payloads, device details, or future 
+extensibility. Do not put core query data only 
+in JSONB.
+30.3 Recommended PostgreSQL Enums
+Enum Values
+order_source qr, pos, waiter, kiosk, admin, delivery
+order_status draft, pending_payment, payment_processing, paid, sent_to_kitchen, 
+preparing, ready, served, completed, cancelled, voided, refunded, 
+partially_refunded
+payment_status unpaid, pending, processing, paid, partially_paid, failed, refunded, 
+partially_refunded, manual_verification_required
+payment_provider stripe, manual, cash, nets_manual, voucher, staff_meal, 
+complimentary, future_provider
+payment_method card, apple_pay, google_pay, stripe_paynow, manual_paynow, 
+
+--- PAGE 20 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+sgqr_manual, cash, nets, voucher, staff_meal, complimentary, split
+table_session_status available, seated, ordering, ordered, preparing, served, 
+bill_requested, payment_pending, paid, cleaning, closed
+print_job_status queued, sending, printed, failed, retrying, cancelled, reprinted
+stock_movement_type purchase, sale_deduction, wastage, transfer_in, transfer_out, 
+adjustment, stock_count, return, opening_balance
+webhook_status received, processing, processed, ignored, failed, retrying
+device_type pos, kds, printer_bridge, admin_dashboard, customer_device
+30.4 Database Entity Map
+Domain Tables Main responsibility
+Tenant and outlets companies, outlets, settings Company profile, outlet config, GST/service 
+charge, time zone, currency, payment 
+settings.
+Users and access users, roles, permissions, user_outlets, 
+user_role_assignments
+Staff/admin login, RBAC, outlet-level access, 
+POS PIN permissions.
+Menu menus, menu_categories, menu_items, 
+item_variants, modifier_groups, 
+modifier_options, 
+menu_item_modifier_groups, menu_versions
+Menu setup, pricing, modifiers, publishing, 
+and version history.
+Tables and QR dining_zones, tables, table_sessions, 
+qr_codes
+Floor plan, table state, active sessions, QR 
+routing.
+Orders orders, order_items, order_item_modifiers, 
+order_adjustments
+Customer/staff orders, item snapshots, 
+modifications, voids, discounts.
+Payments payments, payment_attempts, refunds, 
+receipts, webhook_events
+Stripe/manual payments, PayNow, refunds, 
+receipts, webhook idempotency.
+Kitchen and printing kitchen_tickets, kitchen_ticket_items, 
+printers, print_jobs, print_job_attempts
+Station routing, KDS tickets, receipt/kitchen 
+printing, retries.
+Inventory inventory_items, recipes, recipe_ingredients, 
+stock_movements, suppliers, 
+purchase_orders, stock_counts
+Ingredient tracking, BOM deduction, 
+purchases, wastage, variance.
+Operations pos_sessions, cash_movements, 
+closing_reports, device_heartbeats, 
+audit_logs
+Shift/cash control, device health, auditability, 
+closing reports.
+Integrations api_keys, integration_webhooks, 
+outbound_webhook_deliveries
+Future accounting, loyalty, delivery, AI 
+reporting, external systems.
+30.5 Detailed Core Database Schema
+Implementation note
+The fields below are V1 build-level requirements. Developers may add technical fields such as version counters, row locks, search 
+vectors, and generated columns where useful, but should not remove auditability, idempotency, tenant isolation, or immutable order 
+snapshot fields.
+Table Important columns Indexes / constraints Purpose
+companies id, name, legal_name, 
+registration_number, 
+default_currency, 
+default_timezone, status, 
+created_at, updated_at
+unique(name) optional, 
+index(status)
+Top-level tenant.
+outlets id, company_id, name, slug, 
+address, phone, timezone, 
+currency, gst_enabled, 
+gst_rate_bps, 
+service_charge_enabled, 
+service_charge_bps, status
+unique(company_id, slug), 
+index(company_id, status)
+Each restaurant branch/outlet.
+users id, company_id, email, phone, 
+full_name, password_hash, 
+pos_pin_hash, status, 
+last_login_at, deleted_at
+unique(company_id, email), 
+index(company_id, status)
+Staff/admin identity.
+roles id, company_id, name, 
+system_key, description
+unique(company_id, 
+system_key)
+Owner, Manager, Cashier, 
+Waiter, Kitchen, etc.
+permissions id, key, description, category unique(key) Action-level permission catalog.
+user_outlets id, company_id, user_id, 
+outlet_id, role_id
+unique(user_id, outlet_id, role_id) Outlet-level access.
+menus id, company_id, outlet_id 
+nullable, name, status, channel, 
+published_version_id, 
+active_from, active_to
+index(company_id, outlet_id, 
+status)
+Menu shell and active channel.
+menu_versions id, company_id, menu_id, 
+version_number, status, 
+scheduled_at, published_at, 
+unique(menu_id, 
+version_number)
+Draft/preview/scheduled/
+published history.
+
+--- PAGE 21 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+created_by_user_id
+menu_categories id, company_id, menu_id, name, 
+display_order, active, 
+available_from, available_to
+index(menu_id, display_order) Customer/staff category display.
+menu_items id, company_id, category_id, sku, 
+name, description, image_url, 
+base_price_cents, 
+cost_price_cents, taxable, 
+service_chargeable, active, 
+sold_out, prep_station_id, 
+display_order
+index(category_id, active), 
+unique(company_id, sku) 
+nullable
+Sellable item master.
+item_variants id, company_id, menu_item_id, 
+name, price_delta_cents, active, 
+display_order
+index(menu_item_id, active) Sizes/options that change price.
+modifier_groups id, company_id, name, 
+min_select, max_select, 
+required, display_order
+index(company_id, name) Group such as Spice Level or 
+Toppings.
+modifier_options id, company_id, 
+modifier_group_id, name, 
+price_delta_cents, active, 
+display_order
+index(modifier_group_id, active) Selectable modifier.
+tables id, company_id, outlet_id, 
+zone_id, table_code, 
+display_name, capacity, shape, 
+status, active
+unique(outlet_id, table_code), 
+index(outlet_id, status)
+Physical or virtual location.
+table_sessions id, company_id, outlet_id, 
+table_id, session_token_hash, 
+status, opened_at, closed_at, 
+opened_by_user_id, 
+closed_by_user_id
+unique(table_id) where status not 
+in closed, index(outlet_id, status)
+One active customer table 
+session.
+qr_codes id, company_id, outlet_id, 
+table_id nullable, qr_type, 
+public_code, destination_url, 
+active, expires_at
+unique(public_code), 
+index(outlet_id, qr_type)
+QR routing without exposing 
+internal IDs.
+30.5.1 Orders and Order Items
+Table Field Type / rule Notes
+orders id uuid pk Primary order identifier.
+orders company_id / outlet_id uuid fk not null Tenant and outlet isolation.
+orders table_id / table_session_id uuid fk nullable Nullable for counter/takeaway 
+orders.
+orders order_number text not null Human-readable daily/outlet 
+order number. unique(outlet_id, 
+business_date, order_number).
+orders source order_source enum qr, pos, waiter, kiosk, admin, 
+delivery.
+orders status order_status enum Must follow order state machine.
+orders payment_status payment_status enum Must follow payment state.
+orders subtotal_cents, discount_cents, 
+service_charge_cents, gst_cents, 
+rounding_cents, total_cents
+integer not null default 0 All monetary amounts stored as 
+cents.
+orders currency char(3) default SGD ISO currency.
+orders price_snapshot_json jsonb not null Final order price calculation 
+inputs to preserve history.
+orders customer_name, 
+customer_phone, 
+customer_email
+text nullable Optional no-signup checkout 
+details.
+orders idempotency_key text nullable Prevents duplicate customer 
+submit/payment flows. 
+unique(company_id, 
+idempotency_key).
+order_items order_id, menu_item_id, 
+variant_id
+uuid fk menu_item_id retained for 
+reporting; item details must also 
+be snapshotted.
+order_items item_name_snapshot, 
+sku_snapshot
+text not null Preserve receipt even if menu 
+changes later.
+order_items quantity numeric(12,3) Supports weighted/fractional 
+items later.
+order_items unit_price_cents, 
+total_price_cents
+integer Snapshot at order time.
+order_items kitchen_status enum/string pending, preparing, ready, 
+served, cancelled.
+order_item_modifiers modifier_group_name_snapshot, text/integer Immutable modifier receipt and 
+
+--- PAGE 22 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+modifier_option_name_snapshot, 
+price_delta_cents
+KDS display.
+30.5.2 Payments, Refunds, and Webhooks
+Table Field Type / rule Notes
+payments id, company_id, outlet_id, 
+order_id
+uuid One order can have multiple 
+payments for split payment.
+payments provider payment_provider enum stripe/manual/cash/etc.
+payments method payment_method enum card, stripe_paynow, 
+manual_paynow, cash, etc.
+payments status payment_status enum Processing state.
+payments amount_cents, 
+provider_fee_cents, 
+net_amount_cents, 
+refunded_amount_cents
+integer cents Settlement and reporting.
+payments stripe_payment_intent_id, 
+stripe_checkout_session_id, 
+stripe_charge_id
+text nullable unique where not null.
+payments manual_reference, uen, 
+sgqr_reference, screenshot_url
+text nullable Manual PayNow/SGQR 
+verification.
+payments verification_user_id, 
+verification_timestamp
+uuid/timestamptz nullable Who verified manual payment.
+payment_attempts order_id, provider, 
+amount_cents, 
+idempotency_key, status, 
+provider_payload_json
+mixed Track each checkout attempt.
+refunds payment_id, order_id, 
+amount_cents, reason, status, 
+provider_refund_id, 
+approved_by_user_id
+mixed Full/partial refunds.
+webhook_events provider_event_id text unique Deduplicate Stripe and future 
+webhooks.
+webhook_events event_type, payload_json, 
+processing_status, 
+processed_at, error_message
+mixed Webhook audit and retry.
+30.5.3 Printing, KDS, and Device Health
+Table Field Type / rule Notes
+printers id, company_id, outlet_id, name, 
+printer_type, connection_type, 
+ip_address, port, 
+paper_width_mm, role, station_id
+mixed Receipt/kitchen/bar/closing 
+report.
+printers auto_cut_enabled, 
+buzzer_enabled, 
+cash_drawer_enabled, 
+backup_printer_id, status, 
+last_heartbeat_at
+mixed Operational settings.
+print_jobs id, company_id, outlet_id, 
+printer_id, order_id, template, 
+status, priority, copies
+mixed One row per print request.
+print_jobs payload_json, attempt_count, 
+next_retry_at, printed_at, 
+failed_reason
+mixed Full render payload and retry 
+state.
+print_job_attempts print_job_id, attempt_number, 
+status, error_message, 
+started_at, finished_at
+mixed Troubleshoot failed printer jobs.
+kitchen_tickets id, company_id, outlet_id, 
+order_id, station_id, status, 
+fired_at, bumped_at
+mixed Station-specific KDS ticket.
+device_heartbeats device_id, outlet_id, device_type, 
+app_version, browser_info, 
+printer_connection_status, 
+last_online_at
+mixed POS/KDS/printer bridge health.
+30.5.4 Inventory Ledger
+Table Field Type / rule Notes
+inventory_items id, company_id, outlet_id 
+nullable, sku, name, category, 
+base_unit, purchase_unit, 
+conversion_rate, reorder_point, 
+active
+mixed Ingredient/item master.
+recipes id, company_id, menu_item_id, 
+version, active_from, active_to
+mixed Recipe/BOM version.
+
+--- PAGE 23 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+recipe_ingredients recipe_id, inventory_item_id, 
+quantity, unit
+mixed Deduct quantity per sold menu 
+item.
+stock_movements id, company_id, outlet_id, 
+inventory_item_id, 
+movement_type, quantity_delta, 
+unit, reference_type, 
+reference_id, reason, 
+created_by_user_id
+mixed Ledger. Positive for stock in, 
+negative for stock out.
+stock_counts id, company_id, outlet_id, 
+count_date, status, 
+counted_by_user_id, 
+approved_by_user_id
+mixed Stock count batch header.
+stock_count_lines stock_count_id, 
+inventory_item_id, 
+expected_quantity, 
+counted_quantity, 
+variance_quantity
+mixed Stock count detail.
+Inventory ledger principle
+Stock ledger rule:
+current_stock = SUM(stock_movements.quantity_delta) for inventory_item_id + outlet_id.
+Recommended performance approach:
+1. Keep stock_movements as the audit source of truth.
+2. Maintain inventory_balances as a cached table updated transactionally.
+3. Rebuild balances from ledger when investigating variance or migration issues.
+30.6 Required Indexes and Constraints
+Area Index / constraint Why it matters
+Orders live screen index(outlet_id, status, created_at desc) Fast POS/KDS active order queries.
+Order number unique(outlet_id, business_date, 
+order_number)
+Prevents duplicate receipt numbers.
+Customer QR submit unique(company_id, idempotency_key) 
+where idempotency_key is not null
+Prevents double order creation.
+Stripe webhooks unique(provider, provider_event_id) Deduplicates webhook retries.
+Stripe IDs unique(stripe_payment_intent_id), 
+unique(stripe_checkout_session_id) where 
+not null
+Payment lookup and duplicate prevention.
+Active table session unique(table_id) where status not in (closed) Only one open session per table.
+Menu lookup index(outlet_id, status, active_from, 
+active_to)
+Fast QR menu resolution.
+Sold-out status index(company_id, outlet_id, sold_out, 
+active)
+Fast customer menu filtering.
+Print queue index(outlet_id, status, priority, created_at) Fast print dispatcher query.
+Inventory ledger index(outlet_id, inventory_item_id, 
+created_at)
+Fast stock balance and movement history.
+Audit logs index(company_id, outlet_id, action_type, 
+created_at desc)
+Investigation/reporting.
+Device heartbeat unique(device_id), index(outlet_id, 
+device_type, last_online_at)
+Device status dashboard.
+30.7 Entity Relationship Diagram
+Text ERD for implementation
+companies 1--N outlets
+companies 1--N users
+users N--N outlets through user_outlets
+companies 1--N menus
+menus 1--N menu_categories
+menu_categories 1--N menu_items
+menu_items N--N modifier_groups through menu_item_modifier_groups
+modifier_groups 1--N modifier_options
+outlets 1--N tables
+outlets 1--N printers
+outlets 1--N inventory_items
+outlets 1--N orders
+tables 1--N table_sessions
+table_sessions 1--N orders
+
+--- PAGE 24 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+orders 1--N order_items
+order_items 1--N order_item_modifiers
+orders 1--N payments
+payments 1--N refunds
+orders 1--N kitchen_tickets
+orders 1--N print_jobs
+menu_items 1--N recipes
+recipes 1--N recipe_ingredients
+inventory_items 1--N stock_movements
+orders 1--N stock_movements via reference_id when movement_type = sale_deduction
+webhook_events references payments/orders through provider IDs or metadata
+audit_logs references any entity through entity_type + entity_id
+30.8 Status State Machines
+Important implementation rule
+State changes must happen through service methods, not direct controller/database updates. Every transition should validate 
+permissions, current status, allowed next status, payment status, print/KDS side effects, and audit requirements.
+State machine Allowed transition Side effect
+Order draft -> pending_payment Order created, price snapshot locked for 
+payment attempt.
+Order pending_payment -> payment_processing Stripe Checkout/PaymentIntent created.
+Order payment_processing -> paid Webhook confirmed. Create KDS ticket and 
+print jobs.
+Order paid -> sent_to_kitchen Kitchen ticket dispatched.
+Order sent_to_kitchen -> preparing KDS station starts work.
+Order preparing -> ready KDS item/order bumped. Notify POS.
+Order ready -> served Waiter marks served.
+Order served -> completed Table session can close if fully paid.
+Exception pending_payment -> cancelled No payment captured; release table/cart.
+Exception paid -> partially_refunded/refunded Create refund row, reverse stock if 
+configured, update reports.
+Exception sent_to_kitchen/preparing -> voided Requires manager PIN, cancellation print 
+ticket, audit log.
+Payment state Allowed transition Rule
+created -> pending Payment attempt created before provider 
+redirect.
+Amount must match server-calculated total.
+pending -> processing Customer is completing payment. Show payment processing UI.
+processing -> succeeded Trusted webhook confirms success. Mark order paid idempotently.
+processing -> failed Provider failure/timeout. Allow retry or cancel.
+succeeded -> partially_refunded/refunded Refund API/manual refund completed. Requires approval and audit.
+manual_verification_required -> succeeded Staff verifies manual PayNow/SGQR. Requires permission and optional manager 
+PIN.
+Print job state Allowed transition Rule
+queued -> sending Dispatcher/agent starts job. Lock job to avoid duplicate print.
+sending -> printed Printer confirms success or agent returns OK. Store printed_at.
+sending -> failed Printer/agent error. Store error and schedule retry.
+failed -> retrying -> sending Retry count not exceeded. Backoff schedule.
+failed -> cancelled Staff cancels failed job. Audit if ticket/receipt important.
+printed -> reprinted Staff reprints. Create linked reprint job and audit log.
+30.9 API Contract Standards
+ All write endpoints must validate company/outlet access from auth context or signed public QR token.
+ All money returned by API should use integer cents plus currency.
+ Public customer endpoints must never trust client-side price or tax calculations.
+ Use Idempotency-Key header for order submission, payment creation, refunds, and manual verification.
+ Use consistent error shape: code, message, details, request_id.
+ Use pagination for reports and audit logs.
+ Use request_id/correlation_id in every response and log.
+API error shape
+Standard error response:
+{
+  "error": {
+    "code": "ITEM_SOLD_OUT",
+
+--- PAGE 25 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+    "message": "One or more items are no longer available.",
+    "details": [{ "menu_item_id": "uuid", "reason": "sold_out" }],
+    "request_id": "req_abc123"
+  }
+}
+30.10 Key API Contracts
+Customer creates QR order
+POST /public/orders
+Auth: signed QR/session token
+Headers: Idempotency-Key: <uuid>
+Request:
+{
+  "table_code": "T08-X9K2",
+  "service_type": "dine_in",
+  "items": [
+    {
+      "menu_item_id": "uuid",
+      "variant_id": "uuid|null",
+      "quantity": 2,
+      "modifier_option_ids": ["uuid", "uuid"],
+      "remarks": "less spicy"
+    }
+  ]
+}
+Response:
+{
+  "order_id": "uuid",
+  "order_number": "A102",
+  "status": "pending_payment",
+  "subtotal_cents": 1800,
+  "service_charge_cents": 180,
+  "gst_cents": 178,
+  "rounding_cents": 0,
+  "total_cents": 2158,
+  "currency": "SGD"
+}
+Create Stripe payment
+POST /public/orders/{order_id}/create-payment
+Auth: signed QR/session token
+Headers: Idempotency-Key: <uuid>
+Request:
+{
+  "payment_method": "card|stripe_paynow",
+  "success_url": "https://.../success",
+  "cancel_url": "https://.../cancel"
+}
+Response:
+{
+  "checkout_session_id": "cs_test_...",
+  "checkout_url": "https://checkout.stripe.com/...",
+  "payment_status": "pending"
+}
+Rule: backend must recalculate order total before creating Stripe session.
+Stripe webhook source of truth
+POST /webhooks/stripe
+Auth: Stripe-Signature verification
+Request: raw Stripe event payload
+Processing:
+1. Verify signature.
+2. Insert webhook_events with provider_event_id.
+3. If duplicate, return 200 without side effects.
+4. Resolve order/payment by metadata or provider IDs.
+5. In one transaction, update payment and order state.
+
+--- PAGE 26 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+6. Create KDS ticket and print jobs if payment succeeded.
+7. Mark webhook_events processed.
+Void order/item
+POST /pos/orders/{order_id}/void
+Auth: staff JWT + permission order.void
+Request:
+{
+  "reason": "Wrong item keyed in",
+  "manager_pin": "1234",
+  "void_items": [{ "order_item_id": "uuid", "quantity": 1 }]
+}
+Response:
+{
+  "order_id": "uuid",
+  "status": "voided|partially_voided",
+  "audit_log_id": "uuid",
+  "print_job_id": "uuid|null"
+}
+Rule: paid QR orders require refund/adjustment flow, not silent edit.
+Inventory movement
+POST /admin/inventory/stock-movements
+Auth: staff JWT + permission inventory.adjust
+Request:
+{
+  "outlet_id": "uuid",
+  "inventory_item_id": "uuid",
+  "movement_type": "wastage",
+  "quantity_delta": -2.5,
+  "unit": "kg",
+  "reason": "Expired stock"
+}
+Response:
+{
+  "stock_movement_id": "uuid",
+  "new_balance": 14.5,
+  "unit": "kg"
+}
+Rule: every manual adjustment requires reason and audit log.
+30.11 Payment, Idempotency, and Webhook Rules
+Scenario Required rule
+Customer presses Pay twice Use same order_id and idempotency key. Return existing active 
+payment attempt where possible.
+Customer refreshes success page Do not mark paid from redirect alone. Poll order status until webhook 
+confirms.
+Stripe sends webhook twice webhook_events.provider_event_id unique constraint prevents 
+duplicate side effects.
+PayNow confirmation delayed Show payment_processing. Do not release kitchen ticket until 
+payment success webhook or authorised manual verification.
+Payment amount mismatch Reject payment confirmation and flag for admin review. Amount in 
+Stripe metadata must match order total.
+Refund requested Create refund record first, call provider, then update payment/order 
+statuses when confirmed.
+Manual PayNow verified Requires permission, amount check, reference/screenshot where 
+enabled, verifier user ID, timestamp, audit log.
+Stripe metadata standard
+Stripe metadata required on Checkout Session / PaymentIntent:
+company_id=<uuid>
+outlet_id=<uuid>
+order_id=<uuid>
+order_number=<human order no>
+amount_cents=<integer>
+payment_attempt_id=<uuid>
+source=qr|pos
+
+--- PAGE 27 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+30.12 Printer Architecture
+Printer flow
+Print flow:
+1. Order/payment event creates print_jobs rows.
+2. print_jobs stores template + payload_json + target printer_id.
+3. Print dispatcher finds queued jobs.
+4. If printer connection_type = epson_epos, send through ePOS path.
+5. If connection_type = escpos_bridge, local printer agent polls/pulls or receives job.
+6. Agent/printer returns printed/failed status.
+7. Backend updates print_jobs and print_job_attempts.
+8. Failed jobs retry using backoff; staff dashboard shows failure.
+Template Trigger Target
+kitchen_ticket Order paid or staff sends order to kitchen Station printer/KDS station.
+bar_ticket Order contains drink/bar routed items Bar printer/KDS.
+customer_receipt Payment succeeded or cashier requests 
+reprint
+Receipt printer/email/PDF.
+void_ticket Manager voids item/order after kitchen 
+dispatch
+Relevant kitchen/bar station.
+refund_receipt Refund completed Receipt printer/email/PDF.
+closing_report POS session closed Receipt printer/admin export.
+Retry attempt Delay Action
+1 5 seconds Retry same printer.
+2 15 seconds Retry same printer.
+3 60 seconds Retry same printer.
+4 Immediate if backup configured Route to backup printer and flag original 
+printer unhealthy.
+Final After max retries Mark failed, alert POS/KDS/admin, allow 
+manual retry/reprint.
+30.13 Permission Matrix
+Action Owner Outlet Manager Cashier Waiter Kitchen Accountant
+View live orders Yes Yes Yes Yes Station only No
+Create POS 
+order
+Yes Yes Yes Yes No No
+Change menu 
+price
+Yes PIN/Optional No No No No
+Mark item sold 
+out
+Yes Yes PIN/Optional No Station optional No
+Apply discount Yes Yes PIN threshold No/PIN No No
+Void item/order Yes Yes PIN threshold No No No
+Refund payment Yes Yes No/PIN No No View only
+Verify manual 
+PayNow
+Yes Yes PIN threshold No No View only
+Open cash 
+drawer
+Yes Yes Yes No No No
+Close POS 
+session
+Yes Yes Yes/PIN No No View report
+View sales report Yes Yes No No No Yes
+Export 
+GST/payment 
+data
+Yes Yes No No No Yes
+Inventory 
+adjustment
+Yes Yes No No No View only
+Printer setup Yes Yes No No No No
+Manage users Yes Limited No No No No
+30.14 Frontend Route Map
+Frontend route structure
+/customer/[outletSlug]/[tableCode]         QR menu landing
+/customer/cart                            Customer cart
+/customer/order/[orderId]/payment         Payment method / Stripe redirect
+/customer/order/[orderId]/status          Payment and order status
+/customer/help                            Call staff / assistance
+
+--- PAGE 28 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+/pos/login                                Staff login / PIN
+/pos/session                              Open/close POS session
+/pos/tables                               Table/floor plan view
+/pos/orders                               Live order list
+/pos/orders/[orderId]                     Order detail / edit / payment / print
+/pos/closing                              Shift/end-day close
+/kds/[stationId]                          Station KDS
+/kds/expo                                 Expo KDS
+/admin/dashboard                          Owner dashboard
+/admin/menu                               Menu/categories/items/modifiers
+/admin/tables                             Floor plan / QR codes
+/admin/orders                             Order search/history
+/admin/payments                           Stripe/PayNow/cash reconciliation
+/admin/inventory                          Items, stock movements, counts
+/admin/reports                            Sales/GST/inventory exports
+/admin/printers                           Printer setup and failed queue
+/admin/users                              Users/roles/permissions
+/admin/settings                           GST/service/payment/channel settings
+30.15 Suggested Monorepo Structure
+Repository structure
+/apps
+  /customer-web       # QR ordering PWA
+  /pos-web            # Staff POS PWA
+  /admin-web          # Owner/admin dashboard
+  /kds-web            # Kitchen display
+  /api                # Backend API if separated
+/packages
+  /ui                 # Shared UI components
+  /types              # Shared TypeScript types
+  /db                 # Prisma/Drizzle schema and migrations
+  /auth               # RBAC, sessions, PIN helpers
+  /payments           # Stripe and manual payment logic
+  /printing           # Print templates and print payload contracts
+  /inventory          # BOM and stock ledger logic
+  /utils              # Common helpers
+/infra
+  docker-compose.yml
+  terraform-or-render-config
+  nginx-or-cloudflare-config
+/scripts
+  seed-dev.ts
+  migrate-prod.ts
+  create-demo-outlet.ts
+/tests
+  e2e
+  integration
+  load
+30.16 Background Jobs and Queues
+Queue job Trigger Expected behaviour
+process_stripe_webhook Stripe webhook received Deduplicate event, update payment/order, 
+release KDS/print jobs.
+send_print_job Print job queued Send to ePOS/bridge, record attempts, retry 
+failures.
+resize_menu_image Admin uploads image Compress, resize, generate thumbnail, store 
+CDN URL.
+deduct_inventory_for_order Order paid/sent to kitchen Create stock_movements using active recipe 
+version.
+generate_closing_report POS session closed Aggregate sales/payment/cash/void/refund 
+and create report.
+send_low_stock_alert Stock below reorder point Notify dashboard/Telegram/email in future.
+export_report Admin requests CSV/PDF export Generate file asynchronously for large date 
+ranges.
+send_email_receipt Customer provides email Send receipt after payment success.
+
+--- PAGE 29 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+webhook_outbound_delivery Integration event created Send signed webhook to external system 
+with retry.
+30.17 Caching and Offline Strategy
+Data Cache location Invalidation rule
+Published menu CDN + browser cache + IndexedDB for POS Invalidate on menu publish/version change.
+Menu images CDN Filename/hash changes when image 
+changes.
+Sold-out status Real-time event + short cache Immediate WebSocket/SSE update when 
+changed.
+Customer cart Browser local/session storage Server recalculates before order/payment.
+POS active orders Memory + real-time subscription Refresh on reconnect.
+KDS tickets Server source of truth; local display cache 
+only
+Reconnect fetches current open tickets.
+Device heartbeats Redis + database snapshot Update every 15-60 seconds depending 
+device type.
+ QR ordering requires internet in V1 because payment and menu validation are server-side.
+ POS may support offline draft orders, but online payment cannot be confirmed offline.
+ Offline draft orders must be clearly marked and synced before kitchen release unless manager allows manual cash/PayNow 
+mode.
+ KDS and printer bridge must show connection warnings when disconnected.
+30.18 Reporting Data Mart Considerations
+ V1 can calculate reports directly from orders/payments/order_items with proper indexes.
+ For scale, add daily aggregates: daily_sales_summary, payment_summary, item_sales_summary, inventory_daily_balance.
+ Reports should use business_date based on outlet timezone, not UTC date only.
+ Refunds, voids, discounts, complimentary items, and staff meals must be separately reportable.
+ QR labour-saving report should compare order source = qr vs pos/waiter and estimate minutes saved per QR order.
+30.19 Testing Plan
+Test type Coverage
+Unit tests Price calculation, GST/service charge, discount logic, order state 
+transitions, permission checks, inventory deduction, receipt 
+formatting.
+Integration tests Order creation, payment attempt, webhook processing, KDS ticket 
+creation, print job creation, stock movement creation.
+End-to-end tests Customer QR -> cart -> Stripe test payment -> webhook -> KDS -> 
+receipt -> report.
+Webhook tests Duplicate webhook, delayed PayNow, failed payment, partial refund, 
+amount mismatch.
+Printer tests Printer offline, failed job retry, backup printer routing, reprint, void 
+ticket.
+Permission tests Cashier cannot refund without PIN, waiter cannot view sales, kitchen 
+can only bump assigned station.
+Offline tests POS loses connection, draft order created, reconnect sync, KDS 
+warning, printer bridge queue.
+Inventory tests Recipe deduction, wastage, stock count variance, transfer between 
+outlets.
+Load tests Peak QR scan/order flow, 100+ concurrent customers, KDS event 
+fanout, dashboard reports.
+Security tests QR token tampering, price tampering, rate limits, expired sessions, 
+Stripe signature verification.
+Critical edge case Expected result
+Customer refreshes payment page No duplicate order/payment. Existing payment status shown.
+Stripe webhook arrives twice Second webhook is ignored safely.
+PayNow payment is delayed Order stays payment_processing and kitchen is not released until 
+confirmed.
+Printer is offline Print job retries and dashboard alerts staff.
+Admin changes price while customer cart is open Backend recalculates at checkout and returns updated total or 
+warning.
+Item sells out during checkout Checkout blocked or item removed before payment creation.
+Two customers scan the same table QR Both attach to same active table session but each order/payment 
+remains separate.
+Paid QR order needs change System uses add-on/refund/adjustment, not silent edit.
+30.20 Deployment and Environment Specification
+Environment Purpose Requirements
+Development Local developer build Docker Compose with Postgres, Redis, API, 
+
+--- PAGE 30 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+seed data, Stripe test keys.
+Staging Client/internal QA Production-like database, Stripe test mode, 
+test printers/agent, staging domain, seeded 
+restaurant demo.
+Production Live merchants Managed database, backups, HTTPS, 
+monitoring, secrets manager, error tracking, 
+uptime alerts.
+Component Recommended options
+Frontend hosting Vercel, Cloudflare Pages, or same host as backend.
+Backend hosting Render, Fly.io, Railway, AWS ECS/Fargate, or equivalent container 
+host.
+Database Supabase Postgres, Neon, AWS RDS, or managed PostgreSQL.
+Redis Upstash Redis, AWS ElastiCache, or managed Redis.
+Object storage Cloudflare R2, AWS S3, or S3-compatible storage.
+CDN Cloudflare or storage-backed CDN for images/exports.
+Monitoring Sentry, uptime monitor, structured application logs.
+Backups Daily automated database backup with documented restore test.
+Environment variables
+Minimum environment variables:
+DATABASE_URL=
+REDIS_URL=
+APP_BASE_URL=
+CUSTOMER_APP_BASE_URL=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PUBLISHABLE_KEY=
+S3_ENDPOINT=
+S3_BUCKET=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+JWT_SECRET=
+ENCRYPTION_KEY=
+WEBHOOK_SIGNING_SECRET=
+SMTP_URL=optional
+SENTRY_DSN=optional
+30.21 Observability and Operational Logs
+Event Required fields
+order_created company_id, outlet_id, order_id, source, table_id, total_cents, 
+request_id
+payment_started company_id, outlet_id, order_id, payment_attempt_id, provider, 
+method, amount_cents
+payment_succeeded company_id, outlet_id, order_id, payment_id, provider_event_id, 
+amount_cents
+payment_failed company_id, outlet_id, order_id, payment_attempt_id, reason
+webhook_received provider, provider_event_id, event_type, request_id
+webhook_processed provider, provider_event_id, status, processing_ms
+print_job_created company_id, outlet_id, print_job_id, printer_id, template, order_id
+print_job_failed print_job_id, printer_id, attempt_count, error_message
+manual_paynow_verified order_id, payment_id, verifier_user_id, amount_cents, reference
+refund_created order_id, payment_id, refund_id, amount_cents, 
+approved_by_user_id
+void_created order_id, entity_type, entity_id, reason, approved_by_user_id
+stock_deducted order_id, inventory_item_id, quantity_delta, outlet_id
+permission_denied user_id, action, outlet_id, request_id
+ Every API request should carry a request_id/correlation_id.
+ Logs should never include raw card data or sensitive secrets.
+ Payment and printer errors must be visible in the dashboard, not only server logs.
+ Create an admin troubleshooting page for order timeline: order events, payment events, webhook events, print jobs, KDS 
+updates, and audit logs.
+30.22 Security, Privacy, and Data Retention
+ Never store raw card numbers, CVV, or unencrypted payment credentials.
+ Store password hashes and POS PIN hashes using a strong adaptive hash such as bcrypt or Argon2.
+ Encrypt sensitive integration credentials and webhook secrets at rest.
+ Public QR session tokens should be signed, random, scoped to outlet/table/session, and expire according to business rules.
+ Apply rate limiting to public QR, auth, and payment creation endpoints.
+
+--- PAGE 31 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ Use row-level access checks in services to ensure staff can only access assigned company/outlet data.
+ Personal customer details should be optional and retained only as long as required for receipts/customer service.
+ Audit logs and transaction records should be retained according to accounting/compliance requirements. Do not hard-delete 
+sales records.
+30.23 Migrations, Seed Data, and Demo Mode
+Item Requirement
+Migrations All schema changes must be committed as versioned migrations and 
+tested on staging before production.
+Seed roles Create Super Admin, Owner, Outlet Manager, Cashier, Waiter, 
+Kitchen, Accountant, Inventory Manager, Auditor.
+Seed permissions Create permission keys for order, payment, menu, inventory, reports, 
+users, printers, settings, audit.
+Seed demo outlet Provide one Singapore restaurant demo with tables, QR codes, menu 
+items, modifiers, printers, KDS stations, and sample inventory.
+Feature flags Use feature flags for manual PayNow, advanced inventory, printer 
+bridge, floor plan, and loyalty.
+30.24 Coding Standards and Service Boundaries
+Service/module Owns
+AuthService Login, JWT/session, POS PIN, RBAC checks.
+MenuService Menu CRUD, publishing, price snapshots, sold-out status.
+OrderService Order creation, state transitions, bill edits, table sessions.
+PricingService Subtotal, modifiers, discounts, service charge, GST, rounding.
+PaymentService Stripe/manual payments, refunds, payment attempts, reconciliation.
+WebhookService Provider webhook verification, dedupe, retry, event processing.
+KdsService Kitchen tickets, station routing, bumping, prep status.
+PrintService Print jobs, templates, printer routing, retries, printer health.
+InventoryService Recipe/BOM, stock ledger, stock counts, low-stock alerts.
+ReportService Sales, payment, GST, QR labour-saving, inventory reports.
+AuditService Sensitive action logging and approval trace.
+IntegrationService API keys, outbound webhooks, future third-party sync.
+ Controllers should stay thin. Business rules belong in services.
+ Database writes for related events should use transactions.
+ Never update order status directly from frontend input without validating allowed transition.
+ Shared TypeScript types should be generated or kept in a common package to prevent frontend/backend mismatch.
+ All monetary calculations should be centralized in PricingService.
+30.25 Developer Work Breakdown
+Developer / workstream Primary ownership Key deliverables
+Developer 1 - Backend foundation Database, auth, RBAC, 
+companies/outlets/users, migrations, seed 
+data
+Schema, auth APIs, permission middleware, 
+tenant isolation, base admin access.
+Developer 2 - Customer QR and payments Customer menu/cart/order/payment flow QR session resolution, cart UI, order API, 
+Stripe Checkout/Payment Element, Stripe 
+PayNow, payment status UI.
+Developer 3 - POS, KDS, real-time Staff POS, table sessions, KDS, live updates POS order entry, table/floor state, 
+WebSocket/SSE, station KDS, order state 
+transitions.
+Developer 4 - Admin, menu, inventory, 
+reports
+Admin dashboard, menu publishing, 
+inventory ledger, reports
+Menu CRUD, image upload, stock 
+movements, sales/payment/GST reports, QR 
+labour-saving dashboard.
+Developer 5 - Printing, DevOps, QA Printer abstraction, local bridge/ePOS, 
+deployment, testing
+Print jobs, receipt templates, retry queue, 
+Docker/CI/CD, staging/prod deployment, e2e 
+tests.
+30.26 Developer-Ready MVP Checklist
+Checklist item Ready when
+Database schema Migrations include core tenant, menu, table, order, payment, KDS, 
+print, inventory, audit, webhook, device tables.
+Order state machine Service tests prove only allowed transitions can happen.
+Payment flow Stripe test card and PayNow test flow create paid order only through 
+webhook.
+QR security Public QR token cannot access other tables/outlets and cannot 
+tamper prices.
+KDS Paid order appears on correct station within seconds.
+Printing Receipt/kitchen ticket queues, retries, and failure alerts work.
+Inventory Paid order creates stock deduction movements from recipe/BOM.
+
+--- PAGE 32 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Reports Daily sales, payment method, GST/service charge, QR vs cashier 
+report export correctly.
+Permissions Cashier/waiter/kitchen roles cannot access restricted actions.
+Deployment Staging environment supports HTTPS, database, Redis, object 
+storage, Stripe test webhook, and test print.
+Final implementation priority
+The first engineering milestone should not be “all features”. It should be a reliable revenue loop: QR scan -> menu -> cart -> payment 
+-> webhook -> KDS -> print -> serve -> report. All database, API, and infrastructure decisions should protect this loop first.
+
+--- PAGE 33 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+31. V1.3 Product Polish Addendum
+Purpose of V1.3
+This addendum turns the V1.2 build spec into a more complete restaurant POS product blueprint by adding world-class POS product 
+polish: guest flow requirements, AI upsell logic, customer display, open tickets, queue/pickup management, CRM readiness, 
+promotion rules, menu engineering analytics, hardware deployment, and pilot rollout SOP. Detailed visual UI/UX design is 
+intentionally deferred to the next iteration.
+31.1 Scope Boundary for This Addendum
+ This addendum adds product logic, operational requirements, data fields, APIs, acceptance criteria, and rollout standards.
+ Detailed screen layouts, visual design systems, wireframes, customer menu aesthetics, iconography, and high-fidelity UI/UX will 
+be handled in the next iteration.
+ V1.3 should not delay the core QR revenue flow. It should clarify future-ready architecture and product direction without over-
+scoping the MVP.
+ Where features are not required for V1 launch, they should still be modelled in a way that avoids future database/API rewrites.
+31.2 World-Class POS Benchmark Table
+Reference system Relevant pattern What V1.3 should adapt
+TabSquare AI-enabled self-ordering, QR ordering, 
+kiosk/table ordering, payments, upselling and 
+cross-selling.
+Add AI upsell engine, recommendation rules, 
+queue/order management, and payment-first 
+customer flows.
+Loyverse Tablet POS, Back Office, Dashboard, KDS, 
+Customer Display System, inventory, loyalty, 
+employee and multi-store management.
+Add customer display module, open tickets, 
+loyalty/CRM-ready data, simple multi-store 
+controls, and device-friendly POS workflows.
+Square QR Ordering QR codes mapped to tables, walk-up 
+windows, parking spots or locations; guests 
+order, add notes, pay, and orders flow to 
+POS/kitchen printers.
+Strengthen QR location model, order routing, 
+pickup instructions, and table/location 
+confidence screen.
+Toast Mobile order/pay, tabs, pre-authorised tabs, 
+group ordering, KDS and operational training 
+patterns.
+Add guest tabs, group ordering, pre-
+authorisation-ready design, and improved 
+order progress/status logic.
+Lightspeed / Odoo-style POS Multi-location management, reporting, web-
+first POS, inventory and business suite 
+integrations.
+Keep modular architecture, reporting data 
+marts, outlet-level controls, and integration-
+ready entities.
+31.3 Guest Experience Layer
+Product principle
+Customer QR ordering must feel trustworthy, fast, and clear. Even before detailed UI/UX design, the system must define the required 
+guest journey states and data flows.
+Capability Requirement Build priority
+Guest confidence screen After QR scan, show outlet name, 
+table/location name, service mode, and 
+active session before customer begins 
+ordering.
+V1.3 must-have
+Order progress page Show order states such as paid, sent to 
+kitchen, preparing, ready, served, completed, 
+or payment processing.
+V1.3 must-have
+Digital receipt page Keep a browser-accessible receipt page 
+using a signed receipt token, with optional 
+SMS/email receipt later.
+V1.3 must-have
+Guest reorder Allow customer to repeat items from current 
+table session or recent order when still active.
+V1.3 should-have
+Group ordering ready Multiple guests at the same table can join an 
+active session and contribute items before 
+submitting.
+V2-ready
+Guest tab ready Support design for pay-later or pre-authorised 
+tab mode, especially bars and casual dining.
+V2-ready
+Prep/wait time estimate Show estimated wait time based on kitchen 
+load, item prep time, or manual outlet setting.
+V2-ready
+Staff assistance path Customer can request staff without 
+abandoning QR order.
+V1.3 must-have
+
+--- PAGE 34 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+31.4 AI Upsell and Recommendation Engine
+Why this matters
+The POS should not only reduce cashier cost. It should also lift average order value through structured upsells, bundles, add-ons, 
+and future AI recommendations.
+Upsell type Example Rules/data needed
+Modifier upsell Add egg, extra noodle, extra cheese, 
+premium topping.
+Item-to-modifier mapping, modifier price, 
+availability.
+Combo upgrade Make it a set with drink and side. Combo rules, qualifying item/category, 
+bundle price.
+Cross-sell Add iced tea, dessert, side dish. Item association rules, category pairing, time-
+of-day logic.
+Popular item prompt Customers also order gyoza. Sales ranking by outlet/time/daypart.
+Sold-out alternative Item sold out; recommend closest available 
+item.
+Substitute item mapping and category 
+fallback.
+QR-only promotion Order by QR and get add-on at special price. Channel-specific promotion rules.
+A/B testing-ready prompt Compare Prompt A vs Prompt B for attach 
+rate.
+Experiment ID, exposure log, conversion 
+event.
+ V1.3 should implement rule-based upsell first; AI ranking can come later once sales data accumulates.
+ Every upsell impression and conversion should be logged to measure attach rate, conversion rate, and incremental revenue.
+ The recommendation engine must respect sold-out status, outlet availability, time schedule, dietary tags, and menu publishing 
+state.
+ Upsells must never change the final price after customer payment intent is created unless the cart is recalculated and re-
+confirmed.
+31.5 Customer Display System
+Feature Requirement
+Counter customer display A separate tablet/browser screen shows itemised order details as 
+cashier adds items.
+Transparent totals Show subtotal, discount, service charge, GST, rounding, and total in 
+real time.
+Payment prompt Display selected payment method, PayNow/SGQR QR code where 
+applicable, or card payment status.
+Reward/CRM-ready panel Future: show points, voucher, or membership status when customer 
+is identified.
+Pickup number display For takeaway/counter service, show order number after payment.
+Device pairing Pair customer display to POS station using outlet/device code and 
+same outlet context.
+ This module is separate from the QR customer app. It is for cashier-facing environments where a second screen faces the 
+customer.
+ V1.3 should define the data model and route, while full visual UI can be done in the next iteration.
+31.6 Open Tickets, Saved Orders, and Tabs
+Workflow Requirement Notes
+Open ticket Staff can create an unpaid order and save it 
+to a table, customer name, counter label, or 
+pickup reference.
+Useful for bars/cafes.
+Add to ticket Staff or QR session can append items to an 
+existing active ticket/session.
+Requires audit and order timeline.
+Pay later Allow payment at end of meal/session if 
+outlet enables pay-later mode.
+Default QR flow remains pay-first.
+Merge tickets Merge two open tickets or table sessions with 
+manager permission.
+Audit required.
+Split ticket Split by item, amount, seat/guest, or equal 
+share.
+V1.1/V2 depending complexity.
+Pre-authorised tab ready Design schema for future card pre-
+authorisation but do not store raw card data.
+Provider token only.
+Auto-expiry Inactive unpaid tickets should alert staff and 
+optionally expire after configured period.
+Prevent forgotten open bills.
+31.7 Queue and Pickup Management
+Best-fit use cases
+This module is important for hawkers, food courts, QSR, kiosks, takeaway shops, events, and pickup counters where table service is 
+not the main flow.
+
+--- PAGE 35 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Capability Requirement
+Order number generation Generate outlet/day scoped order numbers for pickup and queue 
+display.
+Pickup display screen Browser/PWA display showing preparing and ready order numbers.
+Customer status page Customer can revisit receipt/status page to see 
+preparing/ready/completed.
+No-show/uncollected status Staff can mark ready orders as uncollected after threshold.
+Queue SLA alerts Highlight delayed orders based on prep time targets.
+Pickup instructions QR flow can show where to collect order after payment.
+Future notifications SMS, WhatsApp, Telegram or email notification when order is ready.
+31.8 Loyalty and CRM-Ready Data Model
+ V1 should not force customer accounts, but the database should support optional customer identity when customers provide 
+phone/email or join loyalty later.
+ Customer fields should include name, phone, email, birthday month/day, consent flags, visit count, lifetime spend, last visit, 
+favourite items, loyalty points, vouchers, and marketing opt-in.
+ Keep customer PII optional and separated from immutable transaction records where possible.
+ Receipts and order support should work even when customer remains anonymous.
+Entity Key fields
+customers id, company_id, phone, email, name, birthday_day, birthday_month, 
+marketing_consent, created_at, updated_at
+customer_profiles customer_id, visit_count, lifetime_spend_cents, last_visit_at, 
+favourite_item_ids, preferred_outlet_id
+loyalty_accounts customer_id, points_balance, tier, enrolment_source, status
+vouchers code, customer_id nullable, discount_type, discount_value, expiry_at, 
+usage_limit, status
+customer_order_links customer_id, order_id, identification_method, consent_snapshot
+31.9 Menu Engineering Analytics
+Report/metric Definition Business use
+Menu matrix classification Classify items as star, plowhorse, puzzle, or 
+dog using popularity and margin.
+Guide pricing, placement, and removal 
+decisions.
+Modifier attach rate Percentage of orders where a modifier/add-
+on is selected.
+Measure upsell strength.
+Combo conversion rate Orders converted into set/combo out of 
+eligible item orders.
+Optimise bundles.
+Upsell impression/conversion Track prompts shown and prompts accepted. Quantify incremental revenue.
+Sold-out lost sales estimate Count attempted purchases or views of sold-
+out items.
+Improve stock planning.
+Time-of-day performance Item/category performance by daypart. Menu scheduling and prep planning.
+Photo impact tracking Compare items with/without images and 
+conversion rate.
+Prioritise image uploads.
+31.10 Promotion Engine
+Promotion type Examples Rules required
+Percentage discount 10% off lunch menu. Channel, schedule, category/item eligibility, 
+max discount.
+Fixed discount $5 off orders above $50. Minimum spend, usage limit, outlet eligibility.
+Buy X get Y Buy 2 drinks, get 1 side. Qualifying items, reward items, quantity rules.
+Bundle/combo Ramen + drink + side for set price. Bundle composition and allocation logic.
+Happy hour Drinks discounted 5pm-7pm. Day/time schedule and outlet timezone.
+QR-only promotion Exclusive add-on price for QR orders. Order source = QR and menu channel rule.
+Promo code Customer enters code at checkout. Code validation, expiry, usage limit.
+Staff/manager discount Staff meal or manager comp. Permission threshold and audit log.
+ Promotion calculation must run server-side inside PricingService.
+ Promotion application should be stored as line-level and order-level records for reporting and refunds.
+ Manual discounts and complimentary items must require reason and permission threshold.
+31.11 Restaurant Setup and Pilot Rollout SOP
+Stage Checklist
+Account setup Create company, outlets, users, roles, tax/service settings, business 
+date cutoff, receipt header/footer.
+Menu setup Create categories, items, prices, modifiers, images, tags, availability, 
+
+--- PAGE 36 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+menu publish schedule.
+QR setup Create tables/locations, generate QR codes, print table tents/stickers, 
+verify each table mapping.
+Payment setup Connect Stripe, enable card/PayNow, configure manual 
+PayNow/SGQR, run test payments and refunds.
+Printer/KDS setup Configure printer IPs/stations, test kitchen/bar/customer receipt, set 
+backup printer, test failed print retry.
+Staff training Train cashier, waiter, kitchen, manager, and owner on live orders, 
+void/refund, sold-out, closing.
+Soft launch Run limited hours/tables, monitor payment webhooks, printer jobs, 
+kitchen flow, staff feedback.
+First 3 days monitoring Review failed payments, delayed orders, QR conversion, cashier 
+reduction, print failures, support tickets.
+ No outlet should go live until payment, refund, printer, KDS, QR mapping, and daily closing have passed pilot checks.
+ Create a go-live rollback plan: switch to staff POS/cashier mode and browser print fallback if QR ordering or printer bridge fails.
+31.12 Hardware Compatibility Matrix
+Hardware / device V1.3 support level Implementation notes
+iPad POS Supported Browser/PWA staff POS; test Safari and 
+Chrome where available.
+Android tablet POS Supported Browser/PWA staff POS; common low-cost 
+deployment device.
+iPhone / Android customer phone Supported QR customer web app; no app download.
+Kitchen tablet Supported Browser/PWA KDS; landscape 
+recommended.
+Pickup display screen Should-have Browser display for queue/pickup status.
+Customer display tablet Should-have Paired browser device facing counter 
+customer.
+Epson LAN printer Preferred Primary network printer target for 
+receipt/kitchen printing.
+Generic ESC/POS LAN printer Supported via abstraction Requires testing per model; use local bridge 
+if direct path fails.
+USB thermal printer Supported via local bridge Requires local print agent on nearby device.
+Cash drawer Should-have Trigger through printer kick signal where 
+available.
+QR sticker/table tent Supported Generated from dashboard; include 
+outlet/table verification.
+External payment terminal Future Optional future Stripe Terminal/local provider 
+integration.
+31.13 Product Polish Data Model Additions
+Table Purpose Important fields
+guest_sessions Track anonymous or identified customer 
+participation in a table/location session.
+id, table_session_id, customer_id nullable, 
+device_fingerprint_hash, joined_at, 
+last_seen_at
+order_status_events Create customer-visible and operational 
+order timeline.
+id, order_id, from_status, to_status, 
+actor_type, actor_id, note, created_at
+upsell_rules Define rule-based recommendations and 
+prompts.
+id, company_id, outlet_id nullable, 
+trigger_item_id, trigger_category_id, 
+recommended_item_id, priority, schedule, 
+status
+upsell_events Measure impressions and conversions. id, order_id, rule_id, shown_at, accepted_at, 
+rejected_at, revenue_delta_cents
+promotions Store promotion rules. id, company_id, name, promotion_type, 
+eligibility_json, reward_json, schedule_json, 
+status
+order_promotions Store applied promotions for 
+audit/refund/reporting.
+id, order_id, promotion_id, amount_cents, 
+calculation_snapshot_json
+open_tickets Handle saved orders/tabs before final 
+payment.
+id, table_session_id nullable, 
+customer_name, status, opened_by_user_id, 
+expires_at
+queue_tickets Track pickup/queue order status. id, order_id, queue_number, status, ready_at, 
+collected_at, no_show_at
+customer_display_devices Pair customer display devices to POS 
+stations.
+id, outlet_id, pos_device_id, 
+display_device_id, pairing_code, status
+
+--- PAGE 37 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+31.14 Product Polish API Additions
+API group Endpoints to add
+Guest/session API GET /public/orders/:id/timeline; POST /public/table-sessions/:id/join; 
+POST /public/orders/:id/reorder
+Upsell API GET /public/orders/:id/recommendations; POST /public/upsell-events; 
+CRUD /admin/upsell-rules
+Promotion API POST /public/cart/apply-promo; CRUD /admin/promotions; GET 
+/admin/reports/promotions
+Open ticket API POST /pos/open-tickets; PATCH /pos/open-tickets/:id; POST 
+/pos/open-tickets/:id/merge; POST /pos/open-tickets/:id/close
+Queue API GET /public/orders/:id/queue-status; GET /display/queue/:outletId; 
+PATCH /pos/queue/:id/status
+Customer display API POST /pos/customer-display/pair; GET 
+/display/customer/:pairingCode; WS/SSE display.order_updated
+CRM-ready API POST /public/customers/identify; GET /admin/customers/:id; GET 
+/admin/reports/customers
+31.15 Additional Product Polish Use Cases
+ID Use case Expected behaviour
+UC56 Customer confirms table/location after 
+scanning QR
+Customer sees outlet and table/location 
+before ordering; incorrect table can request 
+staff help.
+UC57 Customer views live order progress Status page updates from paid to 
+kitchen/preparing/ready/served.
+UC58 Customer reorders previous item in same 
+table session
+System adds previous items to cart with 
+current availability and pricing validation.
+UC59 QR upsell prompt increases basket Customer adds recommended add-on; 
+system records upsell conversion and 
+revenue delta.
+UC60 Sold-out item recommends substitute Customer sees alternative item when target 
+item is unavailable.
+UC61 Cashier uses customer display Customer-facing display shows itemised 
+order and final total in real time.
+UC62 Staff saves open ticket Unpaid order is saved to a table/name and 
+can be resumed later.
+UC63 Manager closes stale open ticket System flags inactive unpaid ticket and 
+manager closes or voids with reason.
+UC64 Takeaway order gets queue number Customer receives order number and can 
+track ready/collection status.
+UC65 Pickup display shows ready orders Kitchen marks ready and pickup screen 
+updates automatically.
+UC66 Admin creates happy hour promotion Discount applies only to eligible items, 
+channel, outlet, and time window.
+UC67 Admin reviews menu engineering report Dashboard classifies items by popularity and 
+margin.
+UC68 Owner reviews upsell conversion report Dashboard shows prompt impressions, 
+accepted prompts, attach rate, and 
+incremental revenue.
+UC69 Customer chooses to receive digital receipt Customer enters phone/email optionally and 
+receipt link is sent or shown.
+UC70 Implementation team runs outlet setup 
+checklist
+Go-live cannot be marked complete until 
+payment, printer, KDS, QR, and closing tests 
+pass.
+31.16 Prioritisation for V1.3 and V2
+Priority Include
+V1.3 Must-have Guest confidence screen, order progress page, digital receipt page, 
+rule-based upsell engine, promotion model, queue number for 
+takeaway, setup checklist, hardware matrix, product polish data 
+model additions.
+V1.3 Should-have Customer display system, pickup display, open tickets, sold-out 
+substitute recommendations, promotion reports, upsell reports.
+V2 Ready Group ordering, pre-authorised tabs, loyalty points, customer CRM 
+segmentation, AI ranking model, notification integrations, advanced 
+menu engineering dashboard.
+Deferred to next UI/UX iteration High-fidelity customer menu design, visual themes, layout variants, 
+typography, animation, full admin dashboard UX, KDS visual design.
+
+--- PAGE 38 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+31.17 V1.3 Acceptance Criteria
+67. System can show outlet and table/location confirmation after QR scan.
+68. System can expose a customer order status/timeline page after payment.
+69. System can apply rule-based upsell prompts and log impressions/conversions.
+70. System can support promotion rules without hardcoding discounts in frontend.
+71. System can create pickup/queue numbers for takeaway/counter flows.
+72. System can support open ticket schema and APIs even if full pre-authorisation is deferred.
+73. System can pair a customer display device to a POS station in principle.
+74. System can store optional customer identity and consent without requiring account creation.
+75. System can report upsell conversion, promotion usage, QR order share, and menu item performance.
+76. System can run through a restaurant setup/pilot checklist before outlet launch.
+31.18 Open Product Questions for Next Iteration
+ Will QR ordering default to pay-first for all restaurants, or should pay-later table tabs be available in V1.3 for selected outlets?
+ Should manual PayNow/SGQR orders be sent to kitchen before verification, or only after staff marks paid?
+ Should loyalty be phone-number based, account based, or deferred fully to V2?
+ What minimum hardware bundle should be recommended for Singapore F&B pilot outlets?
+ Which restaurant formats should be prioritised first: full-service dining, hawker/QSR, bars, cafes, or food courts?
+ Will the customer display and pickup display be included in MVP, or prepared as deployable but optional modules?
+31.19 Reference Inspirations
+Source Official reference URL / inspiration note
+TabSquare https://tabsquare.ai/ - AI-assisted restaurant self-ordering, QR/table 
+ordering, upsell/cross-sell, POS/payment integrations.
+TabSquare Payments / Results https://tabsquare.ai/solutions-payment/ - self-service ordering, 
+payments, and average order size uplift references.
+Loyverse https://loyverse.com/ - POS, Back Office, Dashboard, KDS, Customer 
+Display, inventory, loyalty, multi-store.
+Loyverse Customer Display https://loyverse.com/customer-display-system - customer-facing 
+display with order details and total.
+Loyverse Restaurant POS https://loyverse.com/restaurants-pos - kitchen stations, 
+modifiers/comments, displays and printers.
+Square QR Ordering https://squareup.com/online-ordering/qr-code-ordering - QR mapped 
+to tables/locations, customer ordering/payment, POS/kitchen printer 
+flow.
+Toast Mobile Order & Pay https://support.toasttab.com/ - tabs, pre-authorised tabs, group 
+ordering concepts.
+31.20 Developer Note
+Implementation guidance
+The V1.3 additions should be implemented behind feature flags where practical. The core launch remains QR ordering, payment, 
+KDS, printing, reporting and admin control. Product polish modules should be added incrementally without weakening payment 
+integrity, kitchen reliability, or auditability.
+
+--- PAGE 39 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+
+--- PAGE 40 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+50. V1.6 Development Handoff Ready Deployment Pack
+This appendix converts the product, technical, and UI/UX specification into an execution-ready handoff package. It is intended for the senior 
+developer manager, technical lead, delivery manager, QA lead, designer, and implementation team before sprint planning begins.
+50.1 Execution Handoff Objective
+ Freeze what is inside MVP versus later versions so the development team does not overbuild.
+ Translate the PDF specification into epics, tickets, ownership, sprint milestones, and go-live controls.
+ Lock architecture decisions before database migrations, payment integrations, printer flows, and UI implementation begin.
+ Create a pilot-ready operating plan covering hardware, test data, QA, staff training, and launch acceptance criteria.
+ Give the senior developer manager enough structure to run execution without repeatedly reopening product scope.
+51. MVP Scope Freeze
+The first deployable version must focus on the revenue-critical restaurant flow: QR scan -> menu -> cart -> browser payment -> webhook 
+confirmation -> POS/KDS -> printer -> serve -> daily report. Anything that does not protect or improve this flow should be feature-flagged, 
+delayed, or scoped into V1.1/V2.
+Feature / Module Execution Decision Manager Notes
+QR table ordering MVP must-have Core product value and cashier-cost saving 
+flow.
+Customer mobile menu, cart, modifiers MVP must-have Required for self-ordering and accurate kitchen 
+tickets.
+Stripe card payment and Stripe PayNow MVP must-have Primary browser payment flow for Singapore 
+context.
+Stripe webhook source of truth MVP must-have Orders should only be released after trusted 
+payment confirmation unless pay-later mode is 
+enabled.
+Live POS order dashboard MVP must-have Staff must see paid QR orders and counter 
+orders in one place.
+Station-based KDS MVP must-have Kitchen must receive and manage orders 
+without cashier relay.
+Receipt and kitchen printing MVP must-have Printer reliability is a deployment risk and must 
+be tested early.
+Admin menu/item/modifier management MVP must-have Operators must create and update menus 
+without developer help.
+Daily sales, payment, GST/service charge 
+report
+MVP must-have Owners need closing visibility.
+Inventory stock in/out MVP lite Basic stock movements in MVP; recipe/BOM 
+deduction can be V1.1 if schedule is tight.
+AI upsell engine Rule-based MVP / AI later Implement configurable upsell rules first; 
+machine-learning recommendations later.
+Customer display system Optional V1.1 Useful for counter service but not required for 
+table QR MVP.
+Loyalty/CRM V2 Design data model now; avoid full loyalty build 
+in MVP.
+Full offline POS V2 Use offline-lite menu cache and draft orders 
+first.
+Delivery aggregator integration V2 Avoid until core dine-in QR and POS flow is 
+stable.
+52. Sprint Roadmap and Milestone Gates
+Sprint Focus Major Work Exit Gate
+Sprint 0 Project setup and technical 
+foundation
+Repo, environments, CI/CD, auth 
+skeleton, database baseline, 
+coding standards, seed data.
+Skeleton app runs in dev/staging; 
+login and tenant shell available.
+Sprint 1 Company, outlet, menu, table and Company/outlet model, menu Admin can create a demo outlet, 
+
+--- PAGE 41 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+QR setup CRUD, categories, modifiers, 
+tables, QR generation.
+menu, modifiers, and printable 
+table QR codes.
+Sprint 2 Customer QR ordering flow Mobile menu, item detail, 
+modifiers, cart, totals, session 
+resolution, order creation.
+Customer can scan table QR and 
+submit an unpaid order with 
+correct totals.
+Sprint 3 Stripe card, PayNow and 
+webhooks
+Checkout/Payment Element, 
+PayNow, payment status, 
+webhook idempotency, refunds 
+baseline.
+Paid test order is confirmed 
+through webhook and locked 
+against duplicate payment.
+Sprint 4 POS and KDS real-time flow Live POS dashboard, staff order 
+entry, KDS, station routing, order 
+state transitions.
+Paid QR order appears in POS 
+and KDS within target latency.
+Sprint 5 Printing and closing controls Receipt/kitchen templates, print 
+queue, retry, backup printer, 
+closing report.
+Kitchen ticket and receipt print 
+reliably from the pilot hardware 
+bundle.
+Sprint 6 Reports and inventory-lite Sales, payments, GST/service 
+charge, item report, stock 
+movements, low-stock alert.
+Owner can close day and 
+reconcile Stripe/PayNow/cash 
+manually.
+Sprint 7 Hardening, QA, pilot preparation Bug fixing, security review, load 
+test, staff training, pilot setup, 
+release checklist.
+Go/no-go review passed for pilot 
+outlet deployment.
+53. Execution Backlog Structure
+Convert this specification into a project backlog before coding. Recommended epics and ticket format are below.
+Epic ID Epic Scope
+EPIC-01 Auth, tenant, company and outlet setup Backend, frontend, RBAC, seed data
+EPIC-02 Menu, categories, items, modifiers and image 
+upload
+Admin dashboard and public menu API
+EPIC-03 Tables, QR code generation and session 
+resolution
+QR token security, table state, session expiry
+EPIC-04 Customer QR menu, cart, modifiers and 
+checkout
+Mobile-first PWA customer flow
+EPIC-05 Stripe card, Stripe PayNow and webhooks Payment lifecycle, idempotency, delayed 
+payment states
+EPIC-06 Staff POS and table order management Counter orders, table orders, bill operations
+EPIC-07 KDS, station routing and live order events Real-time flow and kitchen state management
+EPIC-08 Printer queue, templates and hardware bridge Epson/ESC-POS, retry, backup printer
+EPIC-09 Reports, daily closing and payment 
+reconciliation
+Owner dashboard, GST/service charge, 
+closing report
+EPIC-10 Inventory-lite and future BOM readiness Stock movements, supplier basics, low stock
+EPIC-11 UI component library and responsive 
+implementation
+Design tokens, states, accessibility, QA
+EPIC-12 QA, deployment, monitoring and pilot launch Automated tests, staging, production readiness
+53.1 Ticket Template
+Field Required Detail
+Title Clear action-oriented ticket title.
+User story As a user/role, I want to perform an action so that an outcome happens.
+Acceptance criteria Given/when/then checks; include happy path and failure path.
+API impact Endpoint, request, response, auth and error behaviours.
+Database impact Tables, fields, indexes, migrations, seed data.
+Frontend screens Screens/components affected and responsive breakpoints.
+Edge cases Duplicate payments, stale QR, sold-out item, printer offline, permission 
+
+--- PAGE 42 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+denied.
+Test cases Unit, integration, E2E, manual QA steps.
+Owner/reviewer Named engineer and reviewer.
+Priority/sprint MVP, V1.1, V2 and sprint allocation.
+54. Architecture Decision Records
+ADR ID Decision Area Approved Direction Reason
+ADR-001 Frontend framework Next.js + React + TypeScript Supports PWA, responsive 
+customer QR, POS tablet, admin 
+dashboard.
+ADR-002 Backend framework NestJS preferred, or Next.js API 
+for smaller MVP team
+NestJS provides cleaner module 
+separation for POS, payments, 
+inventory, printer jobs.
+ADR-003 Database PostgreSQL Transactional integrity for orders, 
+payments, refunds, stock 
+movements.
+ADR-004 ORM Prisma or Drizzle Must support migrations, type 
+safety, seed data and reviewable 
+schema.
+ADR-005 Queue Redis + BullMQ Needed for print jobs, webhook 
+processing, image processing, 
+report exports.
+ADR-006 Real-time channel WebSocket or SSE Required for live POS, KDS, 
+printer alerts, staff call 
+notifications.
+ADR-007 Payment provider Stripe Checkout/Payment Element 
++ Stripe PayNow
+Reduces PCI scope and supports 
+Singapore PayNow flow.
+ADR-008 Printer path Epson ePOS first, ESC/POS 
+bridge second, browser/PDF 
+fallback
+Printer risk must be controlled with 
+a layered approach.
+ADR-009 Money storage Integer cents only Avoid floating-point rounding 
+errors.
+ADR-010 Multi-tenancy company_id and outlet_id on all 
+operational tables
+Prevents data leakage and 
+enables HQ/outlet reporting.
+ADR-011 Image storage S3/R2-compatible object storage 
++ CDN
+Menu images must load quickly 
+and be replaceable.
+ADR-012 Environment separation Development, staging, production No payment/printer/inventory 
+testing directly in production.
+55. Repository, Migration and Seed Data Requirements
+Before feature work begins, the technical lead should set up a consistent repository and migration structure.
+Path / Asset Required Purpose
+/apps/customer Customer QR ordering PWA.
+/apps/pos Staff POS tablet/desktop interface.
+/apps/kds Kitchen display system.
+/apps/admin Owner/admin dashboard.
+/apps/printer-agent Local printer bridge where required.
+/packages/ui Shared component library and design tokens.
+/packages/db Database schema, migrations, seed data, generated client.
+/packages/api Shared API types and validation schemas.
+/packages/core Domain logic for orders, payments, pricing, inventory, permissions.
+/infra Docker, deployment, environment templates, monitoring config.
+
+--- PAGE 43 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+/docs/adr Architecture Decision Records.
+/docs/runbooks Deployment, rollback, printer setup, pilot SOP.
+Seed Data Minimum Contents
+Company Demo Restaurant Pte Ltd.
+Outlet Tanjong Pagar Demo Outlet.
+Tables T01 to T20 with unique QR tokens.
+Menu Ramen, Rice, Drinks, Sides categories with modifiers and 
+photos/placeholders.
+Users Owner, manager, cashier, waiter, kitchen, read-only auditor.
+Printers Receipt printer, kitchen printer, bar printer.
+Payment settings Stripe test mode card and PayNow enabled; cash/manual PayNow 
+configured.
+Inventory Sample ingredients, stock movements, low-stock threshold.
+56. Figma and Design Handoff Requirements
+The UI/UX addendum gives implementation guidance, but developers still need a handoff file before pixel-level frontend work begins.
+Figma Handoff Area Required Screens / Components
+Customer QR flow Table confirmation, menu, item detail, modifier modal, cart, payment, 
+processing, success, failed payment, add-on order, staff call.
+Staff POS flow Login/PIN, outlet/session, product grid, order panel, table order, 
+payment, refund, void, split bill, print bill.
+KDS flow Station view, ticket card, item bump, full ticket bump, recall, 
+offline/printer warning.
+Admin dashboard Overview, menu management, item form, tables/QR, payments, reports, 
+inventory, printers, users/settings.
+Component library Buttons, cards, badges, tabs, modals, drawers, forms, tables, empty 
+states, loading states, error banners.
+Design tokens Colours, typography, spacing scale, radius, shadows, status colours, 
+breakpoints.
+Accessibility specs Contrast checks, touch target sizes, keyboard/focus states, large font 
+mode.
+57. Hardware Test Bundle and Deployment Matrix
+Hardware / Service Minimum Test Item Purpose
+POS tablet 1x iPad or Android tablet Required for staff POS testing.
+Customer phone 1x iPhone and 1x Android phone Required for QR scan, mobile browser and 
+payment UX.
+KDS device 1x Android tablet or monitor browser Required for kitchen live-order testing.
+Receipt printer 1x Epson LAN printer or compatible ESC/POS 
+LAN printer
+Required for customer receipts.
+Kitchen printer 1x Epson/ESC-POS LAN printer Required for kitchen tickets.
+Router/Wi-Fi Dedicated test Wi-Fi or pilot outlet network Required to test latency and printer 
+connectivity.
+Cash drawer Optional for MVP Test if outlet requires cash drawer open 
+through printer.
+QR materials Printed table tents/stickers for T01-T20 Required for pilot readiness.
+Stripe account Stripe test mode and production-ready account Required before payment QA and production 
+launch.
+
+--- PAGE 44 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+58. Security, Compliance and Environment Checklist
+Checklist Area Required Before Pilot
+PDPA and customer data Define what customer data is collected, consent wording, retention 
+period, and deletion process.
+PCI scope Confirm that raw card details are never stored and 
+Stripe-hosted/secured components are used.
+Secrets management Store Stripe keys, database credentials, webhook secrets, and printer 
+tokens outside source code.
+Role and PIN policy Define password rules, POS PIN rules, session expiry, disabled user 
+handling.
+Audit log retention Define retention for refunds, voids, discounts, payment verification and 
+cash actions.
+Backup and restore Daily database backup and documented restore test before production.
+Webhook security Verify signatures, deduplicate provider event IDs, log payloads safely.
+Rate limiting Protect public QR, order and payment endpoints.
+Production data access Limit production database access to approved technical leads only.
+Incident response Runbook for payment issue, printer outage, database outage, rollback 
+and failed deployment.
+59. QA Test Matrix
+Test Suite Mandatory Scenarios
+QR ordering E2E Customer scans QR, adds item/modifiers, checks out, pays, order 
+appears in POS/KDS.
+Stripe card payment Successful, failed, cancelled, duplicate webhook and browser refresh 
+cases.
+Stripe PayNow Pending, delayed confirmation, success, timeout, duplicate 
+confirmation.
+Manual PayNow Reference entry, screenshot upload if enabled, staff verification, audit 
+log.
+Printer failure Offline printer, retry, backup printer, reprint, failed-job alert.
+KDS station routing Food to kitchen, drinks to bar, expo consolidation, item bump and recall.
+Permissions Cashier cannot refund without PIN; waiter cannot change price; kitchen 
+cannot view sales.
+Menu changes Price change, sold-out item, scheduled menu, modifier validation.
+Inventory-lite Stock in/out, wastage, low-stock alert, sale deduction if BOM enabled.
+Daily closing Cash declaration, Stripe/PayNow totals, refund/void totals, export.
+Multi-outlet access HQ sees all; outlet manager sees assigned outlet only.
+Responsive UI Customer mobile, POS tablet, admin desktop, KDS landscape.
+Accessibility Large font, focus states, contrast, visible status text beyond colour.
+Load and latency Peak table scans, concurrent orders, KDS update latency, printer queue 
+under stress.
+60. RACI Ownership Chart
+Workstream Responsible Accountable / Reviewer Backup / Consulted
+Database/auth/RBAC Backend Lead Tech Lead DevOps
+Customer QR ordering Frontend Lead Product Lead Backend Lead
+Payments and webhooks Backend Lead Tech Lead DevOps
+POS and table operations Full-stack Developer Product Lead Frontend Lead
+KDS and real-time events Full-stack Developer Tech Lead Backend Lead
+
+--- PAGE 45 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Printer integration Integration/DevOps Engineer Tech Lead Full-stack Developer
+Admin dashboard and reports Full-stack Developer Product Lead Backend Lead
+Inventory-lite Backend Developer Product Lead Full-stack Developer
+UI/UX design system UI/UX Designer Product Lead Frontend Lead
+QA and release QA Lead Senior Developer Manager Tech Lead
+Pilot implementation Implementation Lead Product Lead Support Lead
+61. Pilot Outlet Setup Checklist
+ Confirm pilot outlet type: restaurant, cafe, hawker, bar, kiosk, or food court stall.
+ Confirm number of tables, QR locations, kitchen stations, printers, and payment methods.
+ Configure GST, service charge, rounding, receipt footer, PayNow/UEN/SGQR settings, and operating hours.
+ Load full pilot menu, item photos, modifiers, add-ons, sold-out behaviour and printer routing categories.
+ Print QR table stickers/table tents and verify each QR maps to the correct outlet/table.
+ Run staff training for manager, cashier, waiter, kitchen and owner dashboard roles.
+ Run soft launch with staff-only transactions before serving real customers.
+ Monitor first three trading days for payment delays, printer failures, order confusion and staff adoption.
+Pilot Success Metric Target
+Successful QR orders At least 100 successful live or pilot-simulated QR orders.
+Payment success rate At least 95% successful payment completion for supported payment 
+methods.
+KDS latency New paid order appears in POS/KDS within 5 seconds under normal 
+network.
+Printer reliability Failed print jobs below 2% after retry/back-up printer logic.
+Daily closing accuracy Stripe/PayNow/cash totals reconcile with closing report.
+Staff independence Staff can operate daily flow without developer intervention.
+Customer flow clarity Customers can scan, order and pay without needing cashier assistance 
+for most orders.
+62. Go/No-Go Launch Criteria
+Area Go Criteria No-Go Trigger
+Payments Card and PayNow payment success, webhook 
+and duplicate event tests passed.
+Payment can be marked paid incorrectly or 
+webhook is unreliable.
+Order release Paid orders appear in POS/KDS and unpaid 
+orders do not release unless configured.
+Kitchen receives unpaid orders unexpectedly.
+Printing Receipt and kitchen tickets print or retry/alert 
+reliably.
+Kitchen printer failure causes silent order loss.
+Permissions Refunds, voids, manual PayNow and price 
+changes enforce roles/PIN.
+Cashier or waiter can perform restricted high-
+risk actions.
+Reports Daily sales, payment methods, GST/service 
+charge and refunds appear correctly.
+Owner cannot close day or reconcile payment 
+data.
+Security Secrets, webhook signatures, rate limits, auth 
+and backups are configured.
+Production keys exposed or backups not 
+verified.
+UI readiness Critical screens are responsive and match 
+approved design tokens/states.
+Core customer/POS/KDS screens are 
+confusing or unusable.
+Pilot support Runbook, support owner, rollback plan and 
+monitoring are ready.
+No one is assigned for live issue response.
+63. Final Manager Handoff Checklist
+ PDF specification V1.5 approved by product owner and senior developer manager.
+ MVP scope freeze approved and non-MVP features moved to V1.1/V2 backlog.
+
+--- PAGE 46 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ ADR decisions reviewed and accepted by technical lead.
+ Database schema/migrations and seed data started before feature tickets.
+ OpenAPI/Swagger contract created before frontend/backend parallel work.
+ Figma handoff file completed before pixel-level frontend implementation.
+ Hardware test bundle purchased or confirmed.
+ Stripe test account and webhook endpoint configured in staging.
+ QA matrix converted to executable test cases.
+ Pilot outlet details confirmed with implementation lead.
+ Go/no-go launch criteria reviewed before production deployment.
+
+--- PAGE 47 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+75. V1.6 Development Stack Lock and Final Handoff Polish
+Purpose: this final addendum locks the recommended development stack, clarifies engineering defaults, removes remaining 
+decision ambiguity, and defines exactly what the senior developer manager should hand to the build team for Sprint 0 execution.
+This V1.6 addendum does not expand product scope. It converts the existing V1.5 execution-ready brief into a build-ready technical 
+handoff by selecting default stack choices, naming service boundaries, defining the repo scaffold, and specifying non-negotiable 
+implementation rules.
+75.1 Locked MVP Development Stack
+Layer Locked default for MVP Rationale / build instruction
+Language TypeScript across frontend, backend, shared 
+packages, tests
+One typed contract surface for customer QR app, 
+staff POS, admin, KDS, API and workers.
+Frontend Next.js App Router + React + PWA Use one web platform for customer QR, POS 
+tablet, KDS and admin. Avoid native apps until 
+V2.
+UI system Tailwind CSS + design tokens + Radix/headless 
+accessible primitives
+Token-driven UI keeps the V1.4 UI/UX addendum 
+implementable and consistent across surfaces.
+Backend API NestJS modular API service Chosen over ad-hoc Next.js API routes for clearer 
+modules, guards, jobs, webhooks and service 
+boundaries.
+Database PostgreSQL Relational integrity, transactions, indexes, JSONB 
+where appropriate, and reliable reporting.
+ORM/migrations Prisma ORM as MVP default; Drizzle acceptable 
+only by ADR change
+Prisma gives fast typed schema, migrations and 
+onboarding. Drizzle can be selected only if the 
+team wants SQL-first control.
+Cache/session/queue Redis + BullMQ Shared basis for jobs, retries, webhook 
+processing, printer queue, reports, low-stock 
+alerts and transient session state.
+Real-time Socket.IO/WebSocket gateway from NestJS Use for POS/KDS/admin/device updates. Keep 
+mutations through REST/API actions, not direct 
+socket writes.
+Payments Stripe Checkout or Payment Element + Stripe 
+PayNow
+Stripe webhook is source of truth. Frontend 
+redirect is not payment proof.
+Images/files S3/R2-compatible object storage + CDN Menu images, receipt PDFs, PayNow 
+screenshots, exports and future backups.
+Printing Printer abstraction + Epson ePOS first + 
+ESC/POS bridge fallback
+Prevents printer model lock-in and protects rollout 
+reliability.
+Testing Vitest/Jest + Supertest + Playwright Unit/service tests, API integration tests and end-
+to-end browser flows across 
+customer/POS/KDS/admin.
+Observability Structured logs + Sentry + uptime checks + audit 
+logs
+Needed to debug payments, prints, KDS latency 
+and daily closing disputes.
+Deployment Dockerized services with dev/staging/prod 
+environments
+Cloud choice can vary, but deployment contract 
+must stay portable and repeatable.
+75.2 Service Boundary Lock
+Service/module Owns Must not do
+AuthService Login, POS PIN, sessions, password/PIN 
+hashing, role checks
+Must not contain outlet business rules.
+TenantService Company/outlet context and tenant isolation 
+helpers
+Must not be bypassed by raw queries.
+MenuService Categories, items, modifiers, images, publishing, 
+sold-out state
+Must not calculate final cart totals alone.
+PricingService GST, service charge, discounts, rounding, 
+promotion rules, immutable price snapshots
+No other service should calculate payable totals 
+independently.
+OrderService Cart validation, order creation, state machine, 
+table sessions, add-on orders
+Must not mark online payments paid without 
+PaymentService/webhook.
+PaymentService Stripe sessions/intents, PayNow, refunds, manual 
+PayNow verification, idempotency
+Must not trust frontend redirect as final payment 
+confirmation.
+KitchenService KDS tickets, station routing, bumping, preparation 
+states
+Must not release unpaid orders unless pay-later 
+mode is configured.
+PrintService Print jobs, templates, routing, retries, fallback, 
+printer health
+Must not silently discard failed print jobs.
+InventoryService Stock items, ledger movements, stock counts, 
+low-stock alerts, BOM deductions
+Must not overwrite stock without ledger 
+movement.
+ReportService Sales/payment/GST/QR share/closing/inventory 
+reports
+Must not mutate operational records.
+AuditService Sensitive action logs, before/after snapshots, Must not be optional for refunds/voids/manual 
+
+--- PAGE 48 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+manager approval trace payments.
+IntegrationService API keys, outbound webhooks, future 
+accounting/delivery/loyalty
+Must not block MVP core loop.
+75.3 Repository Scaffold to Create Before Feature Work
+Path Purpose
+/apps/customer Customer QR ordering PWA: table confirmation, menu, item detail, cart, 
+payment status, receipt.
+/apps/pos Staff POS tablet PWA: counter/table order, payments, print bill, void/refund, 
+closing.
+/apps/kds Kitchen display PWA: station tickets, bumping, timers, recall, offline/device 
+status.
+/apps/admin Admin dashboard: menu, tables/QR, reports, inventory, users, printers, 
+settings.
+/apps/api NestJS API service: REST, WebSocket gateway, Stripe webhooks, worker 
+entrypoints.
+/packages/ui Shared UI components, design tokens, icons, status badges, form 
+components.
+/packages/types Shared TypeScript DTOs, enums and API contract types.
+/packages/db Prisma schema, migrations, seed scripts and database utilities.
+/packages/config ESLint, TypeScript, Tailwind, environment schema and shared config.
+/docs/adr Architecture decision records. ADR-001 to ADR-012 must be created in 
+Sprint 0.
+/docs/api OpenAPI/Swagger contract and endpoint examples.
+/docs/runbooks Deployment, rollback, printer setup, pilot rollout and support SOPs.
+/infra Docker, docker-compose, CI/CD and environment templates.
+/tests/e2e Playwright flows for QR, payments, KDS, POS, admin and printer fallback.
+75.4 Non-Negotiable Engineering Rules
+ All money values must be stored and calculated in integer cents. Do not use floating point for prices, GST, service charge or refunds.
+ The frontend must never be trusted for final price, tax, discount, payment or order state. Backend recalculates and validates every 
+checkout.
+ Stripe webhooks are the source of truth for online payment success. Redirect/success pages are user experience only.
+ Use idempotency keys for order submission, payment creation, webhook processing, refund creation and print job creation.
+ Paid QR orders are immutable. Changes must be represented as add-on orders, adjustments, voids or refunds with audit trails.
+ All high-risk actions require role permission and audit log: voids, refunds, manual PayNow verification, price override, cash variance, 
+user/role changes.
+ Every tenant-owned table must be scoped by company_id and, where relevant, outlet_id. No cross-outlet data leakage is acceptable.
+ Every print job must have a persisted status and retry path. Silent print failure is a no-go for pilot launch.
+ KDS and POS must show online/offline/device health states. Do not hide connectivity problems from operations staff.
+ Use feature flags for V1.1/V2 features such as customer display, loyalty, advanced tabs, AI upsell and full offline mode.
+75.5 MVP Build Sequence for Senior Developer Manager
+Build order Deliverable Manager acceptance gate
+1 Repo scaffold, CI/CD, environments, design 
+tokens, DB baseline, auth shell
+Local and staging app run; migrations and seed 
+work; login shell exists.
+2 Company/outlet/menu/table/QR admin Admin can create demo outlet, menu, modifiers 
+and QR tables without database edits.
+3 Customer QR menu/cart/order creation Customer can scan table QR, build cart and 
+create pending order from phone.
+4 Stripe card/PayNow + webhook + payment states Paid order is created only through trusted 
+webhook; duplicate refresh/webhook tests pass.
+5 POS live orders + KDS station routing Paid QR order appears in POS/KDS within target 
+latency and can be bumped through states.
+6 Printer queue + receipt/kitchen templates + 
+fallback
+Receipt and kitchen tickets print; failed print jobs 
+retry and alert.
+7 Reports, closing, audit, inventory-lite Owner can close day and reconcile 
+sales/payment/GST; stock movement and audit 
+logs exist.
+8 Pilot hardening, QA matrix, training and support 
+runbook
+Go/no-go checklist passes for selected pilot 
+outlet.
+75.6 Build-Time ADR Lock
+ADR Decision to lock before Sprint 0 closes
+ADR-001 Single TypeScript monorepo with shared UI/types/db/config packages.
+
+--- PAGE 49 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+ADR-002 NestJS API service as backend default; Next.js API routes not used for core 
+business services.
+ADR-003 Prisma ORM + PostgreSQL migrations as MVP default unless technical lead 
+approves Drizzle.
+ADR-004 Socket.IO/WebSocket gateway for live POS/KDS/admin updates; REST 
+APIs for mutations.
+ADR-005 Stripe Checkout/Payment Element and Stripe PayNow; webhook-verified 
+order release.
+ADR-006 Printer abstraction: Epson ePOS first, ESC/POS bridge fallback, 
+browser/PDF emergency fallback.
+ADR-007 Redis + BullMQ for webhooks, print queue, report jobs, image processing 
+and retries.
+ADR-008 S3/R2 object storage for images/receipts/uploads; CDN for public menu 
+assets.
+ADR-009 Feature flags for non-MVP capabilities and pilot-safe rollout.
+ADR-010 Observability baseline: request ID, structured logs, Sentry, uptime checks 
+and audit logs.
+75.7 Development Handoff Checklist
+Item Ready when
+Final PDF and DOCX spec V1.6 file distributed to product, design, tech lead, senior developer manager 
+and QA lead.
+MVP scope freeze MVP/V1.1/V2 boundaries are approved and protected from ad-hoc scope 
+expansion.
+Backlog Epics E01-E11 created with first two sprints broken into tickets and 
+acceptance criteria.
+Stack lock ADRs ADR-001 to ADR-010 reviewed and accepted by technical lead.
+Repo scaffold Monorepo paths created, lint/test/build scripts work locally and in CI.
+Database Initial schema/migrations/seed data run locally and in staging.
+OpenAPI contract Customer, POS, KDS, Admin, Payment, Printer and Webhook APIs have 
+request/response specs.
+Figma handoff Customer QR, POS, KDS and Admin flows have approved design tokens 
+and states.
+Hardware kit POS tablet, customer phones, KDS device, printers, Wi-Fi and Stripe test 
+mode are ready.
+QA matrix E2E tests mapped to QR, payment, webhook, printer, KDS, closing and 
+permissions.
+Pilot runbook Go-live, support, rollback, staff training and three-day monitoring plan 
+confirmed.
+75.8 Final Development Handoff Instruction
+The first developer milestone is not the full product. It is a stable, observable, pilot-ready restaurant revenue loop: QR scan -> 
+menu -> cart -> payment -> trusted webhook -> POS/KDS -> print -> serve -> daily report. Every stack decision, ticket, test and 
+deployment gate must protect this loop first.
+75.9 Official Reference Links for Engineering Team
+Use official documentation during implementation. The URLs below should be converted into /docs/references.md during Sprint 0:
+ Next.js App Router: https://nextjs.org/docs/app
+ NestJS framework: https://docs.nestjs.com/
+ Stripe PayNow: https://docs.stripe.com/payments/paynow
+ Prisma PostgreSQL quickstart: https://www.prisma.io/docs/prisma-orm/quickstart/postgresql
+ Drizzle ORM: https://orm.drizzle.team/
+ BullMQ: https://bullmq.io/
+ Playwright: https://playwright.dev/
+ Sentry: https://sentry.io/
+
+--- PAGE 50 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+76. V1.7 Operations Addendum - Employee Attendance and Kitchen Receipt 
+Printing
+Purpose of this addendum
+This addendum locks two operational requirements into the development build: (1) employee clock-in/clock-out with iPad photo capture and 
+automatic hours calculation, and (2) mandatory kitchen order receipt printing for orders placed through QR, staff POS, waiter POS, kiosk, or any 
+future sales channel. These are now treated as deployment requirements, not optional polish.
+76.1 Employee Clock-In / Clock-Out Module
+The POS iPad must support an employee attendance flow so staff can clock in and clock out directly from the restaurant POS device. 
+Each attendance action must be tagged to the employee, outlet, device, photo proof, and a trusted server-side timestamp.
+Requirement Development specification
+Clock-in entry point Staff POS login screen and POS side menu must include a Clock In / 
+Clock Out action.
+Employee identification Employee selects their profile or enters staff PIN. Optional future 
+biometric/face matching must not be required for V1.7.
+Photo capture iPad camera opens and captures a live photo at clock-in and clock-out. 
+Upload the image to object storage and store the image URL/reference 
+in attendance records.
+Timestamp source Use backend server timestamp as the source of truth. Client/iPad time 
+is display-only and must not determine payable hours.
+Outlet/device tagging Attendance record stores company_id, outlet_id, POS device_id, 
+browser/device info, IP address, and optional location metadata if 
+enabled.
+Automatic hours calculation When employee clocks out, system calculates total worked 
+minutes/hours from clock-in to clock-out, less approved unpaid breaks if 
+the break module is enabled.
+Manager review Manager can review, approve, adjust, or flag attendance records with 
+reason and audit log.
+Payroll export Approved timesheets can be exported by date range, employee, outlet, 
+and role for payroll processing.
+76.2 Attendance User Flow
+77. Employee taps Clock In on POS iPad.
+78. Employee selects name or enters staff PIN.
+79. System requests iPad camera permission if not already granted.
+80. Employee takes a live photo; retake is allowed before submission.
+81. Backend creates attendance_session with status clocked_in and server-side clock_in_at timestamp.
+82. Employee works shift normally; POS can show Current Shift: clocked in at HH:MM.
+83. Employee taps Clock Out at end of shift.
+84. Employee takes clock-out photo; backend records server-side clock_out_at timestamp.
+85. System calculates gross_minutes, unpaid_break_minutes, net_paid_minutes, and flags overtime/missing breaks if rules apply.
+86. Manager reviews daily attendance and exports approved records for payroll.
+76.3 Attendance Data Model Additions
+Table Key fields Purpose
+employee_profiles id, company_id, outlet_ids, user_id, 
+employee_code, name, role, 
+employment_type, hourly_rate_cents, active
+Stores staff profile linked to POS user account 
+where applicable.
+attendance_sessions id, company_id, outlet_id, employee_id, 
+device_id, clock_in_at, clock_out_at, status, 
+gross_minutes, unpaid_break_minutes, 
+net_paid_minutes, approval_status, 
+manager_approved_by, notes
+Main clock-in/out record and calculated 
+working hours.
+attendance_photos id, attendance_session_id, photo_type, 
+storage_url, captured_at, uploaded_at, 
+device_id, metadata_json
+Stores clock-in and clock-out photo proof 
+references.
+attendance_adjustments id, attendance_session_id, 
+adjusted_by_user_id, before_json, after_json, 
+reason, created_at
+Audit trail for manager changes to timestamps, 
+breaks, or payable hours.
+attendance_settings company_id, outlet_id, require_photo, 
+allow_manual_clock_in, max_shift_hours, 
+auto_flag_late_clock_out, timezone
+Outlet-level attendance rules and controls.
+
+--- PAGE 51 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+76.4 Attendance API Additions
+API group Required endpoints
+Attendance POS API POST /pos/attendance/clock-in; POST /pos/attendance/clock-out; 
+GET /pos/attendance/current; POST /pos/attendance/photo-upload-url
+Attendance Admin API GET /admin/attendance; GET /admin/attendance/:id; PATCH 
+/admin/attendance/:id/adjust; POST /admin/attendance/:id/approve; 
+POST /admin/attendance/export
+Attendance Settings API GET /admin/attendance/settings; PATCH /admin/attendance/settings
+76.5 Attendance Calculation Rules
+ All calculations use Asia/Singapore timezone for display and UTC timestamps for storage.
+ Money and payable time must never rely on client/iPad local time. Backend server time is the source of truth.
+ If clock_out_at is missing, the shift remains open and appears in manager alerts.
+ If total shift duration exceeds configured max_shift_hours, the record is flagged for manager review.
+ If an employee attempts to clock in while already clocked in, block the action and show current open session.
+ If an employee attempts to clock out without an open session, block the action and require manager resolution.
+ Manual adjustments require manager permission, reason entry, before/after audit values, and timestamped audit log.
+76.6 Attendance UI / UX Requirements
+Surface Required behaviour
+POS login / landing screen Large Clock In and Clock Out buttons visible before or after staff PIN 
+login depending outlet setting.
+Photo capture screen Camera preview, employee name, outlet, current time display, Retake 
+button, Submit button, and camera permission error state.
+POS staff status Show whether current employee is clocked in, clock-in time, and shift 
+duration.
+Manager attendance dashboard Daily attendance list with employee photo thumbnails, clock-in/out time, 
+hours worked, flags, approval state, and export button.
+Error states Camera denied, upload failed, duplicate clock-in, missing clock-out, 
+offline mode, and manager approval required.
+76.7 Attendance Security, Privacy and Compliance
+ Employee photos are operational attendance evidence and should be stored securely with access limited to authorised 
+managers/admins.
+ Attendance photos should use private object storage paths and signed URLs rather than public image URLs.
+ Retention policy must be configurable by company; recommended default is to retain attendance photos only as long as required for 
+payroll/audit needs.
+ Staff should be informed that clock-in/out photos are captured for attendance verification and payroll audit purposes.
+ Attendance records must be included in audit logs when viewed, adjusted, approved, exported, or deleted/archived.
+76.8 Kitchen Order Receipt Printing - Locked Requirement
+The existing printer/KDS architecture is now reinforced as a mandatory kitchen receipt requirement. Every order placed through 
+customer QR, cashier POS, waiter POS, kiosk, or future channel must generate a kitchen ticket and print job according to the outlet 
+printer routing rules.
+Requirement Development specification
+Trigger Create kitchen_ticket and print_job when order becomes paid/confirmed 
+or sent_to_kitchen, depending pay-first/pay-later configuration.
+Supported order sources QR table ordering, staff POS, waiter tablet, counter order, kiosk, future 
+delivery/imported channel.
+Kitchen ticket contents Outlet, station, table/location, order number, order source, time, item 
+quantity, item name, variants, modifiers, remarks, allergies, payment 
+status, and reprint marker.
+Station routing Food, drink, dessert, bar, expo, and custom stations print to their 
+configured printers or KDS screens.
+Backup printing If primary kitchen printer fails, route to backup printer if configured; 
+otherwise mark print failed and alert POS/KDS.
+Reprint control Authorised staff can reprint kitchen ticket. Reprints must show 
+REPRINT and create audit log.
+Void/cancel ticket Voided/cancelled items must print a cancellation ticket to the relevant 
+station.
+76.9 Kitchen Receipt Template Requirements
+Ticket field Required display rule
+Header Large outlet/station name and KITCHEN ORDER or BAR ORDER label.
+
+--- PAGE 52 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Order identity Order number, table/location, source, and timestamp must be large and 
+readable.
+Items Quantity and item name must be bold; modifiers and remarks shown 
+directly under the item.
+Allergies/urgent remarks Highlight clearly with ALLERGY / NOTE prefix.
+Payment status Show PAID, PAY-LATER, MANUAL VERIFICATION, or STAFF 
+ORDER where applicable.
+Footer Print job ID, printed_at time, printer name, and reprint/cancel marker if 
+applicable.
+76.10 Kitchen Print Job Flow
+87. Order submitted and validated by backend.
+88. Payment confirmed by Stripe webhook or staff/manual payment action where applicable.
+89. Backend creates order_items and station-routed kitchen_tickets.
+90. Backend creates one or more print_jobs using printer routing configuration.
+91. Printer agent / Epson ePOS / ESC-POS bridge sends print payload to physical printer.
+92. Printer response updates print_jobs status to printed, failed, retrying, or cancelled.
+93. POS and KDS show print status; failed print jobs trigger alert and retry/reprint action.
+76.11 Additional Use Cases
+ID Use case Expected behaviour
+UC86 Employee clocks in from POS iPad with photo Employee selects profile/PIN, takes photo, and 
+system records server-side clock-in timestamp 
+with outlet/device tag.
+UC87 Employee clocks out and hours are calculated Employee takes clock-out photo; system 
+calculates gross and net hours worked 
+automatically.
+UC88 Manager reviews attendance for payroll Manager views daily staff attendance, photo 
+proof, hours worked, flags, adjustments, and 
+exports approved records.
+UC89 Employee forgets to clock out System leaves session open, flags missing 
+clock-out, and requires manager adjustment 
+with audit reason.
+UC90 Kitchen receipt prints for QR order After QR payment is confirmed, kitchen order 
+receipt prints with table, items, modifiers, 
+remarks, and order number.
+UC91 Kitchen receipt prints for staff POS order When cashier/waiter submits order, kitchen 
+ticket prints to the correct station printer.
+UC92 Kitchen printer fails and retry/backup triggers Print job is marked failed/retrying; backup 
+printer receives job if configured and staff sees 
+alert.
+UC93 Cancelled item prints cancellation ticket When an item is voided/cancelled after kitchen 
+release, a cancellation ticket prints at the 
+correct station.
+76.12 V1.7 Acceptance Criteria
+ POS iPad can capture employee clock-in photo and create attendance session with trusted server timestamp.
+ POS iPad can capture employee clock-out photo and calculate total hours worked automatically.
+ Manager dashboard can review, adjust, approve, and export attendance records.
+ Attendance adjustment requires reason and produces an audit log.
+ Attendance photos are stored in private object storage and linked to attendance records.
+ Every paid/confirmed order generates a kitchen ticket and print job.
+ Kitchen ticket includes table/location, order number, item quantities, modifiers, remarks, and payment/order status.
+ Kitchen print failures show on POS/KDS and support retry/reprint/backup printer where configured.
+ Cancellation/void tickets print when kitchen-released items are removed.
+76.13 Development Handoff Instruction for V1.7
+Implementation priority
+Attendance clock-in/out is an operations module and can be built after the QR revenue loop foundation, but before pilot go-live if payroll/hour 
+tracking is required by the client. Kitchen order receipt printing is part of the core order flow and must remain in the MVP go-live path together with 
+KDS and payment confirmation.
+The senior developer manager should add the attendance module as a separate epic and reinforce kitchen receipt printing inside the 
+existing POS/KDS/printer epic. Kitchen receipt printing should not be treated as a future feature; it is required for restaurant 
+deployment readiness.
+
+--- PAGE 53 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+40. V1.4 UI/UX Design Strategy
+Design goal: Make the product feel like a world-class restaurant operating system, not an Excel-style admin tool. The interface must be 
+fast enough for rush-hour operations, simple enough for part-time staff, and polished enough for customers to trust QR ordering and 
+web payment.
+40.1 Design Principles
+Principle Implementation rule
+Speed over decoration Every high-frequency action must be reachable within 1-2 taps/clicks. 
+Decorative visuals must not slow down ordering.
+Context always visible Table number, outlet, order status, payment status, cart total, and staff 
+action context must remain visible on key screens.
+Touch-first interaction POS, KDS, and customer ordering must be designed for fingers before 
+mouse/keyboard. Primary tap targets should be large and spaced.
+Status clarity Use consistent labels, colour, icons, and timestamps for payment, 
+kitchen, table, queue, stock, and printer states.
+Progressive disclosure Show the cashier/waiter only what is needed now; move advanced 
+controls into drawers, modals, or manager-only actions.
+Trust in payment Payment screens must clearly show amount, method, processing state, 
+success/failure, receipt access, and anti-duplicate protection.
+Operational resilience Offline, printer failure, delayed webhook, sold-out conflicts, and stock 
+warnings require visible and calm UI states.
+40.2 Product Surfaces Covered
+Surface Primary design objective
+Customer QR Ordering Web App App-like mobile menu with clear table confidence, fast browsing, guided 
+modifiers, upsells, cart, payment, and order status.
+Staff POS App High-speed tablet interface for order entry, bill edits, table control, 
+payment, refunds, and daily closing.
+Kitchen Display System Large-font, low-noise, station-based ticket board with strong status 
+signalling and minimal training required.
+Admin Dashboard Clean SaaS-style dashboard for menu, inventory, reports, payments, 
+printers, staff, and multi-outlet management.
+Customer Display / Pickup Screen Simple public-facing order total, payment QR, queue number, pickup 
+status, and thank-you screens.
+Implementation / Setup Screens Guided setup flow for outlet, menu, QR, printer, payment, and test order 
+before launch.
+41. Design System Foundations
+41.1 Layout Grid and Spacing
+Token Value / rule
+Base spacing unit 8 px grid. Use 4 px only for fine internal spacing.
+Mobile customer page width Optimise for 360-430 px. Content max-width should remain comfortable 
+on large phones.
+Tablet POS target Optimise for iPad/Android tablet landscape at 1024 x 768 and above.
+Desktop admin target Optimise for 1280 px and above, with responsive collapse below 1024 
+px.
+Safe screen density Avoid cramming. Restaurant operators need readable screens during 
+rush hours.
+Card spacing Use 12-16 px between cards on tablet/desktop; 8-12 px on mobile.
+Modal width Mobile: full-width bottom sheet. Tablet/desktop: 480-720 px centered 
+modal depending on content.
+41.2 Typography
+Use case Recommended size / weight
+Display heading 28-36 px / Bold - only for landing, dashboard title, large KDS headers.
+
+--- PAGE 54 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Page title 22-28 px / Semibold.
+Section title 18-20 px / Semibold.
+Body text 14-16 px / Regular.
+POS product tile name 15-17 px / Semibold; truncate after 2 lines.
+KDS item name 24-32 px / Bold depending on screen size.
+KDS modifier/remarks 18-22 px / Semibold with highlight background.
+Caption/helper text 12-13 px / Regular.
+Error text 13-14 px / Semibold, with icon and actionable explanation.
+ Use Inter, Roboto, or system font stack. Do not use decorative fonts inside the POS/KDS workflow.
+ Currency, totals, order numbers, table numbers, and kitchen timing must be visually stronger than secondary metadata.
+ Avoid all-uppercase for long labels; reserve uppercase for short status badges only.
+41.3 Colour and Status System
+Token Usage
+Primary Main CTA, selected navigation, active category, confirm payment, save 
+action.
+Neutral background Admin/POS page base. Use off-white or very light grey, not pure busy 
+white everywhere.
+Surface/card Menu cards, order cards, dashboard widgets, table cards.
+Success Paid, completed, printed, ready, in-stock.
+Warning Payment processing, delayed kitchen order, low stock, printer retry.
+Danger Failed payment, void, refund, printer failed, sold out, destructive action.
+Info New order, staff call, table ordering, pending verification.
+Muted Disabled item, archived menu, closed session, unavailable channel.
+ Never rely on colour alone. Pair colour with text, icon, or shape.
+ Payment states and kitchen states should use separate labels even if colour overlaps.
+ Use dark mode only for KDS or optional staff mode; customer QR and admin dashboard should default to light mode for clarity.
+41.4 Motion and Microinteraction Rules
+ Use short transitions of 120-200 ms for drawers, modals, cart updates, and success states.
+ Avoid heavy animations during POS order entry and KDS operations.
+ Use haptic-friendly feedback patterns in mobile browsers where possible, but do not depend on haptics.
+ Cart additions should show a quick item-added confirmation and update sticky cart count immediately.
+ Payment processing should show explicit progress: Creating payment -> Awaiting payment -> Confirming -> Paid.
+42. Component Library Specification
+Component Developer build requirement
+App shell Consistent top bar, sidebar/bottom navigation, content area, right-side 
+context panel where applicable.
+Navigation item Icon + label. Active state must be obvious. Collapsible on smaller 
+screens.
+Primary button Large, filled, high contrast. Used for Add to Cart, Pay, Send to Kitchen, 
+Complete, Save.
+Secondary button Outlined or neutral. Used for Back, Edit, Print, View Details.
+Danger button Clearly destructive. Used for Void, Refund, Delete, Cancel. Requires 
+confirmation/PIN where needed.
+Product tile Image/placeholder, item name, price, badges, sold-out overlay, selected 
+state, quick-add.
+Modifier group Radio buttons for required single choice; checkboxes/chips for optional 
+multi-choice; quantity stepper for add-ons.
+Cart drawer/panel Sticky item list, subtotal, GST/service charge, final total, checkout 
+button, validation errors.
+Order card Order number, table/location, source, elapsed time, status badge, item 
+count, payment state, actions.
+KDS ticket Large order/table header, item blocks, modifiers/remarks highlighted, 
+elapsed timer, station routing, bump button.
+Status badge Standard status labels and colours across POS/KDS/admin.
+Toast notification Short feedback for success/error. Must not cover critical order/payment 
+buttons.
+Modal/bottom sheet Use for item modifiers, manager PIN, refund/void reason, payment 
+confirmation, printer test.
+Data table Sortable, filterable, pagination, sticky header, export button, empty 
+
+--- PAGE 55 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+state, loading skeleton.
+Date range picker Used in reports and payment reconciliation. Quick presets: Today, 
+Yesterday, This Week, This Month.
+Floor plan table tile Status colour, table number, pax, active orders, elapsed time, payment 
+state.
+Empty state Icon, short explanation, primary action. Example: No active orders - 
+create counter order or wait for QR orders.
+42.1 Touch Target and Control Sizing
+Control type Minimum sizing rule
+Primary POS buttons Minimum 48 px height. Prefer 56 px for POS tablet high-frequency 
+actions.
+Customer QR CTAs Minimum 48 px height with full-width option on mobile.
+Icon-only buttons Minimum 44 x 44 px tappable area and visible tooltip/aria-label.
+KDS bump buttons Minimum 64 px height for gloved/fast kitchen tapping.
+Stepper controls Minimum 40 x 40 px per plus/minus target.
+Table tiles Minimum 96 x 72 px on tablet floor plan; should be readable from 
+service distance.
+43. Customer QR Ordering UX
+Customer success criteria: After scanning the QR code, the guest must instantly know the restaurant/outlet, table/location, whether they 
+are ordering dine-in/takeaway/pickup, and what happens after payment.
+43.1 Customer Screen Sequence
+Step Screen Required UX details
+1 QR Landing / Table Confirmation Show logo, outlet, table/location, dine-in/pickup 
+mode, language selector, Start Order button, 
+staff help link.
+2 Menu Home Sticky header with table/location; category 
+tabs; search; hero/promotions; item cards; 
+sticky cart button.
+3 Item Detail Large image, price, description, allergens, 
+required modifiers, optional add-ons, remarks, 
+quantity, Add to Cart.
+4 Cart Review Line items, edit/remove, subtotal, discounts, 
+service charge, GST, rounding, total, payment 
+CTA.
+5 Payment Selection Card/wallet, Stripe PayNow, manual PayNow if 
+enabled, pay-at-counter only if outlet allows.
+6 Payment Processing Do not close page warning, clear spinner, 
+payment method, total, fallback if delayed.
+7 Order Confirmation Order number, table/location, paid status, 
+estimated prep time if available, order status 
+tracker, digital receipt.
+8 Order Status / Add-On View current order status, order again, add 
+more items, call staff, receipt link.
+43.2 Customer Menu Layout Rules
+ Use a sticky category tab row so customers can jump between categories quickly.
+ Product cards must show price before the customer opens the item detail.
+ Sold-out items can remain visible but dimmed, with an optional replacement suggestion.
+ Required modifier groups must block checkout until completed and explain what is missing.
+ If item photo is missing, show a clean branded placeholder instead of broken image or grey box.
+ Cart button should always show item count and total. On mobile, use a sticky bottom cart bar.
+ Show GST/service charge before payment, not only after payment.
+ Do not force account creation. Phone/email should be optional unless required for pickup/receipt.
+43.3 Upsell UX Rules
+Upsell type UX rule
+
+--- PAGE 56 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Add-on modifier Show inside item detail before cart; examples: extra egg, extra noodle, 
+extra topping.
+Combo upgrade Show after required modifiers and before Add to Cart. Keep one-tap 
+selection.
+Cart recommendation Show 2-4 relevant items, not endless carousel.
+Sold-out replacement Show direct substitute and explain item is unavailable.
+Time-based promo Badge must show timing/condition clearly.
+QR-only promo Label as QR Special but avoid making staff POS prices confusing.
+44. Staff POS Tablet UX
+POS success criteria: A new part-time staff should understand how to create an order, add items, send/print/pay, and correct mistakes 
+within the first training session.
+44.1 Recommended POS Layout
+Area Layout requirement
+Left navigation rail Tables, Orders, POS, Payments, Inventory/Sold Out, Closing, Settings. 
+Icons plus labels.
+Top bar Outlet/session, staff user, online/offline, printer status, search, 
+notifications.
+Category column/row Fast menu category switching. Selected category must be obvious.
+Product grid Large touch cards with image/name/price/sold-out badge. 3-5 columns 
+depending on tablet width.
+Right order panel Current order/table, items, modifiers, subtotal, discount, GST/service 
+charge, total, actions.
+Action dock Hold/open ticket, print bill, payment, send to kitchen, manager actions.
+44.2 POS Interaction Rules
+ Order panel must always show whether the order is unpaid, pending payment, paid, refunded, or partially refunded.
+ Paid QR orders must show locked state with allowed actions: reprint, refund, add-on order, view receipt.
+ Item void and order void must require reason and manager PIN based on permission matrix.
+ High-frequency flows such as add item, change quantity, and print bill should not open unnecessary pages.
+ Use inline quantity steppers for order items and product cards where practical.
+ Show live printer/KDS sync status before and after sending an order.
+ Display a persistent offline banner when POS is offline and explain what actions are safe.
+44.3 Table/Floor Plan UX
+Table state Visual requirement
+Available Neutral tile, clear table number, no active order indicators.
+Ordering Info state. Show customer is browsing/adding from QR if known.
+Ordered/Preparing Active state with elapsed time and kitchen status.
+Bill requested High-visibility callout so staff can respond quickly.
+Payment pending Warning state with amount due.
+Paid Success state with clear close/clean action.
+Cleaning Muted state; prevent new QR session until reset unless manager 
+overrides.
+45. Kitchen Display System UX
+ KDS should default to landscape tablet/monitor view with large text and strong contrast.
+ Use columns by status or station: New, Preparing, Ready/Expo, Completed/Recall depending on outlet setup.
+ Ticket cards must display table/location, order number, source, elapsed time, item count, and payment state.
+ Modifiers and remarks must be highlighted more strongly than normal item descriptions.
+ Late tickets should progressively change visual priority, but not become visually chaotic.
+ Provide a large bump button per item and per ticket; accidental bump should be recoverable through Recall.
+ Show offline or printer/KDS sync issues as a top banner visible from distance.
+ Avoid tiny icons and dense data; kitchen staff need glanceable information under pressure.
+KDS state Required visual treatment
+New Strong border or header accent; sound alert if enabled.
+
+--- PAGE 57 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Preparing Active progress styling with elapsed timer.
+Ready Success state; display ready time.
+Delayed Warning state with SLA exceeded timer.
+Cancelled/voided Danger state, strikethrough item, cancellation reason if relevant.
+Recalled Muted/recalled marker so kitchen understands it was previously 
+completed.
+46. Admin Dashboard UX
+Admin dashboard should feel like modern SaaS: clear sidebar, clean widgets, searchable tables, guided setup, and strong data 
+visualisation. It should not look like a raw database admin panel.
+46.1 Dashboard Information Architecture
+Navigation group Screens
+Today Overview, live orders, table status, staff calls, printer health.
+Sales Sales dashboard, item/category sales, QR vs cashier, hourly heatmap, 
+closing reports.
+Payments Stripe, PayNow, manual verification, refunds, payouts, reconciliation.
+Menu Menus, categories, items, modifiers, combos, pricing, sold-out, 
+publishing.
+Operations Tables, QR codes, floor plan, KDS stations, printers, devices.
+Inventory Ingredients, stock movements, purchase orders, stock counts, low 
+stock, wastage.
+Customers/Growth CRM, loyalty, promotions, upsells, menu engineering analytics.
+Settings Company, outlets, users, roles, GST/service charge, integrations, audit 
+logs.
+46.2 Admin Page Patterns
+ Every CRUD list should have search, filters, sort, bulk action where relevant, export if reporting-related, and an empty state.
+ Complex setup flows should use wizards: outlet setup -> menu setup -> QR/table setup -> printer setup -> payment test -> pilot 
+launch.
+ Dashboards should prioritise decision-making: today's revenue, active orders, payment exceptions, low stock, failed printers, 
+open shifts.
+ Charts must have clear labels and summary numbers. Do not rely on colours alone.
+ Manager approvals, refunds, voids, and manual PayNow verification need modal workflows with reason field and audit summary.
+47. Payment and Trust UX
+Payment moment UX requirement
+Before checkout Show subtotal, discounts, service charge, GST, rounding, final total, 
+table/location, and order source.
+Payment method selection Use clear cards for Card/Wallet, PayNow, Manual PayNow, 
+Cash/Counter if enabled.
+Stripe card/wallet Show secure payment message; redirect/embedded UI must return to 
+order status cleanly.
+Stripe PayNow Show PayNow QR, amount, merchant name if available, 
+countdown/processing state, and do-not-refresh guidance.
+Manual PayNow Show UEN/SGQR, reference instructions, screenshot upload if enabled, 
+pending verification state.
+Payment success Order number, paid status, receipt button, order status tracker, add-on 
+order button.
+Payment failure Friendly failure reason, retry button, choose another method, do not 
+duplicate cart.
+Delayed webhook Show processing state and poll for update; prevent duplicate payment 
+button unless safe.
+48. UI States, Feedback, and Error Handling
+State type Required behaviour
+Loading Use skeleton cards for menu/admin tables. Use progress spinners only 
+
+--- PAGE 58 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+for short actions.
+Empty Explain why empty and offer next action. Example: No printers 
+configured - Add printer.
+Error Plain language, cause if known, next action, support/debug code for 
+staff.
+Offline Persistent banner; explain which actions still work and which actions are 
+blocked.
+Syncing Small status indicator for POS/KDS/printer sync; avoid blocking unless 
+necessary.
+Success Immediate confirmation with optional undo where safe.
+Destructive confirmation Modal with item/order/payment details, reason, and PIN if required.
+Permission denied Show action requires manager permission; allow manager PIN request 
+where configured.
+Sold-out conflict If item becomes unavailable during cart/checkout, clearly remove/block 
+item and suggest alternatives.
+Printer failure Show failed print job with retry, backup printer, and browser/PDF 
+fallback.
+49. Accessibility and Inclusive Design
+ Target WCAG 2.2 AA for customer-facing QR ordering and admin dashboard where practical.
+ Ensure customer QR flow is usable with screen readers: labels for buttons, inputs, modifier groups, cart totals, and payment 
+states.
+ Use sufficient colour contrast for text, buttons, and status labels. Body text should meet 4.5:1 contrast unless large text exception 
+applies.
+ Maintain large tap targets for mobile and tablet controls. Avoid placing destructive actions next to frequent actions without 
+spacing.
+ Support large-font customer mode and KDS large-font mode.
+ Do not use colour alone for status; pair with text and icon.
+ Keyboard navigation should work for admin dashboard forms, tables, modals, and reports.
+ Form validation should identify field, problem, and fix. Example: Select a noodle type before adding to cart.
+ Payment and confirmation screens must remain understandable even if images fail to load.
+ Avoid autoplay video/audio in customer flow; KDS sound alerts must be configurable.
+77. Responsive Behaviour and Screen-Level Build Guide
+Surface Mobile behaviour Tablet/Desktop behaviour
+Customer QR menu Single-column list/cards, sticky bottom cart, 
+bottom-sheet item detail.
+Two-column or wider cards if available; cart 
+can remain drawer/panel.
+Staff POS Limited phone support for waiter quick order 
+and table status only.
+Primary mode: tablet landscape with product 
+grid and right order panel.
+Admin dashboard Mobile read-only/light admin where possible; 
+full management should be tablet/desktop-first.
+Sidebar, tables, widgets, filters, charts, form 
+panels.
+KDS Not recommended for small phone except 
+emergency view.
+Landscape tablet/monitor, large cards, station 
+columns.
+Customer display Can run on tablet/monitor; large total/order 
+status.
+Full-screen display with queue/payment/order 
+number.
+77.1 Frontend Route-to-UI Map
+Route / area UI layout requirement
+/customer/[outlet]/[table] Customer landing + menu shell with sticky table header and cart bar.
+/customer/order/[id]/status Order status tracker, receipt, add-on order, call staff.
+/pos/orders POS app shell with product grid and order panel.
+/pos/tables Floor plan/table tiles with status filters and table actions.
+/pos/payment Payment panel with method cards, totals, split payment, receipt/print 
+actions.
+/kds/[station] Station ticket board with large cards and bump actions.
+/admin/dashboard KPI cards, charts, alert cards, date/outlet filters.
+/admin/menu Menu manager with categories/items/modifiers and publishing status.
+/admin/payments Payment reconciliation table with exceptions first.
+/admin/printers Printer cards, test print, print queue, device heartbeat.
+/admin/setup Guided onboarding checklist/wizard.
+
+--- PAGE 59 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+78. Textual Wireframe Specifications
+Screen Wireframe description
+Customer Menu Top: outlet/table/staff help. Below: promo/hero if configured. Category 
+tabs sticky. Body: item cards. Bottom: sticky cart total and checkout.
+Customer Item Detail Top image. Item name/price/tags. Required modifiers. Optional add-
+ons. Remarks. Quantity stepper. Add to Cart CTA.
+POS Order Entry Left nav. Top status bar. Middle category/product grid. Right order 
+panel. Bottom/right action buttons.
+POS Table View Zone selector. Floor plan/table grid. Filter by status. Right drawer shows 
+selected table session and actions.
+KDS Station View Header with station/outlet/online status. Ticket columns. Each ticket has 
+table/order/time/items/bump. Recall completed tickets.
+Admin Overview Top outlet/date filter. KPI cards. Alerts. Charts. Active orders. Payment 
+exceptions. Low stock. Printer/device health.
+Payment Reconciliation Summary totals. Exception cards. Table with 
+provider/status/reference/amount/net/verification/refund.
+Setup Wizard Progress stepper: Company -> Outlet -> Menu -> Tables/QR -> 
+Payment -> Printer -> Test order -> Launch.
+79. Designer-to-Developer Handoff Requirements
+ Provide Figma file with page structure: 00 Cover, 01 Design Tokens, 02 Components, 03 Customer QR, 04 Staff POS, 05 KDS, 
+06 Admin, 07 Payment, 08 States, 09 Prototype Flows.
+ Every reusable component must have variants: default, hover, pressed, disabled, loading, selected, error, success, warning 
+where applicable.
+ Use Auto Layout and consistent spacing tokens so developers can translate to Tailwind/CSS variables.
+ Name components clearly: Button/Primary, Card/ProductTile, Badge/PaymentStatus, Modal/ManagerPIN, Ticket/KDSOrder.
+ Include dev notes for each screen: data required, API dependency, empty state, loading state, error state, permission state.
+ Export icons as SVG and images as WebP/JPEG with recommended ratios.
+ Create clickable prototypes for critical flows: QR order and pay, POS order and pay, refund/void, KDS bump, admin menu 
+publish, printer test.
+ Do not embed source design inspiration assets from Behance or other third-party showcases into production files.
+Token group Implementation hint
+Colours Expose as CSS variables / Tailwind theme tokens: primary, surface, 
+border, success, warning, danger, info, muted.
+Typography Expose text styles: display, page-title, section-title, body, caption, kds-
+item, money-total.
+Spacing Use 4/8/12/16/24/32/48 scale. Avoid arbitrary one-off spacing.
+Radius Small 6 px, medium 10-12 px, large 16-20 px, pill 999 px.
+Shadows/elevation Subtle card shadow only for hierarchy; avoid heavy shadows in 
+POS/KDS.
+Breakpoints Mobile customer, tablet POS/KDS, desktop admin.
+80. UI/UX Acceptance Criteria
+94. Customer can scan a table QR and understand outlet, table/location, and order mode within 3 seconds.
+95. Customer can add an item with required modifiers and reach checkout without confusion.
+96. Customer sees final total with GST/service charge before payment.
+97. Payment processing, success, failure, and delayed PayNow states are visually clear.
+98. Customer can place an add-on order from an existing table session.
+99. Staff can create a counter/table order from POS within 3 taps after product selection starts.
+100.Cashier can identify unpaid, paid, pending, refunded, and locked QR orders without opening detail pages.
+101.Manager-only actions show clear permission/PIN UI and audit reason flow.
+102.Kitchen staff can read tickets from normal station distance and mark items ready without tiny controls.
+103.Admin can find menu item, change price, mark sold out, and publish changes through clear UI flow.
+104.Dashboard highlights exceptions first: failed printer, manual PayNow verification, low stock, unpaid/open orders.
+105.All major screens include loading, empty, error, offline, and permission-denied states.
+106.Touch targets meet mobile/tablet operational requirements.
+107.Design tokens are implemented centrally and not hardcoded across pages.
+108.Customer QR flow remains usable when item images fail to load.
+109.KDS and POS show online/offline and printer/device health states.
+
+--- PAGE 60 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+81. Additional UI/UX Use Cases
+ID Use case Expected UX behaviour
+UC71 Customer scans QR at table Landing screen confirms outlet/table/mode 
+before ordering.
+UC72 Customer opens menu with missing images Product cards show clean placeholders and 
+remain functional.
+UC73 Customer misses required modifier Item detail highlights missing modifier and 
+explains required choice.
+UC74 Customer sees upsell prompt Prompt is relevant, limited, and easy to skip.
+UC75 Customer cart item becomes sold out Cart blocks checkout for that item and 
+suggests alternative/removal.
+UC76 PayNow webhook is delayed Customer sees processing state; payment 
+button is protected from duplicate attempts.
+UC77 Customer requests staff help Customer receives acknowledgement; 
+POS/table alert shows staff call.
+UC78 Cashier edits unpaid order Order panel updates totals instantly and shows 
+audit if needed.
+UC79 Cashier attempts to edit paid QR order UI shows locked state and offers refund/add-
+on/reprint instead.
+UC80 Manager voids an item Reason and PIN modal appears; cancellation 
+ticket can print.
+UC81 Kitchen receives new order Ticket appears with sound/visual alert and 
+station routing.
+UC82 Kitchen completes wrong ticket Recall action allows recovery from completed 
+list.
+UC83 Printer fails POS/admin shows failure with retry, backup 
+printer, and browser/PDF fallback.
+UC84 Admin launches outlet setup Guided checklist shows incomplete items and 
+test order requirement.
+UC85 Owner checks daily performance Dashboard shows sales, QR share, payment 
+exceptions, top items, low stock.
+UC86 Staff uses tablet during rush hour High-frequency actions remain large, visible, 
+and reachable without scrolling.
+UC87 Admin filters reports Date/outlet filters are persistent and visible; 
+table and charts update clearly.
+UC88 Customer needs larger text Large-font mode increases menu readability 
+without breaking layout.
+UC89 Manual PayNow needs verification Payment row and order card show pending 
+verification until staff confirms.
+UC90 Outlet internet drops briefly POS/KDS show offline banner and safe/offline-
+capable actions only.
+82. Visual Polish Notes for Next UI Iteration
+ Create three visual theme directions for review: Modern SaaS, Warm Restaurant, and Minimal High-Contrast Operations.
+ Produce high-fidelity Figma mockups for the six core surfaces: Customer QR, POS, KDS, Admin, Customer Display, Setup 
+Wizard.
+ Run a 5-person usability test with at least one non-technical cashier/waiter profile.
+ Test customer QR ordering under real restaurant lighting and noisy environment assumptions.
+ Prototype both light and KDS dark mode before final implementation.
+ Define final brand colours only after merchant white-label requirements are confirmed.
+83. V1.8 Final Senior Developer Handoff Polish
+Purpose: This final section locks the document as a development-ready handoff package. It does not add new product scope. It 
+confirms build priority, module definition of done, UI/UX handoff gates, QA coverage, deployment prerequisites and senior developer 
+execution controls.
+83.1 Final Handoff Status
+Area Status Senior Developer Instruction
+Product scope Locked Build the QR revenue loop first. Attendance, 
+kitchen receipt printing and reporting are 
+mandatory operational modules, but must not 
+weaken payment/KDS reliability.
+
+--- PAGE 61 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+Tech stack Locked Use the approved web-first stack, DB migrations, 
+queue jobs, OpenAPI contracts and feature flags. 
+Do not introduce new frameworks without ADR 
+approval.
+UI/UX Implementation-ready Use the UI/UX addendum as the frontend 
+behaviour contract. Final high-fidelity styling can 
+evolve, but required states and interaction rules 
+are mandatory.
+Deployment Pilot-ready Proceed only after staging, Stripe test, printer 
+tests, attendance camera test, seed data and QA 
+matrix pass.
+83.2 Non-Negotiable Build Contract
+ Every order must be server-priced, payment-locked and idempotent before kitchen release, unless a clearly configured pay-later mode is 
+enabled.
+ Every paid or confirmed order must create kitchen tickets and print jobs according to station routing rules.
+ Every sensitive staff action must create an audit log: refunds, voids, price changes, manual PayNow verification, attendance 
+adjustments, printer reprints and admin permission changes.
+ Employee clock-in/clock-out must use server-side timestamps. iPad camera photo evidence is required where the outlet enables photo 
+attendance.
+ All frontend screens must implement loading, empty, error, offline and permission-denied states before pilot launch.
+ No developer should hardcode merchant-specific values, prices, GST/service-charge rules, printers, tables or outlet settings into 
+frontend code.
+ All features that are not MVP-critical must be behind feature flags so the core QR ordering flow can launch safely.
+83.3 Module Definition of Done Matrix
+Module Developer Output Required QA / Acceptance Gate Launch Priority
+Customer QR Ordering Mobile web flow, menu, modifiers, cart, 
+payment states, order confirmation, digital 
+receipt, add-on order path.
+Customer can complete QR order and 
+payment on real phone without staff help; 
+delayed/failed payment states are clear.
+MVP P0
+POS Staff App Tablet POS, table/counter order, bill edits, 
+split/merge/transfer, void/refund, manual 
+payment, receipt print.
+Staff can create and manage orders within 
+agreed tap count; manager PIN/audit 
+reason works.
+MVP P0
+Payments Stripe card, Stripe PayNow, webhook 
+processor, idempotency keys, manual 
+PayNow verification, refund handling.
+Duplicate webhook and refresh scenarios 
+do not create duplicate orders or 
+payments.
+MVP P0
+KDS + Kitchen Printing Station routing, ticket templates, print 
+queue, retry, backup printer, 
+cancellation/reprint ticket.
+QR/POS/waiter orders all print correct 
+kitchen tickets and appear on KDS within 
+SLA.
+MVP P0
+Admin + Menu Outlet setup, categories, items, images, 
+modifiers, pricing, sold-out, tables, QR 
+generation, publishing.
+Admin can create a demo outlet, publish 
+menu and generate table QRs without 
+developer help.
+MVP P0
+Reporting + Closing Daily sales, payment breakdown, 
+GST/service charge, QR vs cashier, 
+void/refund, closing report.
+End-of-day report reconciles against 
+Stripe/manual/cash test data.
+MVP P0
+Inventory Lite Inventory items, stock in/out, wastage, 
+low-stock alert, optional BOM deduction 
+behind flag.
+Stock movement ledger remains auditable 
+and does not block QR order flow.
+MVP P1
+Attendance Employee clock-in/out, iPad photo 
+capture, hours calculation, manager 
+review, export.
+Clock-in/out records include employee, 
+outlet, device, timestamp, photo and 
+calculated hours.
+Ops P1
+UI/UX System Design tokens, responsive layouts, 
+reusable components, accessibility/touch 
+target compliance, state handling.
+Customer, POS, KDS and Admin core 
+flows pass visual QA and usability review.
+MVP P0
+83.4 Final Use Case Coverage Gate
+The use cases in this specification are now treated as the traceability map for development tickets and QA tests. Every sprint ticket 
+should link to one or more use case IDs and one or more acceptance criteria.
+Use Case Range Coverage Area Must Produce Gate
+UC01-UC55 Core POS, QR ordering, payments, KDS, 
+printing, inventory and reporting.
+API, frontend, DB migration and QA tests 
+for MVP core flow.
+MVP required
+UC56-UC70 Product polish: guest experience, upsell, 
+customer display, tickets, queue, CRM-
+ready data.
+Feature flags and data/API readiness 
+without overbuilding V2.
+MVP/V1.1 split
+UC71-UC85 UI/UX behaviour, empty states, 
+permission states, responsive screens, 
+KDS readability.
+Figma/implementation checklist plus 
+frontend QA coverage.
+MVP required
+UC86-UC93 Attendance and kitchen receipt printing 
+operational addendum.
+Attendance records with photo proof and 
+mandatory kitchen print job logic.
+Ops required
+Negative cases Duplicate payment, failed printer, sold-out 
+item during checkout, manual PayNow 
+fraud, camera permission denied.
+Automated or manual regression tests 
+before pilot.
+MVP required
+Pilot scenarios Real iPad, phone QR, KDS tablet, receipt 
+printer, kitchen printer and Stripe test 
+account.
+Pilot runbook and signoff checklist. Go-live required
+Post-launch Bug triage, metrics, support, backups, Support runbook and rollback plan. Launch required
+
+--- PAGE 62 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+restore test and operational handover.
+83.5 UI/UX Final Build Gate
+ Customer QR: table/location confidence must be visible before menu browsing; checkout must show total, GST/service charge and 
+payment method clearly.
+ POS tablet: product grid, table status, order panel, payment action and manager actions must remain usable under restaurant rush 
+conditions.
+ KDS: tickets must be readable at kitchen viewing distance, with large touch targets, strong status colours, item modifiers and 
+cancellation states.
+ Admin: menu, table, printer, user, report and attendance screens must prioritise operational clarity over visual complexity.
+ Attendance: clock-in/out screen must show employee identity, outlet, current server time, camera capture status and confirmation result.
+ Kitchen printing: failed, retrying, printed, reprinted and backup-routed print jobs must be visually obvious to staff.
+ All screens must include responsive behaviour for mobile customer, tablet POS/KDS and desktop admin surfaces.
+83.6 Deployment Prerequisite Checklist
+Checklist Item Required Proof Before Handoff Owner
+Repository scaffold Apps/packages created; lint, format, typecheck and test 
+commands work.
+Tech Lead
+Database migrations Initial schema migration, seed data and rollback process 
+exist.
+Backend Lead
+OpenAPI contract Customer, POS, Admin, KDS, printer, payment and 
+attendance APIs documented.
+Backend Lead
+Environment setup Dev/staging/prod env files documented; secrets stored 
+outside repo.
+DevOps
+Stripe test setup Card and PayNow test flows verified with webhook 
+signature validation.
+Payment Owner
+Printer hardware test Receipt printer and kitchen printer tested with normal, 
+reprint, cancel and backup routes.
+Printer Owner
+iPad attendance test Camera permission, photo upload, clock-in/out and hours 
+calculation tested on real iPad.
+Ops Owner
+Figma handoff Core screens, components, design tokens and interaction 
+states available to frontend.
+Designer
+QA test pack Test cases created for core flow, edge cases, UI/UX 
+states and attendance/printing.
+QA Lead
+Pilot data Demo outlet, menu, tables, users, printers and payment 
+methods seeded.
+Implementation
+Runbook Deploy, rollback, support, backup/restore and incident 
+escalation documented.
+Delivery Lead
+83.7 Sprint Execution Lock
+Sprint Locked Output Do Not Exit Until
+0 Repo, CI/CD, auth shell, tenant/outlet baseline, DB 
+migrations, seed data.
+Staging app boots and demo tenant can log in.
+1 Menu, categories, modifiers, table/QR setup, admin shell. Admin can publish demo menu and generate table QR.
+2 Customer QR menu, cart, modifiers, order creation, UI 
+states.
+Customer can submit pending-payment order from 
+phone.
+3 Stripe card, Stripe PayNow, webhook, payment state 
+machine, refund basics.
+Paid QR order is created exactly once and released 
+correctly.
+4 POS order dashboard, staff POS, table management, 
+KDS station routing.
+Paid orders appear on POS/KDS in real time.
+5 Kitchen/receipt printing, print queue, retry, backup route, 
+closing reports.
+Kitchen ticket prints for QR/POS/waiter orders on real 
+printer.
+6 Inventory lite, attendance, UI polish, QA hardening, pilot 
+runbook.
+Pilot outlet passes go/no-go checklist.
+83.8 Final Senior Developer Instruction
+This document is now the build contract. The senior developer manager should create epics and tickets directly from the modules, 
+use cases, API groups, data model, UI/UX acceptance criteria, sprint roadmap and deployment checklist. Do not expand product 
+scope until the QR revenue loop, payment integrity, kitchen printing, POS/KDS operations, daily reporting and attendance capture are 
+working in staging on real devices.
+Final implementation priority: protect the core restaurant flow first - scan QR, order, pay, send to kitchen, print, serve, reconcile and 
+report. Everything else must support that loop or remain feature-flagged.
+
+--- PAGE 63 ---
+Restaurant QR Ordering POS System - V1.8 Final Senior Developer Handoff Ready
+Confidential - Product, Engineering, Design, Deployment and Operations Handoff
+84. Final Deployment Sign-Off Page
+This closing page supersedes all previous addendum endings. The V1.8 package is intended to be handed to the senior developer 
+manager as the execution contract for building, testing, piloting and deploying the restaurant QR POS system. The UI/UX notes 
+immediately above remain valid implementation guidance; this page is the final go-forward control gate.
+84.1 Final Readiness Statement
+Ready for development handoff when the senior developer manager accepts the scope lock, creates epics/tickets, confirms the 
+architecture decisions, assigns owners, and begins Sprint 0 setup. Ready for deployment only after the pilot go/no-go gate passes on 
+real devices, Stripe test flows, printer hardware and iPad attendance capture.
+84.2 Senior Developer Manager Sign-Off Checklist
+Gate Required Before Work Starts Sign-Off Owner
+Scope accepted MVP, V1.1 and V2 boundaries understood; non-core 
+modules feature-flagged.
+Senior Dev Manager
+Architecture accepted Next.js/NestJS/PostgreSQL/Redis/Stripe/printer 
+bridge/monitoring stack confirmed through ADRs.
+Tech Lead
+Use cases mapped UC01-UC93 mapped into epics, QA cases and 
+acceptance criteria.
+Product + QA Lead
+UI/UX handoff accepted Figma/design tokens/core state screens assigned to 
+frontend lead before pixel-level build.
+Design Lead
+Hardware confirmed iPad POS, customer phone, KDS tablet, receipt printer, 
+kitchen printer and network setup available for testing.
+Implementation Lead
+Payment setup confirmed Stripe test account, PayNow test flow and webhook 
+endpoint ready in staging.
+Payment Owner
+Operations confirmed Attendance clock-in/out with photo proof and mandatory 
+kitchen order receipt printing included in backlog.
+Ops Owner
+QA plan accepted Core flow, edge cases, UI/UX states, payment, printing, 
+attendance and pilot tests created.
+QA Lead
+Deployment plan accepted Staging, production, backups, rollback, logs, monitoring 
+and support runbook confirmed.
+Delivery Lead
+84.3 Final Instruction to Senior Developer
+Begin execution from Sprint 0. Do not re-open feature discovery unless it blocks the locked QR revenue loop. Build the system to 
+prove the full live flow first: create outlet and menu, generate table QR, customer orders and pays, webhook confirms, POS/KDS 
+updates, kitchen receipt prints, staff serves, closing report reconciles, and employee attendance is captured through iPad clock-in/out.
+This is the final handoff baseline. Future changes should be tracked as change requests, backlog tickets or versioned 
+addenda, not ad-hoc developer instructions.

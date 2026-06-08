@@ -4,7 +4,12 @@ import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../common/types/authenticated-user';
-import { RotateTableQrDto, SetupDiningTablesDto } from './dto/table-setup.dto';
+import {
+  RotateTableQrDto,
+  SetupDiningTablesDto,
+  UpdateDiningTableStatusDto,
+} from './dto/table-setup.dto';
+import { ResolveServiceRequestDto as ResolveTableServiceRequestDto } from './dto/service-request.dto';
 import { TablesService } from './tables.service';
 
 @ApiTags('Dining tables')
@@ -49,6 +54,49 @@ export class TablesController {
       outletId,
       tableId,
       dto.reason,
+      request.id,
+      ipAddress,
+    );
+  }
+
+  @Post(':tableId/status')
+  @Permissions('table.manage')
+  updateStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Param('tableId') tableId: string,
+    @Body() dto: UpdateDiningTableStatusDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.tables.updateStatus(
+      user,
+      outletId,
+      tableId,
+      dto.status,
+      dto.reason,
+      request.id,
+      ipAddress,
+    );
+  }
+
+  @Post(':tableId/service-requests/:requestId/resolve')
+  @Permissions('order.manage')
+  resolveServiceRequest(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Param('tableId') tableId: string,
+    @Param('requestId') requestId: string,
+    @Body() dto: ResolveTableServiceRequestDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.tables.resolveServiceRequest(
+      user,
+      outletId,
+      tableId,
+      requestId,
+      dto.note,
       request.id,
       ipAddress,
     );

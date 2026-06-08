@@ -7,6 +7,12 @@ export class CancelOrderDto {
   reason!: string;
 }
 
+export class PrintPrePaymentBillDto {
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
+}
+
 export class VerifyManualPayNowDto {
   @IsInt()
   @Min(1)

@@ -1,5 +1,10 @@
 import type {
+  AttendanceSessionEntry,
+  AttendanceSessionListResponse,
+  AttendanceSettingsResponse,
   CompanyProfile,
+  InventoryListResponse,
+  InventoryMovementsResponse,
   LoginResponse,
   MenuDetail,
   MenuListEntry,
@@ -322,6 +327,151 @@ export function rotateTableQr(
   );
 }
 
+export function getInventory(token: string, outletId: string) {
+  return request<InventoryListResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/inventory`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function getInventoryMovements(
+  token: string,
+  outletId: string,
+  input?: {
+    limit?: number;
+  },
+) {
+  const params = new URLSearchParams();
+  if (input?.limit) {
+    params.set('limit', String(input.limit));
+  }
+  const query = params.size ? `?${params.toString()}` : '';
+  return request<InventoryMovementsResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/inventory/movements${query}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function createInventoryItem(
+  token: string,
+  outletId: string,
+  input: {
+    sku?: string;
+    name: string;
+    category?: string;
+    baseUnit: string;
+    purchaseUnit?: string;
+    conversionRate?: number;
+    reorderPoint?: number;
+    lowStockAlertEnabled?: boolean;
+    active?: boolean;
+  },
+) {
+  return request(
+    `/admin/outlets/${encodeURIComponent(outletId)}/inventory/items`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function updateInventoryItem(
+  token: string,
+  outletId: string,
+  itemId: string,
+  input: {
+    sku?: string;
+    name?: string;
+    category?: string;
+    baseUnit?: string;
+    purchaseUnit?: string;
+    conversionRate?: number;
+    reorderPoint?: number;
+    lowStockAlertEnabled?: boolean;
+    active?: boolean;
+    reason: string;
+  },
+) {
+  return request(
+    `/admin/outlets/${encodeURIComponent(outletId)}/inventory/items/${encodeURIComponent(itemId)}`,
+    {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function recordInventoryMovement(
+  token: string,
+  outletId: string,
+  path: 'stock-in' | 'wastage' | 'adjustment',
+  input: {
+    inventoryItemId: string;
+    quantity: number;
+    reason?: string;
+  },
+) {
+  return request(
+    `/admin/outlets/${encodeURIComponent(outletId)}/inventory/movements/${path}`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function recordInventoryStockCount(
+  token: string,
+  outletId: string,
+  input: {
+    inventoryItemId: string;
+    actualQuantity: number;
+    reason: string;
+  },
+) {
+  return request(
+    `/admin/outlets/${encodeURIComponent(outletId)}/inventory/movements/stock-count`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function upsertInventoryRecipe(
+  token: string,
+  outletId: string,
+  menuItemId: string,
+  input: {
+    active?: boolean;
+    saleDeductionEnabled?: boolean;
+    reason: string;
+    ingredients: Array<{
+      inventoryItemId: string;
+      quantity: number;
+      unit: string;
+    }>;
+  },
+) {
+  return request(
+    `/admin/outlets/${encodeURIComponent(outletId)}/inventory/recipes/${encodeURIComponent(menuItemId)}`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export function getPaymentSettings(token: string, outletId: string) {
   return request<PaymentSettingsResponse>(
     `/admin/outlets/${encodeURIComponent(outletId)}/payment-settings`,
@@ -592,6 +742,119 @@ export function getCompanyAuditLogs(
     `/admin/company/audit-logs${query ? `?${query}` : ''}`,
     {
       headers: authHeaders(token),
+    },
+  );
+}
+
+export function getAttendanceSettings(token: string, outletId: string) {
+  return request<AttendanceSettingsResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/settings`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function updateAttendanceSettings(
+  token: string,
+  outletId: string,
+  input: {
+    requirePhoto?: boolean;
+    allowManualClockIn?: boolean;
+    maxShiftHours?: number;
+    autoFlagLateClockOut?: boolean;
+    timezone?: string;
+    reason: string;
+  },
+) {
+  return request<AttendanceSettingsResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/settings`,
+    {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getAttendanceSessions(
+  token: string,
+  outletId: string,
+  input?: {
+    limit?: number;
+    status?: 'CLOCKED_IN' | 'CLOCKED_OUT';
+    approvalStatus?: 'PENDING' | 'APPROVED' | 'ADJUSTED' | 'FLAGGED';
+    userId?: string;
+    from?: string;
+    to?: string;
+  },
+) {
+  const params = new URLSearchParams();
+  if (input?.limit) {
+    params.set('limit', String(input.limit));
+  }
+  if (input?.status) {
+    params.set('status', input.status);
+  }
+  if (input?.approvalStatus) {
+    params.set('approvalStatus', input.approvalStatus);
+  }
+  if (input?.userId) {
+    params.set('userId', input.userId);
+  }
+  if (input?.from) {
+    params.set('from', input.from);
+  }
+  if (input?.to) {
+    params.set('to', input.to);
+  }
+  const query = params.toString();
+
+  return request<AttendanceSessionListResponse>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/sessions${query ? `?${query}` : ''}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function approveAttendanceSession(
+  token: string,
+  outletId: string,
+  sessionId: string,
+  input?: {
+    reason?: string;
+  },
+) {
+  return request<AttendanceSessionEntry>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/sessions/${encodeURIComponent(sessionId)}/approve`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({
+        ...(input?.reason?.trim() ? { reason: input.reason.trim() } : {}),
+      }),
+    },
+  );
+}
+
+export function adjustAttendanceSession(
+  token: string,
+  outletId: string,
+  sessionId: string,
+  input: {
+    clockInAt?: string;
+    clockOutAt?: string;
+    note?: string;
+    reason: string;
+  },
+) {
+  return request<AttendanceSessionEntry>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/sessions/${encodeURIComponent(sessionId)}/adjust`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
     },
   );
 }

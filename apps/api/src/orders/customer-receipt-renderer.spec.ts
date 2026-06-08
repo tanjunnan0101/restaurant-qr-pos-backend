@@ -10,6 +10,7 @@ describe('renderCustomerReceipt', () => {
       createdAt: new Date('2026-06-08T12:00:00.000Z'),
       currency: 'SGD',
       subtotalCents: 1000,
+      discountTotalCents: 50,
       serviceChargeTotalCents: 100,
       gstTotalCents: 99,
       roundingAdjustmentCents: 0,
@@ -29,6 +30,7 @@ describe('renderCustomerReceipt', () => {
     expect(output).toContain('CUSTOMER RECEIPT');
     expect(output).toContain('2 x Signature Noodles');
     expect(output).toContain('SUBTOTAL');
+    expect(output).toContain('DISCOUNT');
     expect(output).toContain('TOTAL');
     expect(output).toContain('PAID VIA ONLINE CHECKOUT');
   });

@@ -103,6 +103,36 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
           >
             Tables
           </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/menus`}
+          >
+            Menus
+          </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/inventory`}
+          >
+            Inventory
+          </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/staff`}
+          >
+            Staff
+          </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/attendance`}
+          >
+            Attendance
+          </Link>
+          <Link
+            className="secondary-button"
+            href={`/outlets/${outlet.id}/printing`}
+          >
+            Printing
+          </Link>
           <Link className="secondary-button" href={`/outlets/${outlet.id}/pos`}>
             POS
           </Link>

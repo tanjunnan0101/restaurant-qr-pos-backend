@@ -586,7 +586,12 @@ export class PaymentsService {
       qr?.active &&
       (!qr.expiresAt || qr.expiresAt.getTime() > Date.now()) &&
       verifyQrToken(token, qr.tokenHash);
-    if (!qr || !valid || !qr.table.active) {
+    if (
+      !qr ||
+      !valid ||
+      !qr.table.active ||
+      qr.table.status === 'OUT_OF_SERVICE'
+    ) {
       throw new NotFoundException('QR code not found.');
     }
     return qr;

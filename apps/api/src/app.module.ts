@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { z } from 'zod';
 import { AuditModule } from './audit/audit.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
@@ -15,6 +16,7 @@ import { ErrorTrackingService } from './common/observability/error-tracking.serv
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { MenusModule } from './menus/menus.module';
 import { OrdersModule } from './orders/orders.module';
 import { OutletsModule } from './outlets/outlets.module';
@@ -99,6 +101,8 @@ const environmentSchema = z.object({
     TenantModule,
     AuthModule,
     AuditModule,
+    AttendanceModule,
+    InventoryModule,
     CompaniesModule,
     OutletsModule,
     PaymentSettingsModule,

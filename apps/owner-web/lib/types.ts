@@ -58,6 +58,7 @@ export interface OutletSummary {
 }
 
 export type OwnerOrderStatus =
+  | 'DRAFT'
   | 'PENDING_PAYMENT'
   | 'PAYMENT_PROCESSING'
   | 'PAID'
@@ -385,6 +386,77 @@ export interface RotateQrResponse {
   note: string;
 }
 
+export interface InventoryItemSummary {
+  id: string;
+  sku: string | null;
+  name: string;
+  category: string | null;
+  baseUnit: string;
+  purchaseUnit: string | null;
+  conversionRate: number;
+  reorderPoint: number;
+  lowStockAlertEnabled: boolean;
+  active: boolean;
+  stockOnHand: number;
+  lowStock: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InventoryRecipeSummary {
+  id: string;
+  menuItemId: string;
+  menuItemName: string;
+  menuItemSku: string | null;
+  active: boolean;
+  saleDeductionEnabled: boolean;
+  ingredients: Array<{
+    inventoryItemId: string;
+    inventoryItemName: string;
+    inventoryItemSku: string | null;
+    quantity: number;
+    unit: string;
+  }>;
+}
+
+export interface InventoryListResponse {
+  items: InventoryItemSummary[];
+  recipes: InventoryRecipeSummary[];
+  recipeMenuItemIds: string[];
+}
+
+export interface InventoryMovementEntry {
+  id: string;
+  movementType:
+    | 'PURCHASE'
+    | 'SALE_DEDUCTION'
+    | 'WASTAGE'
+    | 'ADJUSTMENT'
+    | 'STOCK_COUNT'
+    | 'OPENING_BALANCE';
+  quantityDelta: number;
+  unit: string;
+  referenceType: string | null;
+  referenceId: string | null;
+  reason: string | null;
+  createdAt: string;
+  inventoryItem: {
+    id: string;
+    name: string;
+    sku: string | null;
+    baseUnit: string;
+  };
+  createdBy: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+}
+
+export interface InventoryMovementsResponse {
+  movements: InventoryMovementEntry[];
+}
+
 export interface PaymentSettingsResponse {
   online: {
     configuredEnabled: boolean;
@@ -624,4 +696,71 @@ export interface OutletDashboardData {
     checkoutReady: boolean;
     printingReady: boolean;
   };
+}
+
+export interface AttendanceSettingsResponse {
+  id: string;
+  requirePhoto: boolean;
+  allowManualClockIn: boolean;
+  maxShiftHours: number;
+  autoFlagLateClockOut: boolean;
+  timezone: string;
+  version: number;
+  updatedAt: string;
+}
+
+export interface AttendanceSessionPhoto {
+  id: string;
+  type: 'CLOCK_IN' | 'CLOCK_OUT';
+  photoUrl: string;
+  capturedAt: string;
+  createdAt: string;
+}
+
+export interface AttendanceAdjustmentSummary {
+  id: string;
+  reason: string;
+  beforeJson: unknown;
+  afterJson: unknown;
+  createdAt: string;
+  adjustedBy: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+}
+
+export interface AttendanceSessionEntry {
+  id: string;
+  status: 'CLOCKED_IN' | 'CLOCKED_OUT';
+  approvalStatus: 'PENDING' | 'APPROVED' | 'ADJUSTED' | 'FLAGGED';
+  clockInAt: string;
+  clockOutAt: string | null;
+  workedMinutes: number | null;
+  clockInDeviceLabel: string | null;
+  clockOutDeviceLabel: string | null;
+  clockInIpAddress: string | null;
+  clockOutIpAddress: string | null;
+  clockInNote: string | null;
+  clockOutNote: string | null;
+  reviewReason: string | null;
+  approvedAt: string | null;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  approvedBy: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+  photos: AttendanceSessionPhoto[];
+  adjustments: AttendanceAdjustmentSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceSessionListResponse {
+  sessions: AttendanceSessionEntry[];
 }

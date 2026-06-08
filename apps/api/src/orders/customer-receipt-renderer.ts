@@ -27,11 +27,13 @@ export function renderCustomerReceipt(input: {
   createdAt: Date;
   currency: string;
   subtotalCents: number;
+  discountTotalCents: number;
   serviceChargeTotalCents: number;
   gstTotalCents: number;
   roundingAdjustmentCents: number;
   grandTotalCents: number;
   items: ReceiptItem[];
+  footerLabel?: string;
 }): string {
   const lines = [
     input.outletName.toUpperCase(),
@@ -63,6 +65,11 @@ export function renderCustomerReceipt(input: {
 
   lines.push('--------------------------------');
   lines.push(`SUBTOTAL ${formatMoney(input.subtotalCents, input.currency)}`);
+  if (input.discountTotalCents > 0) {
+    lines.push(
+      `DISCOUNT -${formatMoney(input.discountTotalCents, input.currency)}`,
+    );
+  }
   if (input.serviceChargeTotalCents > 0) {
     lines.push(
       `SERVICE CHARGE ${formatMoney(
@@ -82,8 +89,17 @@ export function renderCustomerReceipt(input: {
   lines.push(`TOTAL ${formatMoney(input.grandTotalCents, input.currency)}`);
   lines.push(
     '================================',
-    'PAID VIA ONLINE CHECKOUT',
+    input.footerLabel ?? 'PAID VIA ONLINE CHECKOUT',
     '',
   );
   return lines.join('\n');
+}
+
+export function renderPrePaymentBill(
+  input: Parameters<typeof renderCustomerReceipt>[0],
+): string {
+  return renderCustomerReceipt({
+    ...input,
+    footerLabel: 'UNPAID - PRE-PAYMENT BILL',
+  });
 }

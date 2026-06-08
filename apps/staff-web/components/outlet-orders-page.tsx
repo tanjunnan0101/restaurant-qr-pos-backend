@@ -1,7 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import {
+  FormEvent,
+  MouseEvent,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from 'react';
 import {
   cancelOrder,
   createAdminCheckout,
@@ -26,6 +34,7 @@ import {
 
 const statusFilters: Array<StaffOrderStatus | 'ALL'> = [
   'ALL',
+  'DRAFT',
   'PENDING_PAYMENT',
   'PAYMENT_PROCESSING',
   'PAID',
@@ -45,15 +54,20 @@ export function OutletOrdersPage() {
     error: outletError,
     busy: outletBusy,
   } = useOutletContext();
+  const searchParams = useSearchParams();
+  const requestedOrderId = searchParams.get('orderId');
+  const requestedTableId = searchParams.get('tableId');
   const [orders, setOrders] = useState<OrderListEntry[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
   const [filter, setFilter] = useState<StaffOrderStatus | 'ALL'>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
   const [busy, setBusy] = useState(true);
   const [detailBusy, setDetailBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState('Progressing service workflow.');
   const [actionBusy, setActionBusy] = useState(false);
+  const [quickActionOrderId, setQuickActionOrderId] = useState<string | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [manualBusy, setManualBusy] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
@@ -91,13 +105,20 @@ export function OutletOrdersPage() {
       setBusy(true);
       setError(null);
       try {
-        const result = await getOrders(authToken, outletId, filter);
+        const result = await getOrders(
+          authToken,
+          outletId,
+          filter,
+          requestedTableId ?? undefined,
+        );
         if (!cancelled) {
           setOrders(result);
           setSelectedOrderId((current) =>
-            current && result.some((order) => order.id === current)
-              ? current
-              : (result[0]?.id ?? null),
+            requestedOrderId && result.some((order) => order.id === requestedOrderId)
+              ? requestedOrderId
+              : current && result.some((order) => order.id === current)
+                ? current
+                : (result[0]?.id ?? null),
           );
         }
       } catch (loadError) {
@@ -119,7 +140,7 @@ export function OutletOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, outletId, refreshTick, session]);
+  }, [filter, outletId, refreshTick, requestedOrderId, session]);
 
   useEffect(() => {
     if (!session?.accessToken || !selectedOrderId || !outletId) {
@@ -222,6 +243,40 @@ export function OutletOrdersPage() {
     };
   }, [outletId, queueRefresh, session]);
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const tableFocusedOrders = requestedTableId ? orders : orders;
+  const filteredOrders = orders.filter((order) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    const haystack = [
+      order.orderNumber,
+      order.customerName,
+      order.customerPhone,
+      order.table?.displayName,
+      order.table?.tableCode,
+      order.paymentStatus,
+      order.status,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedSearch);
+  });
+  const focusedTable = tableFocusedOrders[0]?.table ?? null;
+
+  useEffect(() => {
+    setSelectedOrderId((current) =>
+      requestedOrderId && filteredOrders.some((order) => order.id === requestedOrderId)
+        ? requestedOrderId
+        : current && filteredOrders.some((order) => order.id === current)
+          ? current
+          : (filteredOrders[0]?.id ?? null),
+    );
+  }, [filteredOrders, requestedOrderId]);
+
   const nextAction = selectedOrder
     ? nextStatusAction(selectedOrder.status)
     : null;
@@ -237,11 +292,13 @@ export function OutletOrdersPage() {
     selectedOrder?.status === 'PENDING_PAYMENT';
   const supportsAmendment =
     !!selectedOrder &&
-    selectedOrder.status === 'PENDING_PAYMENT' &&
+    (selectedOrder.status === 'PENDING_PAYMENT' ||
+      selectedOrder.status === 'DRAFT') &&
     (selectedOrder.source === 'POS' || selectedOrder.source === 'WAITER');
   const supportsCancellation =
     !!selectedOrder &&
-    (selectedOrder.status === 'PENDING_PAYMENT' ||
+    (selectedOrder.status === 'DRAFT' ||
+      selectedOrder.status === 'PENDING_PAYMENT' ||
       selectedOrder.status === 'PAYMENT_PROCESSING');
 
   useEffect(() => {
@@ -250,6 +307,67 @@ export function OutletOrdersPage() {
     setManualReason('Staff confirmed payment in the outlet.');
     setCancelReason('Staff voided this order before kitchen release.');
   }, [selectedOrderId]);
+
+  async function handleQuickAdvance(
+    event: MouseEvent<HTMLButtonElement>,
+    order: OrderListEntry,
+  ) {
+    event.stopPropagation();
+    const nextAction = nextStatusAction(order.status);
+    if (!session?.accessToken || !outletId || !nextAction) {
+      return;
+    }
+
+    setQuickActionOrderId(order.id);
+    setError(null);
+
+    try {
+      const updated = await updateOrderStatus(
+        session.accessToken,
+        outletId,
+        order.id,
+        {
+          status: nextAction.status,
+          reason: defaultReasonForStatus(order.status),
+        },
+      );
+
+      setOrders((current) =>
+        current.map((entry) =>
+          entry.id === updated.id
+            ? {
+                ...entry,
+                status: updated.status,
+                paymentStatus: updated.paymentStatus,
+                updatedAt: updated.updatedAt,
+                kitchenTickets: updated.kitchenTickets.map((ticket) => ({
+                  id: ticket.id,
+                  status: ticket.status,
+                  stationId: ticket.stationId,
+                })),
+                payments: updated.payments.map((payment) => ({
+                  method: payment.method,
+                  status: payment.status,
+                })),
+              }
+            : entry,
+        ),
+      );
+
+      if (selectedOrderId === updated.id) {
+        setSelectedOrder(updated);
+        setReason(defaultReasonForStatus(updated.status));
+      }
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : 'Status update failed.',
+      );
+    } finally {
+      setQuickActionOrderId(null);
+    }
+  }
 
   async function submitNextStatus(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -320,8 +438,8 @@ export function OutletOrdersPage() {
         createIdempotencyKey(),
         {
           paymentMethod: 'ONLINE_CARD',
-          successUrl: `${window.location.origin}/outlets/${outletId}/orders`,
-          cancelUrl: `${window.location.origin}/outlets/${outletId}/orders`,
+          successUrl: resolvePublicPaymentStatusUrl('success'),
+          cancelUrl: resolvePublicPaymentStatusUrl('cancelled'),
         },
       );
       setCheckoutResult(checkout);
@@ -476,24 +594,50 @@ export function OutletOrdersPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Queue filter</p>
-              <h2 className="section-title serif">Current order board</h2>
+            <h2 className="section-title serif">Current order board</h2>
+            <p className="supporting-copy">
+              Live sync: {formatRealtimeStatus(realtimeStatus)}
+            </p>
+            {focusedTable ? (
               <p className="supporting-copy">
-                Live sync: {formatRealtimeStatus(realtimeStatus)}
+                Focused on {focusedTable.displayName} ({focusedTable.tableCode}).
               </p>
+            ) : null}
+          </div>
+          {requestedTableId ? (
+            <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
+              Clear table focus
+            </Link>
+          ) : null}
+        </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="orders-search">Find an order</label>
+              <input
+                id="orders-search"
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by order, guest, table, phone, or status"
+                value={searchTerm}
+              />
             </div>
-            <select
-              className="filter-select"
-              onChange={(event) =>
-                setFilter(event.target.value as StaffOrderStatus | 'ALL')
-              }
-              value={filter}
-            >
-              {statusFilters.map((item) => (
-                <option key={item} value={item}>
-                  {item === 'ALL' ? 'All statuses' : formatEnum(item)}
-                </option>
-              ))}
-            </select>
+            <div className="field">
+              <label htmlFor="orders-status-filter">Status filter</label>
+              <select
+                className="filter-select"
+                id="orders-status-filter"
+                onChange={(event) =>
+                  setFilter(event.target.value as StaffOrderStatus | 'ALL')
+                }
+                value={filter}
+              >
+                {statusFilters.map((item) => (
+                  <option key={item} value={item}>
+                    {item === 'ALL' ? 'All statuses' : formatEnum(item)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {busy ? (
@@ -506,9 +650,24 @@ export function OutletOrdersPage() {
                 the outlet queue.
               </p>
             </div>
+          ) : requestedTableId && tableFocusedOrders.length === 0 ? (
+            <div className="empty-state">
+              <h3>No live orders for this table</h3>
+              <p className="supporting-copy">
+                This table does not have matching tickets in the current outlet queue yet.
+              </p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="empty-state">
+              <h3>No matching orders</h3>
+              <p className="supporting-copy">
+                Clear the search or broaden the status filter to bring orders back
+                into view.
+              </p>
+            </div>
           ) : (
             <div className="order-list">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <button
                   className={
                     selectedOrderId === order.id
@@ -550,6 +709,20 @@ export function OutletOrdersPage() {
                       <strong>{order.kitchenTickets.length}</strong>
                     </div>
                   </div>
+                  <div className="inline-actions">
+                    {nextStatusAction(order.status) ? (
+                      <button
+                        className="secondary-button"
+                        disabled={quickActionOrderId === order.id}
+                        onClick={(event) => void handleQuickAdvance(event, order)}
+                        type="button"
+                      >
+                        {quickActionOrderId === order.id
+                          ? 'Updating...'
+                          : nextStatusAction(order.status)?.label}
+                      </button>
+                    ) : null}
+                  </div>
                 </button>
               ))}
             </div>
@@ -581,11 +754,19 @@ export function OutletOrdersPage() {
                     {new Date(selectedOrder.createdAt).toLocaleString()}
                   </p>
                 </div>
-                <span
-                  className={`status-pill ${statusTone(selectedOrder.status)}`}
-                >
-                  {formatEnum(selectedOrder.status)}
-                </span>
+                <div className="inline-actions">
+                  <Link
+                    className="secondary-button"
+                    href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
+                  >
+                    Open detail URL
+                  </Link>
+                  <span
+                    className={`status-pill ${statusTone(selectedOrder.status)}`}
+                  >
+                    {formatEnum(selectedOrder.status)}
+                  </span>
+                </div>
               </div>
 
               <div className="detail-grid">
@@ -973,6 +1154,16 @@ function createIdempotencyKey() {
     return crypto.randomUUID();
   }
   return `staff-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function resolvePublicPaymentStatusUrl(state: 'success' | 'cancelled') {
+  const configuredBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+  const normalizedBase = configuredBase.replace(/\/$/, '');
+  const apiBase = normalizedBase.endsWith('/api/v1')
+    ? normalizedBase
+    : `${normalizedBase}/api/v1`;
+  return `${apiBase}/public/payment-${state}`;
 }
 
 function formatRealtimeStatus(status: RealtimeStatus) {

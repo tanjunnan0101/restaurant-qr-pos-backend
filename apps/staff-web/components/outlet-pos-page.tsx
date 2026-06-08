@@ -13,13 +13,20 @@ import {
   getMenus,
   getPaymentSettings,
   getTables,
+  printPrePaymentBill,
 } from '@/lib/api';
+import {
+  buildPosCartLine,
+  calculatePosTotals,
+  itemNeedsCustomization,
+  type PosCartLine,
+  validateModifierSelections,
+} from '@/lib/pos-pricing';
 import type {
   CheckoutSessionResponse,
   CreateStaffOrderInput,
   MenuListEntry,
   OrderDetail,
-  OutletSummary,
   PaymentSettingsResponse,
   StaffMenuDetail,
   StaffPaymentMethod,
@@ -35,19 +42,7 @@ import {
 type MenuItem =
   StaffMenuDetail['versions'][number]['categories'][number]['items'][number];
 
-interface CartItem {
-  id: string;
-  menuItemId: string;
-  itemName: string;
-  variantId?: string;
-  variantName?: string;
-  quantity: number;
-  remarks?: string;
-  modifierOptionIds: string[];
-  modifierLabels: string[];
-  unitPriceCents: number;
-  lineTotalCents: number;
-}
+type CartItem = PosCartLine;
 
 interface DraftCustomization {
   item: MenuItem;
@@ -102,6 +97,7 @@ export function OutletPosPage() {
     busy: outletBusy,
   } = useOutletContext();
   const editOrderId = searchParams.get('orderId');
+  const requestedTableId = searchParams.get('tableId');
   const [menus, setMenus] = useState<MenuListEntry[]>([]);
   const [selectedMenuId, setSelectedMenuId] = useState<string>('');
   const [menuDetail, setMenuDetail] = useState<StaffMenuDetail | null>(null);
@@ -112,6 +108,11 @@ export function OutletPosPage() {
     useState<StaffPaymentMethod>('ONLINE_CARD');
   const [menuSearch, setMenuSearch] = useState('');
   const [cashTendered, setCashTendered] = useState('');
+  const [discountType, setDiscountType] = useState<'NONE' | 'PERCENT' | 'AMOUNT'>(
+    'NONE',
+  );
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
   const [tableId, setTableId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -124,6 +125,7 @@ export function OutletPosPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [paymentSettingsLoading, setPaymentSettingsLoading] = useState(false);
   const [paymentToggleBusy, setPaymentToggleBusy] = useState(false);
+  const [printingBill, setPrintingBill] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editOrder, setEditOrder] = useState<OrderDetail | null>(null);
@@ -134,6 +136,7 @@ export function OutletPosPage() {
   >(null);
   const [success, setSuccess] = useState<{
     amended: boolean;
+    savedAsDraft: boolean;
     paymentMethod: StaffPaymentMethod;
     order: {
       id: string;
@@ -295,11 +298,11 @@ export function OutletPosPage() {
       try {
         const order = await getOrder(authToken, outletId, targetEditOrderId);
         if (
-          order.status !== 'PENDING_PAYMENT' ||
+          (order.status !== 'PENDING_PAYMENT' && order.status !== 'DRAFT') ||
           (order.source !== 'POS' && order.source !== 'WAITER')
         ) {
           throw new Error(
-            'Only unpaid POS or waiter orders can be edited in the staff POS.',
+            'Only held or unpaid POS or waiter orders can be edited in the staff POS.',
           );
         }
         if (!cancelled) {
@@ -310,6 +313,14 @@ export function OutletPosPage() {
           setTableId(order.table?.id ?? '');
           setCustomerName(order.customerName ?? '');
           setCustomerPhone(order.customerPhone ?? '');
+          if (order.discountTotalCents > 0) {
+            setDiscountType('AMOUNT');
+            setDiscountValue(formatCurrencyInput(order.discountTotalCents));
+          } else {
+            setDiscountType('NONE');
+            setDiscountValue('');
+          }
+          setDiscountReason('');
           setCart(order.items.map(mapOrderItemToCartItem));
           setSuccess(null);
           setResolvedEditMenuForOrderId(null);
@@ -417,9 +428,43 @@ export function OutletPosPage() {
       ),
     [zones],
   );
+
+  useEffect(() => {
+    if (editOrderId || !requestedTableId) {
+      return;
+    }
+    if (!availableTables.some((table) => table.id === requestedTableId)) {
+      return;
+    }
+    setServiceType('DINE_IN');
+    setTableId((current) => current || requestedTableId);
+  }, [availableTables, editOrderId, requestedTableId]);
+
   const summary = useMemo(() => {
-    return estimateTotals(outlet, cart);
-  }, [cart, outlet]);
+    const parsedDiscount =
+      discountType === 'NONE'
+        ? undefined
+        : discountType === 'PERCENT'
+          ? (() => {
+              const value = Number(discountValue);
+              return Number.isFinite(value) && value > 0
+                ? { type: 'PERCENT' as const, value }
+                : undefined;
+            })()
+          : (() => {
+              const value = parseCurrencyInputToCents(discountValue);
+              return value !== null && value > 0
+                ? { type: 'AMOUNT' as const, value }
+                : undefined;
+            })();
+
+    return calculatePosTotals(cart, {
+      gstEnabled: outlet?.gstEnabled ?? false,
+      gstRateBps: outlet?.gstRateBps ?? 0,
+      serviceChargeEnabled: outlet?.serviceChargeEnabled ?? false,
+      serviceChargeBps: outlet?.serviceChargeBps ?? 0,
+    }, parsedDiscount);
+  }, [cart, discountType, discountValue, outlet]);
   const menuItemsById = useMemo(() => {
     const items = publishedVersion?.categories.flatMap((category) => category.items) ?? [];
     return new Map(items.map((item) => [item.id, item]));
@@ -511,7 +556,7 @@ export function OutletPosPage() {
     }
   }, [enabledPaymentMethodOptions, paymentMethod]);
 
-  async function submitOrder() {
+  async function submitOrder(mode: 'submit' | 'draft' = 'submit') {
     if (!session?.accessToken || !outlet) {
       return;
     }
@@ -527,13 +572,16 @@ export function OutletPosPage() {
       setError('Choose a table for dine-in orders.');
       return;
     }
-    if (!enabledPaymentMethodOptions.some((option) => option.value === paymentMethod)) {
+    if (
+      mode === 'submit' &&
+      !enabledPaymentMethodOptions.some((option) => option.value === paymentMethod)
+    ) {
       setError(
         'This payment method is currently turned off in the cashier POS.',
       );
       return;
     }
-    if (paymentMethod === 'CASH') {
+    if (mode === 'submit' && paymentMethod === 'CASH') {
       if (cashTenderedCents === null) {
         setError('Enter the cash received before completing this sale.');
         return;
@@ -548,14 +596,56 @@ export function OutletPosPage() {
     setError(null);
     setSuccess(null);
 
+    const discount =
+      discountType === 'NONE'
+        ? undefined
+        : discountType === 'PERCENT'
+          ? (() => {
+              const value = Number(discountValue);
+              if (!Number.isFinite(value) || value <= 0) {
+                return null;
+              }
+              return {
+                type: 'PERCENT' as const,
+                value,
+                ...(discountReason.trim()
+                  ? { reason: discountReason.trim() }
+                  : {}),
+              };
+            })()
+          : (() => {
+              const value = parseCurrencyInputToCents(discountValue);
+              if (value === null || value <= 0) {
+                return null;
+              }
+              return {
+                type: 'AMOUNT' as const,
+                value,
+                ...(discountReason.trim()
+                  ? { reason: discountReason.trim() }
+                  : {}),
+              };
+            })();
+    if (discountType !== 'NONE' && !discount) {
+      setSubmitting(false);
+      setError(
+        discountType === 'PERCENT'
+          ? 'Enter a valid percentage discount.'
+          : 'Enter a valid discount amount.',
+      );
+      return;
+    }
+
     const createInput: CreateStaffOrderInput = {
       menuId: selectedMenuId,
       source,
       serviceType,
-      paymentMethod,
+      ...(mode === 'submit' ? { paymentMethod } : {}),
       ...(serviceType === 'DINE_IN' && tableId ? { tableId } : {}),
       ...(customerName.trim() ? { customerName: customerName.trim() } : {}),
       ...(customerPhone.trim() ? { customerPhone: customerPhone.trim() } : {}),
+      ...(mode === 'draft' ? { saveAsDraft: true } : {}),
+      ...(discount ? { discount } : {}),
       items: cart.map((item) => ({
         menuItemId: item.menuItemId,
         ...(item.variantId ? { variantId: item.variantId } : {}),
@@ -581,7 +671,13 @@ export function OutletPosPage() {
           );
 
       let checkout: CheckoutSessionResponse | null = null;
-      if (paymentMethod === 'ONLINE_CARD' && typeof window !== 'undefined') {
+      if (
+        mode === 'submit' &&
+        paymentMethod === 'ONLINE_CARD' &&
+        typeof window !== 'undefined'
+      ) {
+        const publicSuccessUrl = resolvePublicPaymentStatusUrl('success');
+        const publicCancelUrl = resolvePublicPaymentStatusUrl('cancelled');
         checkout = await createAdminCheckout(
           session.accessToken,
           outletId,
@@ -589,14 +685,15 @@ export function OutletPosPage() {
           createIdempotencyKey(),
           {
             paymentMethod: 'ONLINE_CARD',
-            successUrl: `${window.location.origin}/outlets/${outletId}/orders`,
-            cancelUrl: `${window.location.origin}/outlets/${outletId}/orders`,
+            successUrl: publicSuccessUrl,
+            cancelUrl: publicCancelUrl,
           },
         );
       }
 
       setSuccess({
         amended: Boolean(editOrder),
+        savedAsDraft: mode === 'draft',
         paymentMethod,
         order: {
           id: order.id,
@@ -607,7 +704,9 @@ export function OutletPosPage() {
           currency: order.currency,
         },
         checkout,
-        ...(paymentMethod === 'CASH' && cashTenderedCents !== null
+        ...(mode === 'submit' &&
+        paymentMethod === 'CASH' &&
+        cashTenderedCents !== null
           ? {
               cashTenderedCents,
               changeDueCents: cashTenderedCents - summary.grandTotalCents,
@@ -618,6 +717,9 @@ export function OutletPosPage() {
       setCashTendered('');
       setCustomerName('');
       setCustomerPhone('');
+      setDiscountType('NONE');
+      setDiscountValue('');
+      setDiscountReason('');
       setEditOrder(null);
       setResolvedEditMenuForOrderId(null);
       if (serviceType !== 'DINE_IN') {
@@ -634,6 +736,46 @@ export function OutletPosPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handlePrintBill() {
+    if (!session?.accessToken || !editOrder) {
+      return;
+    }
+
+    setPrintingBill(true);
+    setError(null);
+    try {
+      await printPrePaymentBill(session.accessToken, outletId, editOrder.id, {
+        reason: 'Printed from the cashier POS before payment.',
+      });
+      setSuccess((current) =>
+        current
+          ? current
+          : {
+              amended: true,
+              savedAsDraft: editOrder.status === 'DRAFT',
+              paymentMethod,
+              order: {
+                id: editOrder.id,
+                orderNumber: editOrder.orderNumber,
+                status: editOrder.status,
+                paymentStatus: editOrder.paymentStatus,
+                grandTotalCents: editOrder.grandTotalCents,
+                currency: editOrder.currency,
+              },
+              checkout: null,
+            },
+      );
+    } catch (printError) {
+      setError(
+        printError instanceof Error
+          ? printError.message
+          : 'Failed to queue the pre-payment bill.',
+      );
+    } finally {
+      setPrintingBill(false);
     }
   }
 
@@ -689,6 +831,8 @@ export function OutletPosPage() {
         remarks: '',
         modifierOptionIds: [],
         modifierLabels: [],
+        taxable: item.taxable,
+        serviceChargeable: item.serviceChargeable,
         unitPriceCents: item.basePriceCents,
         lineTotalCents,
       },
@@ -714,12 +858,22 @@ export function OutletPosPage() {
     if (!customizing) {
       return;
     }
-    const validation = validateCustomization(customizing);
-    if (validation) {
-      setCustomizing({ ...customizing, error: validation });
+    const validation = validateModifierSelections(
+      customizing.item.itemModifierGroups,
+      customizing.modifierSelections,
+    );
+    if (validation.length > 0) {
+      setCustomizing({ ...customizing, error: validation[0]?.message ?? null });
       return;
     }
-    const priced = buildCartItem(customizing);
+    const priced = buildPosCartLine({
+      id: customizing.editingCartItemId ?? createLocalId(),
+      item: customizing.item,
+      variantId: customizing.variantId,
+      selectedOptionIdsByGroup: customizing.modifierSelections,
+      quantity: customizing.quantity,
+      remarks: customizing.remarks,
+    });
     setCart((current) =>
       customizing.editingCartItemId
         ? current.map((item) =>
@@ -816,7 +970,13 @@ export function OutletPosPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">
-                {success.amended ? 'Order amended' : 'Order created'}
+                {success.savedAsDraft
+                  ? success.amended
+                    ? 'Held draft updated'
+                    : 'Held draft saved'
+                  : success.amended
+                    ? 'Order amended'
+                    : 'Order created'}
               </p>
               <h2 className="section-title serif">
                 #{success.order.orderNumber}
@@ -830,7 +990,7 @@ export function OutletPosPage() {
                 )}
               </p>
             </div>
-            {success.checkout?.checkoutUrl ? (
+            {success.savedAsDraft ? null : success.checkout?.checkoutUrl ? (
               <button
                 className="primary-button"
                 onClick={() =>
@@ -846,7 +1006,12 @@ export function OutletPosPage() {
               </button>
             ) : null}
           </div>
-          {success.checkout?.checkoutUrl ? (
+          {success.savedAsDraft ? (
+            <p className="supporting-copy">
+              The ticket is being held in draft and can be reopened from the
+              orders board when the guest is ready.
+            </p>
+          ) : success.checkout?.checkoutUrl ? (
             <p className="supporting-copy">
               If the customer is paying by card or wallet, open the hosted
               checkout from here.
@@ -909,11 +1074,12 @@ export function OutletPosPage() {
             <div>
               <p className="eyebrow">Amendment mode</p>
               <h2 className="section-title serif">
-                Editing unpaid order #{editOrder.orderNumber}
+                Editing {editOrder.status === 'DRAFT' ? 'held draft' : 'unpaid order'} #{editOrder.orderNumber}
               </h2>
               <p className="supporting-copy">
-                Adjust the ticket, then save the updated order before payment
-                continues.
+                {editOrder.status === 'DRAFT'
+                  ? 'Adjust the held ticket, save it back as a draft, or continue it to payment.'
+                  : 'Adjust the ticket, then save the updated order before payment continues.'}
               </p>
             </div>
             <button
@@ -1019,9 +1185,7 @@ export function OutletPosPage() {
                       {category.items
                         .filter((item) => item.active)
                         .map((item) => {
-                          const hasCustomization =
-                            item.variants.some((variant) => variant.active) ||
-                            item.itemModifierGroups.length > 0;
+                          const hasCustomization = itemNeedsCustomization(item);
                           return (
                             <article className="product-card" key={item.id}>
                               <div className="section-header">
@@ -1153,6 +1317,59 @@ export function OutletPosPage() {
                 value={customerPhone}
               />
             </div>
+
+            <div className="field">
+              <label htmlFor="discountType">Order discount</label>
+              <select
+                id="discountType"
+                value={discountType}
+                onChange={(event) => {
+                  const nextType = event.target.value as
+                    | 'NONE'
+                    | 'PERCENT'
+                    | 'AMOUNT';
+                  setDiscountType(nextType);
+                  if (nextType === 'NONE') {
+                    setDiscountValue('');
+                    setDiscountReason('');
+                  }
+                }}
+              >
+                <option value="NONE">No discount</option>
+                <option value="PERCENT">Percentage</option>
+                <option value="AMOUNT">Fixed amount</option>
+              </select>
+            </div>
+
+            {discountType !== 'NONE' ? (
+              <>
+                <div className="field">
+                  <label htmlFor="discountValue">
+                    {discountType === 'PERCENT'
+                      ? 'Discount percent'
+                      : 'Discount amount'}
+                  </label>
+                  <input
+                    id="discountValue"
+                    inputMode={discountType === 'PERCENT' ? 'decimal' : 'decimal'}
+                    onChange={(event) => setDiscountValue(event.target.value)}
+                    placeholder={
+                      discountType === 'PERCENT' ? '10' : formatCurrencyInput(500)
+                    }
+                    value={discountValue}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="discountReason">Discount reason</label>
+                  <input
+                    id="discountReason"
+                    onChange={(event) => setDiscountReason(event.target.value)}
+                    placeholder="Loyalty perk, service recovery, staff meal"
+                    value={discountReason}
+                  />
+                </div>
+              </>
+            ) : null}
 
             <div className="field">
               <label>Payment method</label>
@@ -1366,6 +1583,18 @@ export function OutletPosPage() {
                   )}
                 </strong>
               </div>
+              {summary.discountTotalCents > 0 ? (
+                <div className="stack-row">
+                  <span>Discount</span>
+                  <strong>
+                    -
+                    {formatMoney(
+                      outlet?.currency ?? 'SGD',
+                      summary.discountTotalCents,
+                    )}
+                  </strong>
+                </div>
+              ) : null}
               <div className="stack-row">
                 <span>Service charge</span>
                 <strong>
@@ -1402,7 +1631,7 @@ export function OutletPosPage() {
           <button
             className="primary-button full-width"
             disabled={submitDisabled}
-            onClick={() => void submitOrder()}
+            onClick={() => void submitOrder('submit')}
             type="button"
           >
             {submitting
@@ -1413,6 +1642,30 @@ export function OutletPosPage() {
                 ? 'Save order changes'
                 : 'Create staff order'}
           </button>
+          <button
+            className="secondary-button full-width"
+            disabled={submitting || cart.length === 0}
+            onClick={() => void submitOrder('draft')}
+            type="button"
+          >
+            {submitting
+              ? editOrder
+                ? 'Saving draft...'
+                : 'Holding draft...'
+              : editOrder?.status === 'DRAFT'
+                ? 'Update held draft'
+                : 'Hold as draft'}
+          </button>
+          {editOrder ? (
+            <button
+              className="ghost-button full-width"
+              disabled={printingBill}
+              onClick={() => void handlePrintBill()}
+              type="button"
+            >
+              {printingBill ? 'Queueing bill...' : 'Print pre-payment bill'}
+            </button>
+          ) : null}
         </aside>
       </section>
 
@@ -1616,73 +1869,6 @@ export function OutletPosPage() {
   );
 }
 
-function estimateTotals(outlet: OutletSummary | null, cart: CartItem[]) {
-  const subtotalCents = cart.reduce(
-    (sum, item) => sum + item.lineTotalCents,
-    0,
-  );
-  const serviceChargeTotalCents =
-    outlet?.serviceChargeEnabled && outlet.serviceChargeBps
-      ? Math.round((subtotalCents * outlet.serviceChargeBps) / 10000)
-      : 0;
-  const taxableBase = subtotalCents + serviceChargeTotalCents;
-  const gstTotalCents =
-    outlet?.gstEnabled && outlet.gstRateBps
-      ? Math.round((taxableBase * outlet.gstRateBps) / 10000)
-      : 0;
-  return {
-    subtotalCents,
-    serviceChargeTotalCents,
-    gstTotalCents,
-    grandTotalCents: subtotalCents + serviceChargeTotalCents + gstTotalCents,
-  };
-}
-
-function validateCustomization(draft: DraftCustomization) {
-  for (const entry of draft.item.itemModifierGroups) {
-    const group = entry.modifierGroup;
-    const selected = draft.modifierSelections[group.id] ?? [];
-    if (
-      selected.length < group.minSelect ||
-      selected.length > group.maxSelect
-    ) {
-      return `${group.name} requires ${group.minSelect}-${group.maxSelect} selections.`;
-    }
-  }
-  return null;
-}
-
-function buildCartItem(draft: DraftCustomization): CartItem {
-  const variant = draft.item.variants.find(
-    (entry) => entry.id === draft.variantId && entry.active,
-  );
-  const selectedOptions = draft.item.itemModifierGroups.flatMap((entry) => {
-    const selected = draft.modifierSelections[entry.modifierGroup.id] ?? [];
-    return entry.modifierGroup.options.filter(
-      (option) => option.active && selected.includes(option.id),
-    );
-  });
-  const modifierTotal = selectedOptions.reduce(
-    (sum, option) => sum + option.priceDeltaCents,
-    0,
-  );
-  const unitPriceCents =
-    draft.item.basePriceCents + (variant?.priceDeltaCents ?? 0) + modifierTotal;
-  return {
-    id: createLocalId(),
-    menuItemId: draft.item.id,
-    itemName: draft.item.name,
-    variantId: variant?.id,
-    variantName: variant?.name,
-    quantity: draft.quantity,
-    remarks: draft.remarks.trim(),
-    modifierOptionIds: selectedOptions.map((option) => option.id),
-    modifierLabels: selectedOptions.map((option) => option.name),
-    unitPriceCents,
-    lineTotalCents: unitPriceCents * draft.quantity,
-  };
-}
-
 function mapOrderItemToCartItem(item: OrderDetail['items'][number]): CartItem {
   return {
     id: createLocalId(),
@@ -1698,6 +1884,8 @@ function mapOrderItemToCartItem(item: OrderDetail['items'][number]): CartItem {
     modifierLabels: item.modifiers.map(
       (modifier) => modifier.modifierOptionName,
     ),
+    taxable: true,
+    serviceChargeable: true,
     unitPriceCents: item.unitPriceCents,
     lineTotalCents: item.lineTotalCents,
   };
@@ -1754,6 +1942,16 @@ function toStaffPaymentMethod(value: string | undefined) {
     return value;
   }
   return 'ONLINE_CARD' satisfies StaffPaymentMethod;
+}
+
+function resolvePublicPaymentStatusUrl(state: 'success' | 'cancelled') {
+  const configuredBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+  const normalizedBase = configuredBase.replace(/\/$/, '');
+  const apiBase = normalizedBase.endsWith('/api/v1')
+    ? normalizedBase
+    : `${normalizedBase}/api/v1`;
+  return `${apiBase}/public/payment-${state}`;
 }
 
 function resolveEnabledPaymentMethodOptions(

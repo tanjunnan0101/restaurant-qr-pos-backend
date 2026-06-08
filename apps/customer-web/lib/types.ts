@@ -68,6 +68,14 @@ export interface PublicQrResponse {
     } | null;
   } | null;
   paymentAvailability: Partial<Record<PaymentMethod, boolean>>;
+  activeServiceRequest: {
+    id: string;
+    type: 'CALL_STAFF' | 'REQUEST_BILL';
+    status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'CANCELLED';
+    note: string | null;
+    requestedAt: string;
+    acknowledgedAt: string | null;
+  } | null;
 }
 
 export interface CartItem {
@@ -117,4 +125,16 @@ export interface CheckoutResponse {
   method: PaymentMethod;
   amountCents: number;
   currency: string;
+}
+
+export interface ServiceRequestResponse {
+  request: {
+    id: string;
+    type: 'CALL_STAFF' | 'REQUEST_BILL';
+    status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'CANCELLED';
+    note: string | null;
+    requestedAt: string;
+  };
+  deduplicated: boolean;
+  message: string;
 }

@@ -1,7 +1,16 @@
 'use client';
 
-import { FormEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { getOrder, getOrders, updateOrderStatus } from '@/lib/api';
+import Link from 'next/link';
+import {
+  FormEvent,
+  MouseEvent,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { getOrder, getOrders, getPrintingSettings, updateOrderStatus } from '@/lib/api';
 import { createOperationsSocket, outletOperationsEvents } from '@/lib/realtime';
 import type { OrderDetail, OrderListEntry, RealtimeStatus } from '@/lib/types';
 import {
@@ -13,6 +22,8 @@ import {
 const kitchenStatuses = ['SENT_TO_KITCHEN', 'PREPARING', 'READY'] as const;
 
 type KitchenStatus = (typeof kitchenStatuses)[number];
+type KitchenStageFilter = KitchenStatus | 'ALL';
+type StationFilter = 'ALL' | string;
 
 export function OutletKdsPage() {
   const {
@@ -28,8 +39,13 @@ export function OutletKdsPage() {
   const [busy, setBusy] = useState(true);
   const [detailBusy, setDetailBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  const [quickActionOrderId, setQuickActionOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState('Kitchen updated the ticket status.');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stageFilter, setStageFilter] = useState<KitchenStageFilter>('ALL');
+  const [stationFilter, setStationFilter] = useState<StationFilter>('ALL');
+  const [stationNameById, setStationNameById] = useState<Record<string, string>>({});
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('idle');
   const [refreshTick, setRefreshTick] = useState(0);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,6 +107,42 @@ export function OutletKdsPage() {
   }, [outletId, refreshTick, session]);
 
   useEffect(() => {
+    if (!session?.accessToken || !outletId) {
+      setStationNameById({});
+      return;
+    }
+
+    const authToken = session.accessToken;
+    let cancelled = false;
+
+    async function loadStations() {
+      try {
+        const result = await getPrintingSettings(authToken, outletId);
+        if (cancelled) {
+          return;
+        }
+
+        setStationNameById((current) => {
+          const next = { ...current };
+          for (const station of result.stations) {
+            next[station.id] = station.name;
+          }
+          return next;
+        });
+      } catch {
+        if (!cancelled) {
+          setStationNameById((current) => current);
+        }
+      }
+    }
+
+    void loadStations();
+    return () => {
+      cancelled = true;
+    };
+  }, [outletId, session]);
+
+  useEffect(() => {
     if (!session?.accessToken || !selectedOrderId || !outletId) {
       setSelectedOrder(null);
       return;
@@ -106,6 +158,15 @@ export function OutletKdsPage() {
         if (!cancelled) {
           setSelectedOrder(detail);
           setReason(defaultKitchenReason(detail.status));
+          setStationNameById((current) => {
+            const next = { ...current };
+            for (const ticket of detail.kitchenTickets) {
+              if (ticket.station?.name) {
+                next[ticket.stationId] = ticket.station.name;
+              }
+            }
+            return next;
+          });
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -248,10 +309,136 @@ export function OutletKdsPage() {
     }
   }
 
+  async function handleQuickAdvance(
+    event: MouseEvent<HTMLButtonElement>,
+    order: OrderListEntry,
+  ) {
+    event.stopPropagation();
+    const nextAction = nextKitchenAction(order.status);
+    if (!session?.accessToken || !outletId || !nextAction) {
+      return;
+    }
+
+    setQuickActionOrderId(order.id);
+    setError(null);
+    try {
+      const updated = await updateOrderStatus(
+        session.accessToken,
+        outletId,
+        order.id,
+        {
+          status: nextAction.status,
+          reason: defaultKitchenReason(order.status),
+        },
+      );
+
+      setOrders((current) =>
+        current
+          .map((entry) =>
+            entry.id === updated.id
+              ? {
+                  ...entry,
+                  status: updated.status,
+                  paymentStatus: updated.paymentStatus,
+                  updatedAt: updated.updatedAt,
+                  kitchenTickets: updated.kitchenTickets.map((ticket) => ({
+                    id: ticket.id,
+                    status: ticket.status,
+                    stationId: ticket.stationId,
+                  })),
+                }
+              : entry,
+          )
+          .filter((entry) => kitchenStatuses.includes(entry.status as KitchenStatus)),
+      );
+
+      if (selectedOrderId === updated.id) {
+        setSelectedOrder(updated);
+        setReason(defaultKitchenReason(updated.status));
+      }
+      queueRefresh();
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : 'Kitchen status update failed.',
+      );
+    } finally {
+      setQuickActionOrderId(null);
+    }
+  }
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const stationOptions = useMemo(() => {
+    const entries = new Map<string, string>();
+    for (const order of orders) {
+      for (const ticket of order.kitchenTickets) {
+        entries.set(ticket.stationId, stationNameById[ticket.stationId] ?? shortStationLabel(ticket.stationId));
+      }
+    }
+    return Array.from(entries.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [orders, stationNameById]);
+  const filteredOrders = orders.filter((order) => {
+    if (stageFilter !== 'ALL' && order.status !== stageFilter) {
+      return false;
+    }
+    if (
+      stationFilter !== 'ALL' &&
+      !order.kitchenTickets.some((ticket) => ticket.stationId === stationFilter)
+    ) {
+      return false;
+    }
+    if (!normalizedSearch) {
+      return true;
+    }
+    const haystack = [
+      order.orderNumber,
+      order.customerName,
+      order.customerPhone,
+      order.table?.displayName,
+      order.table?.tableCode,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(normalizedSearch);
+  });
+
+  useEffect(() => {
+    if (
+      stationFilter !== 'ALL' &&
+      !stationOptions.some((station) => station.id === stationFilter)
+    ) {
+      setStationFilter('ALL');
+    }
+  }, [stationFilter, stationOptions]);
+
+  useEffect(() => {
+    setSelectedOrderId((current) =>
+      current && filteredOrders.some((order) => order.id === current)
+        ? current
+        : (filteredOrders[0]?.id ?? null),
+    );
+  }, [filteredOrders]);
+
   const groupedOrders = kitchenStatuses.map((status) => ({
     status,
-    orders: orders.filter((order) => order.status === status),
+    orders: filteredOrders
+      .filter((order) => order.status === status)
+      .slice()
+      .sort(
+        (left, right) =>
+          new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+      ),
   }));
+  const oldestQueuedOrder = filteredOrders
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+    )[0];
   const nextAction = selectedOrder ? nextKitchenAction(selectedOrder.status) : null;
 
   return (
@@ -298,6 +485,28 @@ export function OutletKdsPage() {
             Outlet events are now streaming into the kitchen queue.
           </p>
         </article>
+        <article className="panel metric-card">
+          <span className="metric-label">Filtered tickets</span>
+          <strong className="metric-value">{filteredOrders.length}</strong>
+          <p className="supporting-copy">
+            {stageFilter === 'ALL'
+              ? 'All active kitchen tickets in scope.'
+              : `${formatEnum(stageFilter)} tickets in scope.`}
+          </p>
+        </article>
+        <article className="panel metric-card">
+          <span className="metric-label">Oldest queued</span>
+          <strong className="metric-value">
+            {oldestQueuedOrder
+              ? formatRelativeTime(oldestQueuedOrder.createdAt)
+              : 'None'}
+          </strong>
+          <p className="supporting-copy">
+            {oldestQueuedOrder
+              ? `Ticket #${oldestQueuedOrder.orderNumber} has been waiting the longest.`
+              : 'No active kitchen tickets right now.'}
+          </p>
+        </article>
       </section>
 
       <section className="operations-layout">
@@ -313,14 +522,58 @@ export function OutletKdsPage() {
             </div>
           </div>
 
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="kds-search">Find a ticket</label>
+              <input
+                id="kds-search"
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by order, guest, table, or phone"
+                value={searchTerm}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="kds-stage-filter">Stage focus</label>
+              <select
+                id="kds-stage-filter"
+                onChange={(event) =>
+                  setStageFilter(event.target.value as KitchenStageFilter)
+                }
+                value={stageFilter}
+              >
+                <option value="ALL">All kitchen stages</option>
+                {kitchenStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {formatEnum(status)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="kds-station-filter">Station focus</label>
+              <select
+                id="kds-station-filter"
+                onChange={(event) => setStationFilter(event.target.value)}
+                value={stationFilter}
+              >
+                <option value="ALL">All stations</option>
+                {stationOptions.map((station) => (
+                  <option key={station.id} value={station.id}>
+                    {station.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {busy ? (
             <p className="supporting-copy">Loading kitchen queue...</p>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div className="empty-state">
-              <h3>No active kitchen tickets</h3>
+              <h3>No matching kitchen tickets</h3>
               <p className="supporting-copy">
-                The queue will populate as new paid orders are released to the
-                kitchen.
+                Try a broader stage or clear the search to see the full kitchen
+                queue.
               </p>
             </div>
           ) : (
@@ -361,6 +614,9 @@ export function OutletKdsPage() {
                                 {order.table?.displayName ?? 'No table'} |{' '}
                                 {order.customerName ?? 'Walk-in / guest'}
                               </p>
+                              <p className="supporting-copy">
+                                {describeOrderStations(order, stationNameById)}
+                              </p>
                             </div>
                             <span className={`status-pill ${statusTone(order.status)}`}>
                               {formatEnum(order.status)}
@@ -368,7 +624,7 @@ export function OutletKdsPage() {
                           </div>
                           <div className="queue-metrics">
                             <div className="metric-inline">
-                              <span>Items</span>
+                              <span>Tickets</span>
                               <strong>{order.kitchenTickets.length}</strong>
                             </div>
                             <div className="metric-inline">
@@ -381,6 +637,20 @@ export function OutletKdsPage() {
                               <span>Updated</span>
                               <strong>{formatRelativeTime(order.updatedAt)}</strong>
                             </div>
+                          </div>
+                          <div className="inline-actions">
+                            {nextKitchenAction(order.status) ? (
+                              <button
+                                className="secondary-button"
+                                disabled={quickActionOrderId === order.id}
+                                onClick={(event) => void handleQuickAdvance(event, order)}
+                                type="button"
+                              >
+                                {quickActionOrderId === order.id
+                                  ? 'Updating...'
+                                  : nextKitchenAction(order.status)?.label}
+                              </button>
+                            ) : null}
                           </div>
                         </button>
                       ))
@@ -417,9 +687,17 @@ export function OutletKdsPage() {
                     {formatRelativeTime(selectedOrder.createdAt)}
                   </p>
                 </div>
-                <span className={`status-pill ${statusTone(selectedOrder.status)}`}>
-                  {formatEnum(selectedOrder.status)}
-                </span>
+                <div className="inline-actions">
+                  <Link
+                    className="secondary-button"
+                    href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
+                  >
+                    Open full order detail
+                  </Link>
+                  <span className={`status-pill ${statusTone(selectedOrder.status)}`}>
+                    {formatEnum(selectedOrder.status)}
+                  </span>
+                </div>
               </div>
 
               <article className="sub-panel">
@@ -610,4 +888,23 @@ function formatRelativeTime(value: string) {
     return '1 hour ago';
   }
   return `${diffHours} hours ago`;
+}
+
+function describeOrderStations(
+  order: OrderListEntry,
+  stationNameById: Record<string, string>,
+) {
+  const uniqueStations = Array.from(
+    new Set(order.kitchenTickets.map((ticket) => ticket.stationId)),
+  );
+  if (uniqueStations.length === 0) {
+    return 'No kitchen station assigned';
+  }
+  return uniqueStations
+    .map((stationId) => stationNameById[stationId] ?? shortStationLabel(stationId))
+    .join(', ');
+}
+
+function shortStationLabel(stationId: string) {
+  return `Station ${stationId.slice(0, 8)}`;
 }

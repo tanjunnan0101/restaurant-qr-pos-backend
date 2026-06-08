@@ -7,11 +7,13 @@ import { HitPayGateway } from './hitpay.gateway';
 import { HitPayWebhookController } from './hitpay-webhook.controller';
 import { PaymentsService } from './payments.service';
 import { PublicPaymentsController } from './public-payments.controller';
+import { PublicPaymentStatusController } from './public-payment-status.controller';
 
 @Module({
   imports: [OrdersModule, RealtimeModule, TenantModule],
   controllers: [
     PublicPaymentsController,
+    PublicPaymentStatusController,
     AdminPaymentsController,
     HitPayWebhookController,
   ],

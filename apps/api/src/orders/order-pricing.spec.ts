@@ -46,4 +46,34 @@ describe('order pricing', () => {
       }).grandTotalCents,
     ).toBe(1000);
   });
+
+  it('applies percentage discounts before service charge and GST', () => {
+    expect(
+      calculateOrderTotals({
+        lines: [
+          {
+            quantity: 2,
+            unitPriceCents: 1000,
+            taxable: true,
+            serviceChargeable: true,
+          },
+        ],
+        gstEnabled: true,
+        gstRateBps: 900,
+        serviceChargeEnabled: true,
+        serviceChargeBps: 1000,
+        discount: {
+          type: 'PERCENT',
+          value: 10,
+        },
+      }),
+    ).toEqual({
+      subtotalCents: 2000,
+      discountTotalCents: 200,
+      serviceChargeTotalCents: 180,
+      gstTotalCents: 178,
+      roundingAdjustmentCents: 0,
+      grandTotalCents: 2158,
+    });
+  });
 });

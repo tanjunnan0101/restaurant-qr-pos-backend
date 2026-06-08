@@ -11,6 +11,14 @@ export const outletOperationsEvents = [
   'payment.started',
   'payment.confirmed',
   'kitchen.ticket.created',
+  'table.status.changed',
+  'menu.updated',
+  'staff.updated',
+  'printing.updated',
+  'print.job.printed',
+  'print.job.failed',
+  'service.request.created',
+  'service.request.resolved',
 ] as const;
 
 function getOperationsBaseUrl() {

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  DiningTableStatus,
   KitchenTicketStatus,
   MenuChannel,
   MenuStatus,
@@ -19,6 +20,7 @@ import {
   PrintJobStatus,
   PrintTemplate,
   ServiceType,
+  StockMovementType,
   TableSessionStatus,
   type Prisma,
 } from '@restaurant-pos/db';
@@ -31,7 +33,10 @@ import {
 import { OperationsGateway } from '../realtime/operations.gateway';
 import { verifyQrToken } from '../tables/qr-token';
 import { TenantService } from '../tenant/tenant.service';
-import { renderCustomerReceipt } from './customer-receipt-renderer';
+import {
+  renderCustomerReceipt,
+  renderPrePaymentBill,
+} from './customer-receipt-renderer';
 import type { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import type { CreatePublicOrderDto } from './dto/create-public-order.dto';
 import type { UpdateAdminOrderDto } from './dto/update-admin-order.dto';
@@ -187,6 +192,7 @@ export class OrdersService {
               status: TableSessionStatus.ORDERING,
             },
           });
+          await this.markTableOccupied(tx, qr.tableId);
 
           const manualPayNow =
             dto.paymentMethod === PaymentMethod.MANUAL_PAYNOW;
@@ -324,6 +330,10 @@ export class OrdersService {
       paymentStatus: order.paymentStatus,
       totalCents: order.grandTotalCents,
     });
+    this.operations.publishToOutlet(qr.outletId, 'table.status.changed', {
+      tableId: qr.tableId,
+      status: 'OCCUPIED',
+    });
     return this.toPublicResponse(order);
   }
 
@@ -362,7 +372,12 @@ export class OrdersService {
     if (!outlet) {
       throw new NotFoundException('Outlet not found.');
     }
-    if (dto.tableId && (!table || !table.active)) {
+    if (
+      dto.tableId &&
+      (!table ||
+        !table.active ||
+        table.status === 'OUT_OF_SERVICE')
+    ) {
       throw new BadRequestException('Selected table is not available.');
     }
     if (dto.serviceType !== ServiceType.DINE_IN && dto.tableId) {
@@ -371,14 +386,25 @@ export class OrdersService {
       );
     }
 
-    await this.assertAdminPaymentMethodAvailable(outletId, dto.paymentMethod);
+    const draftOrder = dto.saveAsDraft === true;
+    if (!draftOrder && !dto.paymentMethod) {
+      throw new BadRequestException(
+        'A payment method is required unless the ticket is being held as a draft.',
+      );
+    }
+    if (!draftOrder && dto.paymentMethod) {
+      await this.assertAdminPaymentMethodAvailable(outletId, dto.paymentMethod);
+    }
+    const paymentMethod = draftOrder ? null : (dto.paymentMethod ?? null);
 
     const fingerprint = createOrderFingerprint({
       tableId: dto.tableId ?? null,
       serviceType: dto.serviceType,
-      paymentMethod: dto.paymentMethod,
+      paymentMethod,
       customerName: dto.customerName ?? null,
       customerPhone: dto.customerPhone ?? null,
+      saveAsDraft: draftOrder,
+      discount: dto.discount ?? null,
       items: dto.items,
     });
     const existing = await this.prisma.order.findUnique({
@@ -423,6 +449,7 @@ export class OrdersService {
       gstRateBps: outlet.gstRateBps,
       serviceChargeEnabled: outlet.serviceChargeEnabled,
       serviceChargeBps: outlet.serviceChargeBps,
+      discount: dto.discount,
     });
     const businessDateText = this.businessDate(new Date(), outlet.timezone);
     const businessDate = new Date(`${businessDateText}T00:00:00.000Z`);
@@ -463,12 +490,13 @@ export class OrdersService {
                 status: TableSessionStatus.ORDERING,
               },
             });
+            await this.markTableOccupied(tx, table.id);
             tableSessionId = tableSession.id;
           }
 
           const manualPayNow =
-            dto.paymentMethod === PaymentMethod.MANUAL_PAYNOW;
-          const cashPayment = dto.paymentMethod === PaymentMethod.CASH;
+            paymentMethod === PaymentMethod.MANUAL_PAYNOW;
+          const cashPayment = paymentMethod === PaymentMethod.CASH;
           const paidAt = cashPayment ? new Date() : null;
           const order = await tx.order.create({
             data: {
@@ -480,14 +508,18 @@ export class OrdersService {
               businessDate,
               source: dto.source ?? OrderSource.POS,
               serviceType: dto.serviceType,
-              status: cashPayment
-                ? OrderStatus.PAID
-                : OrderStatus.PENDING_PAYMENT,
-              paymentStatus: cashPayment
-                ? OrderPaymentStatus.PAID
-                : manualPayNow
-                  ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
-                  : OrderPaymentStatus.PENDING,
+              status: draftOrder
+                ? OrderStatus.DRAFT
+                : cashPayment
+                  ? OrderStatus.PAID
+                  : OrderStatus.PENDING_PAYMENT,
+              paymentStatus: draftOrder
+                ? OrderPaymentStatus.PENDING
+                : cashPayment
+                  ? OrderPaymentStatus.PAID
+                  : manualPayNow
+                    ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                    : OrderPaymentStatus.PENDING,
               currency: outlet.currency,
               ...totals,
               idempotencyKey,
@@ -525,36 +557,42 @@ export class OrdersService {
                   },
                 })),
               },
-              payments: {
-                create: {
-                  companyId: user.companyId,
-                  outletId,
-                  provider:
-                    manualPayNow || cashPayment
-                      ? PaymentProvider.MANUAL
-                      : PaymentProvider.HITPAY,
-                  method: dto.paymentMethod,
-                  status: cashPayment
-                    ? PaymentStatus.SUCCEEDED
-                    : manualPayNow
-                      ? PaymentStatus.MANUAL_VERIFICATION_REQUIRED
-                      : PaymentStatus.CREATED,
-                  amountCents: totals.grandTotalCents,
-                  currency: outlet.currency,
-                  verifiedByUserId: cashPayment ? user.userId : null,
-                  verifiedAt: paidAt,
-                  paidAt,
-                },
-              },
+              ...(paymentMethod
+                ? {
+                    payments: {
+                      create: {
+                        companyId: user.companyId,
+                        outletId,
+                        provider:
+                          manualPayNow || cashPayment
+                            ? PaymentProvider.MANUAL
+                            : PaymentProvider.HITPAY,
+                        method: paymentMethod,
+                        status: cashPayment
+                          ? PaymentStatus.SUCCEEDED
+                          : manualPayNow
+                            ? PaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                            : PaymentStatus.CREATED,
+                        amountCents: totals.grandTotalCents,
+                        currency: outlet.currency,
+                        verifiedByUserId: cashPayment ? user.userId : null,
+                        verifiedAt: paidAt,
+                        paidAt,
+                      },
+                    },
+                  }
+                : {}),
             },
           });
           if (tableSessionId) {
             await tx.tableSession.update({
               where: { id: tableSessionId },
               data: {
-                status: manualPayNow
-                  ? TableSessionStatus.PAYMENT_PENDING
-                  : TableSessionStatus.ORDERED,
+                status: draftOrder
+                  ? TableSessionStatus.ORDERING
+                  : manualPayNow
+                    ? TableSessionStatus.PAYMENT_PENDING
+                    : TableSessionStatus.ORDERED,
               },
             });
           }
@@ -590,11 +628,15 @@ export class OrdersService {
               afterJson: {
                 orderNumber,
                 totalCents: totals.grandTotalCents,
-                paymentMethod: dto.paymentMethod,
+                paymentMethod,
                 serviceType: dto.serviceType,
                 source: dto.source ?? OrderSource.POS,
+                saveAsDraft: draftOrder,
+                discount: this.toDiscountJson(dto.discount),
               },
-              reason: 'Staff created a POS-assisted order.',
+              reason: draftOrder
+                ? 'Staff saved a held POS draft.'
+                : 'Staff created a POS-assisted order.',
               requestId,
               ipAddress,
             },
@@ -641,7 +683,13 @@ export class OrdersService {
       paymentStatus: order.paymentStatus,
       totalCents: order.grandTotalCents,
     });
-    if (dto.paymentMethod === PaymentMethod.CASH) {
+    if (table) {
+      this.operations.publishToOutlet(outletId, 'table.status.changed', {
+        tableId: table.id,
+        status: 'OCCUPIED',
+      });
+    }
+    if (paymentMethod === PaymentMethod.CASH) {
       this.operations.publishToOutlet(outletId, 'payment.confirmed', {
         orderId,
         orderNumber: order.orderNumber,
@@ -680,6 +728,7 @@ export class OrdersService {
     user: AuthenticatedUser,
     outletId: string,
     status?: OrderStatus,
+    tableId?: string,
   ) {
     await this.tenant.assertOutlet(user.companyId, outletId);
     return this.prisma.order.findMany({
@@ -687,11 +736,12 @@ export class OrdersService {
         companyId: user.companyId,
         outletId,
         ...(status ? { status } : {}),
+        ...(tableId ? { tableId } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
-        table: { select: { tableCode: true, displayName: true } },
+        table: { select: { id: true, tableCode: true, displayName: true } },
         payments: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -922,6 +972,9 @@ export class OrdersService {
             closedAt: now,
           },
         });
+        if (order.tableId) {
+          await this.releaseTableIfOccupied(tx, order.tableId);
+        }
       }
       await tx.auditLog.create({
         data: {
@@ -951,6 +1004,12 @@ export class OrdersService {
       orderId,
       status: OrderStatus.CANCELLED,
     });
+    if (order.tableId) {
+      this.operations.publishToOutlet(outletId, 'table.status.changed', {
+        tableId: order.tableId,
+        status: DiningTableStatus.AVAILABLE,
+      });
+    }
     return order;
   }
 
@@ -963,6 +1022,11 @@ export class OrdersService {
     ipAddress?: string,
   ) {
     await this.tenant.assertOutlet(user.companyId, outletId);
+    if (!dto.menuId || !dto.serviceType || !dto.items?.length) {
+      throw new BadRequestException(
+        'Order amendments require a full order payload.',
+      );
+    }
     if (dto.serviceType === ServiceType.DINE_IN && !dto.tableId) {
       throw new BadRequestException('Dine-in staff orders require a table.');
     }
@@ -995,12 +1059,20 @@ export class OrdersService {
     if (!existingOrder) {
       throw new NotFoundException('Order not found.');
     }
-    if (existingOrder.status !== OrderStatus.PENDING_PAYMENT) {
+    if (
+      existingOrder.status !== OrderStatus.PENDING_PAYMENT &&
+      existingOrder.status !== OrderStatus.DRAFT
+    ) {
       throw new ConflictException(
-        `Only orders still awaiting payment can be amended. Current status: ${existingOrder.status}.`,
+        `Only held or unpaid orders can be amended. Current status: ${existingOrder.status}.`,
       );
     }
-    if (dto.tableId && (!table || !table.active)) {
+    if (
+      dto.tableId &&
+      (!table ||
+        !table.active ||
+        table.status === 'OUT_OF_SERVICE')
+    ) {
       throw new BadRequestException('Selected table is not available.');
     }
     if (dto.serviceType !== ServiceType.DINE_IN && dto.tableId) {
@@ -1009,7 +1081,16 @@ export class OrdersService {
       );
     }
 
-    await this.assertAdminPaymentMethodAvailable(outletId, dto.paymentMethod);
+    const draftOrder = dto.saveAsDraft === true;
+    if (!draftOrder && !dto.paymentMethod) {
+      throw new BadRequestException(
+        'A payment method is required unless the ticket is being held as a draft.',
+      );
+    }
+    if (!draftOrder && dto.paymentMethod) {
+      await this.assertAdminPaymentMethodAvailable(outletId, dto.paymentMethod);
+    }
+    const paymentMethod = draftOrder ? null : (dto.paymentMethod ?? null);
 
     const menu = await this.loadPublishedMenu(outletId, {
       menuId: dto.menuId,
@@ -1027,9 +1108,11 @@ export class OrdersService {
     const fingerprint = createOrderFingerprint({
       tableId: dto.tableId ?? null,
       serviceType: dto.serviceType,
-      paymentMethod: dto.paymentMethod,
+      paymentMethod,
       customerName: dto.customerName ?? null,
       customerPhone: dto.customerPhone ?? null,
+      saveAsDraft: draftOrder,
+      discount: this.toDiscountJson(dto.discount),
       items: dto.items,
     });
     const pricedItems = this.priceItems(publishedVersion, { items: dto.items });
@@ -1044,10 +1127,11 @@ export class OrdersService {
       gstRateBps: outlet.gstRateBps,
       serviceChargeEnabled: outlet.serviceChargeEnabled,
       serviceChargeBps: outlet.serviceChargeBps,
+      discount: dto.discount,
     });
 
-    const manualPayNow = dto.paymentMethod === PaymentMethod.MANUAL_PAYNOW;
-    const cashPayment = dto.paymentMethod === PaymentMethod.CASH;
+    const manualPayNow = paymentMethod === PaymentMethod.MANUAL_PAYNOW;
+    const cashPayment = paymentMethod === PaymentMethod.CASH;
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       let nextTableSessionId = existingOrder.tableSessionId;
@@ -1064,6 +1148,9 @@ export class OrdersService {
             closedAt: now,
           },
         });
+        if (existingOrder.tableId) {
+          await this.releaseTableIfOccupied(tx, existingOrder.tableId);
+        }
         nextTableSessionId = null;
       }
 
@@ -1083,13 +1170,16 @@ export class OrdersService {
           });
           nextTableSessionId = tableSession.id;
         }
+        await this.markTableOccupied(tx, table.id);
 
         await tx.tableSession.update({
           where: { id: nextTableSessionId },
           data: {
-            status: manualPayNow
-              ? TableSessionStatus.PAYMENT_PENDING
-              : TableSessionStatus.ORDERED,
+            status: draftOrder
+              ? TableSessionStatus.ORDERING
+              : manualPayNow
+                ? TableSessionStatus.PAYMENT_PENDING
+                : TableSessionStatus.ORDERED,
           },
         });
       }
@@ -1117,12 +1207,18 @@ export class OrdersService {
           tableSessionId: nextTableSessionId,
           source: dto.source ?? OrderSource.POS,
           serviceType: dto.serviceType,
-          status: cashPayment ? OrderStatus.PAID : OrderStatus.PENDING_PAYMENT,
-          paymentStatus: cashPayment
-            ? OrderPaymentStatus.PAID
-            : manualPayNow
-              ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
-              : OrderPaymentStatus.PENDING,
+          status: draftOrder
+            ? OrderStatus.DRAFT
+            : cashPayment
+              ? OrderStatus.PAID
+              : OrderStatus.PENDING_PAYMENT,
+          paymentStatus: draftOrder
+            ? OrderPaymentStatus.PENDING
+            : cashPayment
+              ? OrderPaymentStatus.PAID
+              : manualPayNow
+                ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                : OrderPaymentStatus.PENDING,
           currency: outlet.currency,
           ...totals,
           requestFingerprint: fingerprint,
@@ -1161,27 +1257,31 @@ export class OrdersService {
               },
             })),
           },
-          payments: {
-            create: {
-              companyId: user.companyId,
-              outletId,
-              provider:
-                manualPayNow || cashPayment
-                  ? PaymentProvider.MANUAL
-                  : PaymentProvider.HITPAY,
-              method: dto.paymentMethod,
-              status: cashPayment
-                ? PaymentStatus.SUCCEEDED
-                : manualPayNow
-                  ? PaymentStatus.MANUAL_VERIFICATION_REQUIRED
-                  : PaymentStatus.CREATED,
-              amountCents: totals.grandTotalCents,
-              currency: outlet.currency,
-              verifiedByUserId: cashPayment ? user.userId : null,
-              verifiedAt: cashPayment ? now : null,
-              paidAt: cashPayment ? now : null,
-            },
-          },
+          ...(paymentMethod
+            ? {
+                payments: {
+                  create: {
+                    companyId: user.companyId,
+                    outletId,
+                    provider:
+                      manualPayNow || cashPayment
+                        ? PaymentProvider.MANUAL
+                        : PaymentProvider.HITPAY,
+                    method: paymentMethod,
+                    status: cashPayment
+                      ? PaymentStatus.SUCCEEDED
+                      : manualPayNow
+                        ? PaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                        : PaymentStatus.CREATED,
+                    amountCents: totals.grandTotalCents,
+                    currency: outlet.currency,
+                    verifiedByUserId: cashPayment ? user.userId : null,
+                    verifiedAt: cashPayment ? now : null,
+                    paidAt: cashPayment ? now : null,
+                  },
+                },
+              }
+            : {}),
         },
       });
       if (cashPayment) {
@@ -1220,21 +1320,29 @@ export class OrdersService {
             tableId: existingOrder.tableId,
           },
           afterJson: {
-            status: cashPayment
-              ? OrderStatus.PAID
-              : OrderStatus.PENDING_PAYMENT,
-            paymentStatus: cashPayment
-              ? OrderPaymentStatus.PAID
-              : manualPayNow
-                ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
-                : OrderPaymentStatus.PENDING,
+            status: draftOrder
+              ? OrderStatus.DRAFT
+              : cashPayment
+                ? OrderStatus.PAID
+                : OrderStatus.PENDING_PAYMENT,
+            paymentStatus: draftOrder
+              ? OrderPaymentStatus.PENDING
+              : cashPayment
+                ? OrderPaymentStatus.PAID
+                : manualPayNow
+                  ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                  : OrderPaymentStatus.PENDING,
             totalCents: totals.grandTotalCents,
             tableId: table?.id ?? null,
-            paymentMethod: dto.paymentMethod,
+            paymentMethod,
             serviceType: dto.serviceType,
             source: dto.source ?? OrderSource.POS,
+            saveAsDraft: draftOrder,
+            discount: this.toDiscountJson(dto.discount),
           },
-          reason: 'Staff amended an unpaid POS-assisted order.',
+          reason: draftOrder
+            ? 'Staff updated a held POS draft.'
+            : 'Staff amended an unpaid POS-assisted order.',
           requestId,
           ipAddress,
         },
@@ -1248,7 +1356,19 @@ export class OrdersService {
       paymentStatus: order.paymentStatus,
       totalCents: order.grandTotalCents,
     });
-    if (dto.paymentMethod === PaymentMethod.CASH) {
+    if (existingOrder.tableId && existingOrder.tableId !== table?.id) {
+      this.operations.publishToOutlet(outletId, 'table.status.changed', {
+        tableId: existingOrder.tableId,
+        status: DiningTableStatus.AVAILABLE,
+      });
+    }
+    if (table) {
+      this.operations.publishToOutlet(outletId, 'table.status.changed', {
+        tableId: table.id,
+        status: 'OCCUPIED',
+      });
+    }
+    if (paymentMethod === PaymentMethod.CASH) {
       this.operations.publishToOutlet(outletId, 'payment.confirmed', {
         orderId,
         orderNumber: order.orderNumber,
@@ -1264,6 +1384,137 @@ export class OrdersService {
       });
     }
     return order;
+  }
+
+  async printPrePaymentBill(
+    user: AuthenticatedUser,
+    outletId: string,
+    orderId: string,
+    reason: string,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        where: {
+          id: orderId,
+          companyId: user.companyId,
+          outletId,
+          status: {
+            notIn: [
+              OrderStatus.CANCELLED,
+              OrderStatus.VOIDED,
+              OrderStatus.REFUNDED,
+            ],
+          },
+        },
+        include: {
+          outlet: true,
+          table: true,
+          items: {
+            include: {
+              modifiers: true,
+            },
+          },
+        },
+      });
+      if (!order) {
+        throw new NotFoundException('Order not found.');
+      }
+
+      const receiptPrinter = await tx.printer.findFirst({
+        where: {
+          companyId: user.companyId,
+          outletId,
+          role: PrinterRole.RECEIPT,
+          active: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!receiptPrinter) {
+        throw new ConflictException(
+          'No active receipt printer is configured for this outlet.',
+        );
+      }
+
+      const payload = {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        tableName: order.table?.displayName ?? 'Counter',
+        currency: order.currency,
+        subtotalCents: order.subtotalCents,
+        discountTotalCents: order.discountTotalCents,
+        serviceChargeTotalCents: order.serviceChargeTotalCents,
+        gstTotalCents: order.gstTotalCents,
+        roundingAdjustmentCents: order.roundingAdjustmentCents,
+        grandTotalCents: order.grandTotalCents,
+        items: order.items.map((item) => ({
+          name: item.itemName,
+          variant: item.variantName,
+          quantity: item.quantity,
+          lineTotalCents: item.lineTotalCents,
+          modifiers: item.modifiers.map(
+            (modifier) => modifier.modifierOptionName,
+          ),
+          remarks: item.remarks,
+        })),
+      };
+
+      const printJob = await tx.printJob.create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          orderId: order.id,
+          printerId: receiptPrinter.id,
+          template: PrintTemplate.PRE_PAYMENT_BILL,
+          payloadJson: payload,
+          renderedText: renderPrePaymentBill({
+            outletName: order.outlet.name,
+            orderNumber: order.orderNumber,
+            tableName: order.table?.displayName ?? 'Counter',
+            createdAt: order.createdAt,
+            currency: order.currency,
+            subtotalCents: order.subtotalCents,
+            discountTotalCents: order.discountTotalCents,
+            serviceChargeTotalCents: order.serviceChargeTotalCents,
+            gstTotalCents: order.gstTotalCents,
+            roundingAdjustmentCents: order.roundingAdjustmentCents,
+            grandTotalCents: order.grandTotalCents,
+            items: order.items,
+          }),
+          status: PrintJobStatus.QUEUED,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          actorUserId: user.userId,
+          actionType: 'ORDER_PREPAYMENT_BILL_PRINTED',
+          entityType: 'order',
+          entityId: order.id,
+          afterJson: {
+            printJobId: printJob.id,
+            template: PrintTemplate.PRE_PAYMENT_BILL,
+          },
+          reason,
+          requestId,
+          ipAddress,
+        },
+      });
+
+      return printJob;
+    });
+
+    this.operations.publishToOutlet(outletId, 'print.job.queued', {
+      orderId,
+      printJobId: result.id,
+      template: result.template,
+    });
+    return result;
   }
 
   async updateStatus(
@@ -1341,6 +1592,9 @@ export class OrdersService {
                     }
                   : {},
         });
+        if (nextStatus === OrderStatus.COMPLETED && order.tableId) {
+          await this.releaseTableIfOccupied(tx, order.tableId);
+        }
       }
       await tx.auditLog.create({
         data: {
@@ -1364,7 +1618,36 @@ export class OrdersService {
       orderId,
       status: nextStatus,
     });
+    if (nextStatus === OrderStatus.COMPLETED && order.tableId) {
+      this.operations.publishToOutlet(outletId, 'table.status.changed', {
+        tableId: order.tableId,
+        status: DiningTableStatus.AVAILABLE,
+      });
+    }
     return order;
+  }
+
+  private async markTableOccupied(
+    tx: Prisma.TransactionClient,
+    tableId: string,
+  ) {
+    await tx.diningTable.update({
+      where: { id: tableId },
+      data: { status: 'OCCUPIED' },
+    });
+  }
+
+  private async releaseTableIfOccupied(
+    tx: Prisma.TransactionClient,
+    tableId: string,
+  ) {
+    await tx.diningTable.updateMany({
+      where: {
+        id: tableId,
+        status: 'OCCUPIED',
+      },
+      data: { status: DiningTableStatus.AVAILABLE },
+    });
   }
 
   private async loadValidQr(publicCode: string, token: string) {
@@ -1379,7 +1662,12 @@ export class OrdersService {
       qr?.active &&
       (!qr.expiresAt || qr.expiresAt.getTime() > Date.now()) &&
       verifyQrToken(token, qr.tokenHash);
-    if (!qr || !valid || !qr.table.active) {
+    if (
+      !qr ||
+      !valid ||
+      !qr.table.active ||
+      qr.table.status === 'OUT_OF_SERVICE'
+    ) {
       throw new NotFoundException('QR code not found.');
     }
     return qr;
@@ -1621,11 +1909,14 @@ export class OrdersService {
       outlet: { name: string };
       currency: string;
       subtotalCents: number;
+      discountTotalCents: number;
       serviceChargeTotalCents: number;
       gstTotalCents: number;
       roundingAdjustmentCents: number;
       grandTotalCents: number;
       items: Array<{
+        id: string;
+        menuItemId: string | null;
         itemName: string;
         variantName: string | null;
         preparationStationKey: string;
@@ -1715,6 +2006,8 @@ export class OrdersService {
       });
     }
 
+    await this.recordInventorySaleDeductions(tx, order);
+
     const receiptPrinter = await tx.printer.findFirst({
       where: {
         companyId: order.companyId,
@@ -1761,6 +2054,7 @@ export class OrdersService {
             createdAt: order.createdAt,
             currency: order.currency,
             subtotalCents: order.subtotalCents,
+            discountTotalCents: order.discountTotalCents,
             serviceChargeTotalCents: order.serviceChargeTotalCents,
             gstTotalCents: order.gstTotalCents,
             roundingAdjustmentCents: order.roundingAdjustmentCents,
@@ -1785,6 +2079,123 @@ export class OrdersService {
         data: { status: TableSessionStatus.PREPARING },
       });
     }
+  }
+
+  private async recordInventorySaleDeductions(
+    tx: Prisma.TransactionClient,
+    order: {
+      id: string;
+      companyId: string;
+      outletId: string;
+      items: Array<{
+        menuItemId: string | null;
+        quantity: number;
+      }>;
+    },
+  ): Promise<void> {
+    const existing = await stockMovementsDelegate(tx).findFirst({
+      where: {
+        companyId: order.companyId,
+        outletId: order.outletId,
+        referenceType: 'ORDER_RELEASE',
+        referenceId: order.id,
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      return;
+    }
+
+    const menuItemIds = Array.from(
+      new Set(
+        order.items
+          .map((item) => item.menuItemId)
+          .filter((menuItemId): menuItemId is string => Boolean(menuItemId)),
+      ),
+    );
+    if (menuItemIds.length === 0) {
+      return;
+    }
+
+    const recipes = await recipesDelegate(tx).findMany({
+      where: {
+        companyId: order.companyId,
+        outletId: order.outletId,
+        active: true,
+        saleDeductionEnabled: true,
+        menuItemId: {
+          in: menuItemIds,
+        },
+      },
+      include: {
+        ingredients: {
+          include: {
+            inventoryItem: {
+              select: {
+                id: true,
+                baseUnit: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (recipes.length === 0) {
+      return;
+    }
+
+    const recipeByMenuItemId = new Map(
+      (recipes as Array<{
+        menuItemId: string;
+        ingredients: Array<{
+          inventoryItemId: string;
+          quantity: unknown;
+          inventoryItem: { baseUnit: string };
+        }>;
+      }>).map((recipe) => [recipe.menuItemId, recipe]),
+    );
+    const quantityByInventoryItem = new Map<
+      string,
+      { quantityDelta: number; unit: string }
+    >();
+
+    for (const orderItem of order.items) {
+      if (!orderItem.menuItemId) {
+        continue;
+      }
+      const recipe = recipeByMenuItemId.get(orderItem.menuItemId);
+      if (!recipe) {
+        continue;
+      }
+      for (const ingredient of recipe.ingredients) {
+        const delta = -this.toNumericValue(ingredient.quantity) * orderItem.quantity;
+        const current = quantityByInventoryItem.get(ingredient.inventoryItemId);
+        quantityByInventoryItem.set(ingredient.inventoryItemId, {
+          quantityDelta: (current?.quantityDelta ?? 0) + delta,
+          unit: ingredient.inventoryItem.baseUnit,
+        });
+      }
+    }
+
+    if (quantityByInventoryItem.size === 0) {
+      return;
+    }
+
+    await stockMovementsDelegate(tx).createMany({
+      data: Array.from(quantityByInventoryItem.entries()).map(
+        ([inventoryItemId, movement]) => ({
+          companyId: order.companyId,
+          outletId: order.outletId,
+          inventoryItemId,
+          movementType: StockMovementType.SALE_DEDUCTION,
+          quantityDelta: movement.quantityDelta,
+          unit: movement.unit,
+          referenceType: 'ORDER_RELEASE',
+          referenceId: order.id,
+          reason: 'Inventory deducted automatically when order was released.',
+        }),
+      ),
+    });
   }
 
   private async loadOrder(orderId: string) {
@@ -1848,4 +2259,45 @@ export class OrdersService {
       error.code === 'P2002'
     );
   }
+
+  private toDiscountJson(
+    discount?:
+      | {
+          type: 'PERCENT' | 'AMOUNT';
+          value: number;
+          reason?: string;
+        }
+      | null,
+  ): Prisma.InputJsonValue | null {
+    if (!discount) {
+      return null;
+    }
+
+    return {
+      type: discount.type,
+      value: discount.value,
+      ...(discount.reason ? { reason: discount.reason } : {}),
+    };
+  }
+
+  private toNumericValue(value: unknown): number {
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return Number(value);
+    }
+    if (value && typeof value === 'object' && 'toNumber' in value) {
+      return (value as { toNumber: () => number }).toNumber();
+    }
+    return 0;
+  }
+}
+
+function recipesDelegate(client: unknown) {
+  return (client as { recipe: any }).recipe;
+}
+
+function stockMovementsDelegate(client: unknown) {
+  return (client as { stockMovement: any }).stockMovement;
 }
