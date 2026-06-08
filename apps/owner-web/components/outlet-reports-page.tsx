@@ -55,6 +55,7 @@ export function OutletReportsPage() {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [windowFilter, setWindowFilter] = useState<TimeWindow>('7D');
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -103,6 +104,17 @@ export function OutletReportsPage() {
     );
   }, [orders, windowFilter]);
 
+  const previousWindowOrders = useMemo(() => {
+    const range = getWindowRange(windowFilter);
+    if (!range) {
+      return [];
+    }
+    return orders.filter((order) => {
+      const timestamp = new Date(order.createdAt).getTime();
+      return timestamp >= range.previousStart && timestamp < range.currentStart;
+    });
+  }, [orders, windowFilter]);
+
   const metrics = useMemo(() => {
     const paidOrders = filteredOrders.filter(
       (order) => order.paymentStatus === 'PAID',
@@ -137,6 +149,21 @@ export function OutletReportsPage() {
           : 0,
     };
   }, [filteredOrders]);
+
+  const previousMetrics = useMemo(() => {
+    const paidOrders = previousWindowOrders.filter(
+      (order) => order.paymentStatus === 'PAID',
+    );
+    const grossSalesCents = paidOrders.reduce(
+      (sum, order) => sum + order.grandTotalCents,
+      0,
+    );
+    return {
+      orderCount: previousWindowOrders.length,
+      grossSalesCents,
+      paidOrderCount: paidOrders.length,
+    };
+  }, [previousWindowOrders]);
 
   const statusBreakdown = useMemo(
     () =>
@@ -183,6 +210,63 @@ export function OutletReportsPage() {
       .sort((left, right) => right.count - left.count)
       .slice(0, 5);
   }, [filteredOrders]);
+
+  const trendPoints = useMemo(
+    () => buildTrendPoints(filteredOrders, windowFilter),
+    [filteredOrders, windowFilter],
+  );
+
+  const exportSummary = useMemo(() => {
+    const periodLabel =
+      TIME_WINDOW_OPTIONS.find((option) => option.value === windowFilter)?.label ??
+      windowFilter;
+    const topPaymentMethod = paymentMethodBreakdown[0];
+    const topTable = topTables[0];
+    return [
+      `Outlet report summary`,
+      `Outlet: ${outlet?.name ?? 'Unknown outlet'}`,
+      `Window: ${periodLabel}`,
+      `Orders: ${metrics.orderCount}`,
+      `Paid orders: ${metrics.paidOrderCount}`,
+      `Gross paid sales: ${formatCurrency(outlet?.currency ?? 'SGD', metrics.grossSalesCents)}`,
+      `Average paid order: ${formatCurrency(outlet?.currency ?? 'SGD', metrics.averagePaidOrderCents)}`,
+      `Unpaid exposure: ${formatCurrency(outlet?.currency ?? 'SGD', metrics.unpaidExposureCents)}`,
+      `Live orders: ${metrics.liveOrders}`,
+      `Completed orders: ${metrics.completedOrders}`,
+      `Previous-window sales delta: ${formatSignedCurrency(
+        outlet?.currency ?? 'SGD',
+        metrics.grossSalesCents - previousMetrics.grossSalesCents,
+      )}`,
+      `Top payment method: ${
+        topPaymentMethod
+          ? `${formatEnum(topPaymentMethod.method)} (${topPaymentMethod.count})`
+          : 'No payment activity'
+      }`,
+      `Top table: ${
+        topTable ? `${topTable.label} (${topTable.count})` : 'No table activity'
+      }`,
+    ].join('\n');
+  }, [
+    metrics,
+    outlet,
+    paymentMethodBreakdown,
+    previousMetrics.grossSalesCents,
+    topTables,
+    windowFilter,
+  ]);
+
+  async function handleCopySummary() {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+      setCopySuccess('Copy is not available in this browser.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(exportSummary);
+      setCopySuccess('Summary copied to clipboard.');
+    } catch {
+      setCopySuccess('Copy failed. You can still select and copy manually.');
+    }
+  }
 
   return (
     <OutletPageLayout
@@ -312,6 +396,127 @@ export function OutletReportsPage() {
                 <span className="metric-value">{metrics.completedOrders}</span>
                 <p className="metric-note">Orders closed out by service staff</p>
               </article>
+              <article className="info-card">
+                <span className="metric-label">Previous-period orders</span>
+                <span className="metric-value">
+                  {windowFilter === 'ALL'
+                    ? 'N/A'
+                    : formatSignedNumber(
+                        metrics.orderCount - previousMetrics.orderCount,
+                      )}
+                </span>
+                <p className="metric-note">
+                  {windowFilter === 'ALL'
+                    ? 'Comparison is only shown for fixed time windows.'
+                    : `Delta versus the prior ${TIME_WINDOW_OPTIONS.find((option) => option.value === windowFilter)?.label.toLowerCase()}.`}
+                </p>
+              </article>
+              <article className="info-card">
+                <span className="metric-label">Previous-period sales</span>
+                <span className="metric-value">
+                  {windowFilter === 'ALL'
+                    ? 'N/A'
+                    : formatSignedCurrency(
+                        outlet?.currency ?? 'SGD',
+                        metrics.grossSalesCents - previousMetrics.grossSalesCents,
+                      )}
+                </span>
+                <p className="metric-note">
+                  {windowFilter === 'ALL'
+                    ? 'Comparison is only shown for fixed time windows.'
+                    : 'Gross paid sales change from the previous matching period.'}
+                </p>
+              </article>
+            </div>
+          </section>
+
+          <section className="section-panel">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Trend view</p>
+                <h2 className="serif">Order and sales trend</h2>
+                <p>
+                  This uses the current order list to build a lightweight trend
+                  view until dedicated analytics endpoints are introduced.
+                </p>
+              </div>
+            </div>
+
+            <div className="trend-grid">
+              {trendPoints.length === 0 ? (
+                <div className="empty-state">
+                  <strong>No trend data yet.</strong>
+                  <p>
+                    Generate more orders in this window to see the time-based
+                    trend breakdown.
+                  </p>
+                </div>
+              ) : (
+                trendPoints.map((point) => (
+                  <article className="trend-card" key={point.label}>
+                    <div className="section-header">
+                      <strong>{point.label}</strong>
+                      <span className="badge">{point.orderCount} orders</span>
+                    </div>
+                    <div className="trend-bar-shell">
+                      <div
+                        className="trend-bar"
+                        style={{ width: `${point.barWidthPercent}%` }}
+                      />
+                    </div>
+                    <div className="split-line">
+                      <span className="muted">Paid sales</span>
+                      <strong>
+                        {formatCurrency(
+                          outlet?.currency ?? 'SGD',
+                          point.grossSalesCents,
+                        )}
+                      </strong>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="section-panel">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Breakdowns</p>
+                <h2 className="serif">Status, payment mix, and table activity</h2>
+              </div>
+            </div>
+
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Owner export</p>
+                <h2 className="serif">Export-ready summary</h2>
+                <p>
+                  Copy this block into a handover note, ops update, or client
+                  summary while deeper export tooling is still pending.
+                </p>
+              </div>
+              <button
+                className="secondary-button"
+                onClick={() => void handleCopySummary()}
+                type="button"
+              >
+                Copy summary
+              </button>
+            </div>
+
+            {copySuccess ? (
+              <div className="alert success">{copySuccess}</div>
+            ) : null}
+
+            <div className="field">
+              <label htmlFor="owner-export-summary">Summary text</label>
+              <textarea
+                id="owner-export-summary"
+                readOnly
+                rows={12}
+                value={exportSummary}
+              />
             </div>
           </section>
 
@@ -470,6 +675,69 @@ function getCutoffTimestamp(windowFilter: TimeWindow) {
   }
 }
 
+function getWindowRange(windowFilter: TimeWindow) {
+  const now = Date.now();
+  switch (windowFilter) {
+    case '24H':
+      return {
+        currentStart: now - 24 * 60 * 60 * 1000,
+        previousStart: now - 48 * 60 * 60 * 1000,
+      };
+    case '7D':
+      return {
+        currentStart: now - 7 * 24 * 60 * 60 * 1000,
+        previousStart: now - 14 * 24 * 60 * 60 * 1000,
+      };
+    case '30D':
+      return {
+        currentStart: now - 30 * 24 * 60 * 60 * 1000,
+        previousStart: now - 60 * 24 * 60 * 60 * 1000,
+      };
+    case 'ALL':
+    default:
+      return null;
+  }
+}
+
+function buildTrendPoints(
+  orders: OwnerOrderListEntry[],
+  windowFilter: TimeWindow,
+) {
+  const grouped = new Map<string, { orderCount: number; grossSalesCents: number }>();
+  for (const order of orders) {
+    const createdAt = new Date(order.createdAt);
+    const label =
+      windowFilter === '24H'
+        ? new Intl.DateTimeFormat('en-SG', {
+            hour: 'numeric',
+            hour12: false,
+          }).format(createdAt)
+        : new Intl.DateTimeFormat('en-SG', {
+            day: '2-digit',
+            month: 'short',
+          }).format(createdAt);
+    const current = grouped.get(label) ?? { orderCount: 0, grossSalesCents: 0 };
+    grouped.set(label, {
+      orderCount: current.orderCount + 1,
+      grossSalesCents:
+        current.grossSalesCents +
+        (order.paymentStatus === 'PAID' ? order.grandTotalCents : 0),
+    });
+  }
+  const maxOrders = Math.max(
+    1,
+    ...[...grouped.values()].map((entry) => entry.orderCount),
+  );
+  return [...grouped.entries()]
+    .map(([label, entry]) => ({
+      label,
+      ...entry,
+      barWidthPercent: Math.max(12, Math.round((entry.orderCount / maxOrders) * 100)),
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label))
+    .slice(windowFilter === '24H' ? -24 : -10);
+}
+
 function formatCurrency(currency: string, cents: number) {
   return new Intl.NumberFormat('en-SG', {
     style: 'currency',
@@ -478,11 +746,23 @@ function formatCurrency(currency: string, cents: number) {
   }).format(cents / 100);
 }
 
+function formatSignedCurrency(currency: string, cents: number) {
+  const amount = formatCurrency(currency, Math.abs(cents));
+  return cents > 0 ? `+${amount}` : cents < 0 ? `-${amount}` : amount;
+}
+
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('en-SG', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function formatSignedNumber(value: number) {
+  if (value > 0) {
+    return `+${value}`;
+  }
+  return `${value}`;
 }
 
 function formatEnum(value: string) {

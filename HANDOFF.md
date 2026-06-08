@@ -119,6 +119,8 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
     metrics
   - status distribution and payment-method mix
   - top-table activity and recent-order summaries
+  - lightweight trend views, previous-period comparisons, and export-ready
+    owner summary text
 
 ### Staff web
 
@@ -380,7 +382,7 @@ Goal:
 
 Current implementation status:
 
-- In progress with two major blocks already landed.
+- Completed for the currently agreed scope and ready for merge.
 - Implemented now:
   - structured owner menu draft editor for modifier groups, option pricing,
     item variants, and item-level modifier assignment
@@ -389,11 +391,12 @@ Current implementation status:
     APIs for total orders, live orders, paid orders, and gross paid sales
   - dedicated outlet reporting route with time-window filters and richer
     trading summaries
-- Remaining inside Phase 3:
-  - improve draft and publish workflow clarity further if desired
-  - add deeper reporting views such as outlet-to-outlet comparisons, trend
-    charts, or export-friendly summaries
-  - add finer floor/table visual editing if product wants it
+  - trend-style reporting, previous-period comparisons, and export-ready owner
+    summaries
+- Phase 3 close-out decision:
+  - visual floor/table editing is deferred out of this phase
+  - outlet-to-outlet comparison dashboards and richer exports can be treated as
+    future enhancements rather than blockers for Phase 3 completion
 
 Scope:
 
