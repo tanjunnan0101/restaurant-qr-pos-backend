@@ -90,6 +90,12 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
         <div className="inline-actions">
           <Link
             className="secondary-button"
+            href={`/outlets/${outlet.id}/reports`}
+          >
+            Reports
+          </Link>
+          <Link
+            className="secondary-button"
             href={`/outlets/${outlet.id}/menu`}
           >
             Menu

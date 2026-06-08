@@ -5,6 +5,7 @@ import {
   MenuSquare,
   Printer,
   QrCode,
+  ReceiptText,
   Settings,
   Store,
   type LucideIcon,
@@ -27,6 +28,12 @@ export const ownerNavItems: OwnerNavItem[] = [
     label: 'Dashboard',
     description: 'Launch checklist and outlet health',
     icon: LayoutDashboard,
+  },
+  {
+    href: `/outlets/${demoOutletId}/reports`,
+    label: 'Reports',
+    description: 'Outlet sales and order summaries',
+    icon: ReceiptText,
   },
   {
     href: `/outlets/${demoOutletId}/menu`,

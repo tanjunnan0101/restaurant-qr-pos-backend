@@ -110,6 +110,13 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   - live order counts
   - paid order counts
   - gross paid sales totals
+- Added a dedicated owner outlet reporting page at
+  `apps/owner-web/app/outlets/[outletId]/reports/page.tsx` with:
+  - 24-hour, 7-day, 30-day, and all-time filters
+  - gross paid sales, average paid ticket, unpaid exposure, and live-order
+    metrics
+  - status distribution and payment-method mix
+  - top-table activity and recent-order summaries
 
 ### Staff web
 
@@ -377,9 +384,12 @@ Current implementation status:
     item variants, and item-level modifier assignment
   - first reporting snapshot on the owner dashboard using existing order list
     APIs for total orders, live orders, paid orders, and gross paid sales
+  - dedicated outlet reporting route with time-window filters and richer
+    trading summaries
 - Remaining inside Phase 3:
   - improve draft and publish workflow clarity further if desired
-  - add deeper reporting views such as time-window summaries or outlet trends
+  - add deeper reporting views such as outlet-to-outlet comparisons, trend
+    charts, or export-friendly summaries
   - add finer floor/table visual editing if product wants it
 
 Scope:

@@ -295,6 +295,12 @@ export function DashboardPage() {
                   <div className="inline-actions">
                     <Link
                       className="secondary-button"
+                      href={`/outlets/${entry.outlet.id}/reports`}
+                    >
+                      Reports
+                    </Link>
+                    <Link
+                      className="secondary-button"
                       href={`/outlets/${entry.outlet.id}/menu`}
                     >
                       Menu

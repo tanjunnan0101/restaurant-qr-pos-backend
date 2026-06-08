@@ -321,7 +321,8 @@ button {
 .structured-editor,
 .editor-stack,
 .checkbox-grid,
-.assignment-grid {
+.assignment-grid,
+.filter-chip-row {
   display: grid;
   gap: 16px;
 }
@@ -341,6 +342,31 @@ button {
 .checkbox-grid,
 .assignment-grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.filter-chip-row {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.filter-chip {
+  border: 1px solid rgba(220, 207, 192, 0.9);
+  border-radius: 18px;
+  background: var(--surface);
+  padding: 16px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.filter-chip span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.filter-chip.active {
+  background: var(--accent-soft);
+  border-color: rgba(21, 94, 99, 0.3);
 }
 
 .alert {
