@@ -619,6 +619,62 @@ button {
   gap: 14px;
 }
 
+.workspace-hero {
+  background:
+    linear-gradient(145deg, rgba(202, 90, 51, 0.1), transparent 32%),
+    linear-gradient(335deg, rgba(64, 107, 88, 0.12), transparent 30%),
+    rgba(255, 250, 241, 0.97);
+}
+
+.workspace-hero--staff {
+  color: var(--ink);
+}
+
+.workspace-hero__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.workspace-hero__copy {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-meta-grid,
+.workspace-pill-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.workspace-meta-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-pill-grid {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.workspace-pill {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 14px;
+  border: 1px solid rgba(29, 23, 18, 0.1);
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.workspace-pill.current {
+  color: var(--accent-strong);
+  background: rgba(202, 90, 51, 0.14);
+  border-color: rgba(202, 90, 51, 0.24);
+}
+
 .hero-panel__title {
   margin: 0;
   font-size: clamp(2.2rem, 4vw, 3.6rem);
@@ -776,6 +832,74 @@ button {
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(248, 241, 231, 0.98));
 }
 
+.pos-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pos-summary-card {
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  background: rgba(255, 253, 248, 0.82);
+  border: 1px solid rgba(29, 23, 18, 0.08);
+  color: var(--ink);
+}
+
+.pos-summary-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 1.6rem;
+}
+
+.pos-summary-card p {
+  margin: 10px 0 0;
+}
+
+.pos-command-bar {
+  display: grid;
+  gap: 18px;
+}
+
+.pos-shell-card,
+.pos-ticket-card {
+  display: grid;
+  gap: 18px;
+}
+
+.pos-shell-card {
+  background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(248, 241, 231, 0.98));
+}
+
+.pos-ticket-card {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(244, 236, 223, 0.98));
+}
+
+.pos-ticket-section {
+  display: grid;
+  gap: 14px;
+}
+
+.pos-ticket-section + .pos-ticket-section {
+  padding-top: 16px;
+  border-top: 1px solid rgba(29, 23, 18, 0.08);
+}
+
+.cart-card--dense {
+  gap: 14px;
+}
+
+.cart-item-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.totals-hero {
+  background: rgba(255, 253, 248, 0.9);
+}
+
 .queue-metrics {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -930,6 +1054,12 @@ button {
   }
 
   .hero-panel__header {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-hero__header,
+  .workspace-meta-grid,
+  .pos-summary-grid {
     grid-template-columns: 1fr;
   }
 

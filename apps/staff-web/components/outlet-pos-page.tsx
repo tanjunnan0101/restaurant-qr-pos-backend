@@ -536,6 +536,12 @@ export function OutletPosPage() {
     enabledPaymentMethodOptions.length === 0 ||
     (paymentMethod === 'CASH' &&
       (cashTenderedCents === null || cashTenderedCents < summary.grandTotalCents));
+  const selectedTable = availableTables.find((table) => table.id === tableId) ?? null;
+  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const activeMenuName = menus.find((menu) => menu.id === selectedMenuId)?.name ?? 'No menu selected';
+  const paymentMethodLabel =
+    paymentMethodOptions.find((option) => option.value === paymentMethod)?.label ??
+    paymentMethod;
 
   useEffect(() => {
     if (paymentMethod !== 'CASH') {
@@ -1097,8 +1103,67 @@ export function OutletPosPage() {
         </section>
       ) : null}
 
+      <section className="workspace-hero workspace-hero--staff">
+        <div className="workspace-hero__header">
+          <div className="workspace-hero__copy">
+            <p className="eyebrow">Cashier cockpit</p>
+            <h2 className="section-title serif">Move faster with fewer taps</h2>
+            <p className="supporting-copy">
+              Keep the order flow calm at the counter with a live menu on the
+              left and a tightly structured ticket on the right.
+            </p>
+          </div>
+          <div className="workspace-pill-grid">
+            <div className="workspace-pill current">
+              <span>Menu</span>
+              <strong>{activeMenuName}</strong>
+            </div>
+            <div className="workspace-pill">
+              <span>Payment</span>
+              <strong>{paymentMethodLabel}</strong>
+            </div>
+          </div>
+        </div>
+        <div className="pos-summary-grid">
+          <article className="pos-summary-card">
+            <span className="metric-label">Ticket lines</span>
+            <strong>{cart.length}</strong>
+            <p className="supporting-copy">
+              Distinct items currently on this cashier ticket.
+            </p>
+          </article>
+          <article className="pos-summary-card">
+            <span className="metric-label">Items</span>
+            <strong>{itemCount}</strong>
+            <p className="supporting-copy">
+              Total quantity across the current order.
+            </p>
+          </article>
+          <article className="pos-summary-card">
+            <span className="metric-label">Service</span>
+            <strong>{formatEnum(serviceType)}</strong>
+            <p className="supporting-copy">
+              {selectedTable
+                ? `${selectedTable.zoneName} | ${selectedTable.displayName}`
+                : serviceType === 'DINE_IN'
+                  ? 'Select a table before checkout.'
+                  : 'Counter-friendly order flow is active.'}
+            </p>
+          </article>
+          <article className="pos-summary-card">
+            <span className="metric-label">Running total</span>
+            <strong>
+              {formatMoney(outlet?.currency ?? 'SGD', summary.grandTotalCents)}
+            </strong>
+            <p className="supporting-copy">
+              Includes service charge, GST, and any current discount.
+            </p>
+          </article>
+        </div>
+      </section>
+
       <section className="pos-layout">
-        <section className="panel section-panel">
+        <section className="panel section-panel pos-shell-card">
           <div className="section-header">
             <div>
               <p className="eyebrow">Menu source</p>
@@ -1244,11 +1309,11 @@ export function OutletPosPage() {
           )}
         </section>
 
-        <aside className="panel section-panel pos-sidebar">
+        <aside className="panel section-panel pos-sidebar pos-ticket-card">
           <p className="eyebrow">Order builder</p>
           <h2 className="section-title serif">Current ticket</h2>
 
-          <div className="form-grid">
+          <div className="form-grid pos-ticket-section">
             <div className="field">
               <label htmlFor="source">Source</label>
               <select
@@ -1506,7 +1571,7 @@ export function OutletPosPage() {
             ) : null}
           </div>
 
-          <div className="cart-list">
+          <div className="cart-list pos-ticket-section">
             {cart.length === 0 ? (
               <div className="empty-state">
                 <h3>Cart is empty</h3>
@@ -1516,7 +1581,7 @@ export function OutletPosPage() {
               </div>
             ) : (
               cart.map((item) => (
-                <article className="cart-card" key={item.id}>
+                <article className="cart-card cart-card--dense" key={item.id}>
                   <div className="section-header">
                     <div>
                       <strong>{item.itemName}</strong>
@@ -1535,7 +1600,7 @@ export function OutletPosPage() {
                       )}
                     </strong>
                   </div>
-                  <div className="inline-actions">
+                  <div className="cart-item-controls">
                     <button
                       className="quantity-button"
                       onClick={() => updateCartQuantity(item.id, -1)}
@@ -1571,7 +1636,7 @@ export function OutletPosPage() {
             )}
           </div>
 
-          <article className="sub-panel bill-card">
+          <article className="sub-panel bill-card totals-hero">
             <h3>Estimated totals</h3>
             <div className="stack-list">
               <div className="stack-row">

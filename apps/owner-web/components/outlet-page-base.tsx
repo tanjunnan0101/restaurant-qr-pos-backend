@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getOutlets } from '@/lib/api';
 import type { OutletSummary } from '@/lib/types';
@@ -77,76 +77,63 @@ export function OutletPageLayout({
 }
 
 export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
+  const pathname = usePathname();
+  const navItems = [
+    { href: `/outlets/${outlet.id}/reports`, label: 'Reports' },
+    { href: `/outlets/${outlet.id}/settings`, label: 'Settings' },
+    { href: `/outlets/${outlet.id}/menu`, label: 'Menu' },
+    { href: `/outlets/${outlet.id}/tables`, label: 'Tables' },
+    { href: `/outlets/${outlet.id}/inventory`, label: 'Inventory' },
+    { href: `/outlets/${outlet.id}/payment-settings`, label: 'Payments' },
+    { href: `/outlets/${outlet.id}/staff`, label: 'Staff' },
+    { href: `/outlets/${outlet.id}/attendance`, label: 'Attendance' },
+    { href: `/outlets/${outlet.id}/audit`, label: 'Audit' },
+    { href: `/outlets/${outlet.id}/printing`, label: 'Printing' },
+  ];
+
   return (
-    <section className="section-panel">
-      <div className="section-header">
-        <div>
+    <section className="section-panel workspace-hero">
+      <div className="workspace-hero__header">
+        <div className="workspace-hero__copy">
           <p className="eyebrow">Outlet context</p>
           <h2 className="serif">{outlet.name}</h2>
           <p>{outlet.slug} | {outlet.currency} | {outlet.timezone}</p>
         </div>
-        <div className="inline-actions">
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/settings`}
-          >
-            Settings
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/reports`}
-          >
-            Reports
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/menu`}
-          >
-            Menu
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/tables`}
-          >
-            Tables
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/inventory`}
-          >
-            Inventory
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/payment-settings`}
-          >
-            Payment settings
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/staff`}
-          >
-            Staff
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/attendance`}
-          >
-            Attendance
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/audit`}
-          >
-            Audit
-          </Link>
-          <Link
-            className="secondary-button"
-            href={`/outlets/${outlet.id}/printing`}
-          >
-            Printing
-          </Link>
+
+        <div className="workspace-meta-grid">
+          <article className="info-card info-card--compact">
+            <span className="metric-label">GST</span>
+            <span className="metric-value">
+              {outlet.gstEnabled ? `${outlet.gstRateBps / 100}%` : 'Off'}
+            </span>
+            <p className="metric-note">Tax configuration for this outlet.</p>
+          </article>
+          <article className="info-card info-card--compact">
+            <span className="metric-label">Service charge</span>
+            <span className="metric-value">
+              {outlet.serviceChargeEnabled
+                ? `${outlet.serviceChargeBps / 100}%`
+                : 'Off'}
+            </span>
+            <p className="metric-note">Applied before QR and POS settlement.</p>
+          </article>
         </div>
+      </div>
+
+      <div className="workspace-pill-grid">
+        {navItems.map((item) => {
+          const current =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              className={current ? 'workspace-pill current' : 'workspace-pill'}
+              href={item.href}
+              key={item.href}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

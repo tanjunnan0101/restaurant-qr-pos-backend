@@ -658,6 +658,58 @@ button {
   gap: 14px;
 }
 
+.workspace-hero {
+  background:
+    linear-gradient(150deg, rgba(21, 94, 99, 0.06), transparent 32%),
+    linear-gradient(330deg, rgba(182, 75, 53, 0.08), transparent 30%),
+    rgba(255, 253, 250, 0.98);
+}
+
+.workspace-hero__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.workspace-hero__copy {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-meta-grid,
+.workspace-pill-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.workspace-meta-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-pill-grid {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.workspace-pill {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 14px;
+  border: 1px solid rgba(220, 207, 192, 0.9);
+  background: rgba(255, 255, 255, 0.54);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.workspace-pill.current {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-color: rgba(21, 94, 99, 0.18);
+}
+
 .hero-panel__title {
   margin: 0;
   font-size: clamp(2.3rem, 4vw, 3.8rem);
@@ -937,6 +989,11 @@ button {
   }
 
   .hero-panel__header {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-hero__header,
+  .workspace-meta-grid {
     grid-template-columns: 1fr;
   }
 
