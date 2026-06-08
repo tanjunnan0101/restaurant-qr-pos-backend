@@ -4,15 +4,15 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Owner Web',
-    template: '%s | Owner Web',
+    default: 'Owner Console',
+    template: '%s | Owner Console',
   },
-  description: 'Owner console for Restaurant QR POS setup and operations.',
+  description: 'Restaurant owner and outlet administration console.',
 };
 
 export const viewport: Viewport = {
   colorScheme: 'light',
-  themeColor: '#f7f0e5',
+  themeColor: '#f3efe7',
   width: 'device-width',
   initialScale: 1,
 };

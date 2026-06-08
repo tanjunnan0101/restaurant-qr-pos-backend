@@ -8,7 +8,7 @@ Repository:
 ## Current state
 
 This repository is continuation-ready for the backend, the customer QR web app,
-the owner-web scaffold, and the printer-agent foundation.
+the owner web app, and the printer-agent foundation.
 
 Current deployed/staging truth at the end of this session:
 
@@ -17,6 +17,7 @@ Current deployed/staging truth at the end of this session:
 - HitPay sandbox checkout is working end to end.
 - Successful payments are visible in the HitPay sandbox dashboard.
 - The customer QR menu flow is working.
+- The owner web app is implemented and wired to the live backend APIs.
 - The remaining unvalidated area is physical printer hardware.
 
 The live customer checkout baseline is now:
@@ -30,11 +31,6 @@ The live customer checkout baseline is now:
 The repo now also includes automatic customer receipt queueing after successful
 payment when an active printer with role `RECEIPT` is configured for the outlet.
 
-The repo now also includes a scaffolded owner-web application for restaurant
-owners and outlet admins. It is built as a shared multi-client frontend: one
-owner-web domain can serve all restaurant clients, and each client signs in with
-their company slug, owner email, and password.
-
 ## Most important recent work
 
 1. Migrated the customer payment flow from Stripe to HitPay.
@@ -44,12 +40,9 @@ their company slug, owner email, and password.
    handoff.
 4. Added automatic customer receipt rendering and queueing alongside the
    existing kitchen and bar tickets.
-5. Added continuation placeholders for the future `staff-web` and `owner-web`
-   applications.
-6. Scaffolded the `owner-web` Next.js app with owner activation, login,
-   dashboard, menu, table/QR, payment-settings, and printing routes.
-7. Added owner-web design-system notes and monorepo script wiring so build,
-   typecheck, and lint include the new app.
+5. Replaced the placeholder `owner-web` app with a real Next.js owner console.
+6. Added the first owner-web write flows for payment settings, tables/QR,
+   menu maintenance including advanced menu controls, and printing actions.
 
 ## What is implemented
 
@@ -66,14 +59,14 @@ their company slug, owner email, and password.
 - Print-job persistence, retry logic, backup routing, and printer-agent lease flow.
 - Customer receipt queueing after successful payment.
 - Next.js customer ordering app.
-- Next.js owner-web scaffold.
+- Next.js owner/admin app with login, activation, dashboard hydration, and
+  outlet management surfaces.
 - Dockerfiles for API, customer web, and migration job.
 
 ## What is not implemented yet
 
-- Staff POS frontend.
 - KDS frontend.
-- Owner/admin frontend API integration and session management.
+- Staff POS frontend.
 - Real outlet printer validation on physical hardware.
 - Authenticated Socket.IO subscriptions.
 - Production rate limiting and abuse protection.
@@ -87,16 +80,13 @@ their company slug, owner email, and password.
 - `npm run typecheck`
 - `npm run test`
 - `npm run build`
-- `npm run lint`
-- Targeted Prettier check for the owner-web scaffold files.
-- One-shot HTTP verification of the owner-web landing, login, activation,
-  dashboard, payment-settings, and printing pages.
 
 The customer-receipt printing change was validated through typecheck, tests,
 and build. Physical printer testing was intentionally skipped because printer
-hardware is not available yet. The owner-web scaffold was validated through
-typecheck, lint, build, and local HTTP page checks. It currently uses static
-demo data and is ready for API wiring.
+hardware is not available yet.
+
+The owner-web implementation was also validated through full repo checks,
+typecheck, and production builds.
 
 ## What was validated in deployed staging
 
@@ -161,16 +151,8 @@ In a second terminal:
 
 ```powershell
 npm run dev:customer
-```
-
-For the owner/admin scaffold:
-
-```powershell
 npm run dev:owner
 ```
-
-Owner web runs on `http://localhost:3101` locally. Port `3001` is avoided
-because it is commonly occupied by Docker/WSL on this Windows machine.
 
 Useful checks:
 
@@ -185,26 +167,15 @@ npm run build
 1. Use `docs/runbooks/staging-rollout.md` and
    `docs/runbooks/production-readiness.md` as the operational checklist.
 2. Do not block continuation on printer validation. Go straight into
-   `owner-web` integration first.
-3. Wire `apps/owner-web` to the existing API:
-   - `POST /auth/activate`
-   - `POST /auth/login`
-   - `GET /admin/outlets`
-   - menu setup and publish routes
-   - table/QR setup and rotation routes
-   - payment-settings enable/disable routes
-   - printing setup and test-print routes
-4. Add owner session handling, selected-outlet state, API error states, and
-   route protection.
-5. Replace owner-web demo data with live backend data and keep the one-domain,
-   multi-client login model.
-6. Validate one real Windows printer-agent machine against the target thermal
+   `owner-web` continuation first.
+3. Validate one real Windows printer-agent machine against the target thermal
    printer later, including the new customer-receipt output.
-7. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
+4. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
    column names after staging is stable.
-8. Continue the next frontend phase:
+5. Continue from the current owner-web baseline rather than scaffolding from
+   scratch.
+6. Start the next remaining frontend phase:
    - `apps/staff-web`
-   - owner-web API wiring and forms
 
 The payment flow no longer needs rescue work unless HitPay credentials are
 rotated or the deployment environment changes.
@@ -228,3 +199,7 @@ rotated or the deployment environment changes.
   compatibility, but it is no longer used in the public customer flow.
 - There is no local fake payment-provider harness anymore; meaningful payment
   validation should happen against deployed HitPay sandbox endpoints.
+- The owner-web menu editor currently uses a fast text-based category/item
+  format. Modifier groups and item variants still need richer UI treatment.
+- The owner-web tables screen currently favors bulk text setup plus QR rotation
+  rather than fine-grained visual editing.

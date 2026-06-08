@@ -26,13 +26,15 @@ const environmentSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
-  API_CORS_ORIGINS: z.string().default('http://localhost:3000'),
+  API_CORS_ORIGINS: z
+    .string()
+    .default('http://localhost:3000,http://localhost:3002'),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().positive().default(3600),
   PLATFORM_ADMIN_API_KEY: z.string().min(32),
-  OWNER_APP_BASE_URL: z.string().url().default('http://localhost:3000'),
+  OWNER_APP_BASE_URL: z.string().url().default('http://localhost:3002'),
   CUSTOMER_APP_BASE_URL: z.string().url().default('http://localhost:3000'),
   ONBOARDING_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(72),
   HITPAY_API_KEY: z.string().default(''),

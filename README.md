@@ -26,12 +26,13 @@ Implemented now:
 - Automatic customer receipt queueing when a `RECEIPT` printer is configured.
 - Windows/LAN printer agent for ESC/POS thermal printers.
 - One-call client onboarding and owner activation.
+- Initial owner-web scaffold with activation, login, and read-only dashboard hydration.
 
 Not implemented yet:
 
 - Staff POS frontend.
 - KDS frontend.
-- Owner dashboard frontend.
+- Full owner dashboard write flows.
 - Physical printer acceptance on a real outlet network.
 - Production observability, rate limiting, backup/restore drills, and
   horizontally scaled Socket.IO.
@@ -46,12 +47,14 @@ Not implemented yet:
 6. Run `npm run prisma:seed`.
 7. Run `npm run dev`.
 8. In a second terminal, run `npm run dev:customer`.
+9. In a third terminal, run `npm run dev:owner`.
 
 Useful local URLs:
 
 - Swagger: `http://localhost:3001/docs`
 - API health: `http://localhost:3001/api/v1/health`
 - Customer app shell: `http://localhost:3000`
+- Owner app shell: `http://localhost:3002`
 
 Seeded owner login defaults to `owner@example.com` / `ChangeMe123!` unless
 you override them in `.env`.
@@ -107,13 +110,17 @@ When payment is confirmed:
 
 See [docs/runbooks/order-and-printer-flow.md](docs/runbooks/order-and-printer-flow.md).
 
-## Frontend continuation
+## Owner web
 
-Only the customer ordering app is implemented today. Continuation placeholders
-for the next apps live at:
+The owner console now lives in `apps/owner-web` and currently supports:
 
-- `apps/staff-web`
-- `apps/owner-web`
+- account activation
+- owner login
+- a read-only dashboard
+- outlet menu visibility
+- outlet table and QR visibility
+- outlet payment-settings visibility
+- outlet printing visibility
 
-These directories currently document the intended surface and first milestones
-without affecting the monorepo build.
+It is intentionally read-first for the first scaffold. The next phase is to add
+write flows for menu setup, table setup, payment toggles, and printing setup.
