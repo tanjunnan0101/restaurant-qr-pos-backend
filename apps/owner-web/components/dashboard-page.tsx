@@ -1,5 +1,13 @@
 'use client';
 
+import {
+  AlertTriangle,
+  Building2,
+  ClipboardList,
+  Printer,
+  Sparkles,
+  WalletCards,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -387,6 +395,25 @@ export function DashboardPage() {
     rankedOutlets,
   ]);
 
+  const launchWatchlist = useMemo(
+    () =>
+      outlets
+        .map((entry) => ({
+          entry,
+          blockers: [
+            entry.setupChecklist.menuPublished ? null : 'Publish the menu',
+            entry.setupChecklist.tablesReady ? null : 'Finish table and QR setup',
+            entry.setupChecklist.checkoutReady ? null : 'Enable online card checkout',
+            entry.setupChecklist.printingReady
+              ? null
+              : 'Validate printer and receipt routing',
+          ].filter((value): value is string => value !== null),
+        }))
+        .sort((left, right) => left.blockers.length - right.blockers.length)
+        .slice(0, 4),
+    [outlets],
+  );
+
   async function handleCopyCompanySummary() {
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
       setCopySuccess('Copy is not available in this browser.');
@@ -421,36 +448,79 @@ export function DashboardPage() {
       ) : (
         <>
           {company && (
-            <section className="section-panel">
-              <div className="section-header">
-                <div>
+            <section className="section-panel hero-panel">
+              <div className="hero-panel__header">
+                <div className="hero-panel__copy">
                   <p className="eyebrow">Company profile</p>
-                  <h2 className="serif">{company.name}</h2>
-                  <p>
+                  <h2 className="serif hero-panel__title">{company.name}</h2>
+                  <p className="hero-panel__lede">
                     {company.slug} | {company.defaultCurrency} |{' '}
                     {company.defaultTimezone}
                   </p>
+                  <div className="badge-row">
+                    <span className="badge">{company.status}</span>
+                    {company.legalName ? (
+                      <span className="tag">{company.legalName}</span>
+                    ) : null}
+                    {company.registrationNumber ? (
+                      <span className="tag">{company.registrationNumber}</span>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="badge-row">
-                  <span className="badge">{company.status}</span>
-                  {company.legalName && (
-                    <span className="tag">{company.legalName}</span>
-                  )}
+
+                <div className="hero-panel__spotlight">
+                  <article className="spotlight-card spotlight-card--success">
+                    <span className="spotlight-card__icon">
+                      <Building2 aria-hidden="true" size={18} />
+                    </span>
+                    <div>
+                      <span className="metric-label">Top grossing outlet</span>
+                      <strong className="spotlight-card__value">
+                        {rankedOutlets[0]?.outlet.name ?? 'No outlet activity'}
+                      </strong>
+                      <p className="metric-note">
+                        {rankedOutlets[0]
+                          ? formatCurrency(
+                              rankedOutlets[0].outlet.currency,
+                              rankedOutlets[0].grossSalesCents,
+                            )
+                          : 'Run the first live orders to rank outlet performance.'}
+                      </p>
+                    </div>
+                  </article>
+                  <article className="spotlight-card spotlight-card--warn">
+                    <span className="spotlight-card__icon">
+                      <AlertTriangle aria-hidden="true" size={18} />
+                    </span>
+                    <div>
+                      <span className="metric-label">Needs attention</span>
+                      <strong className="spotlight-card__value">
+                        {attentionOutlets[0]?.outlet.outlet.name ?? 'No critical alerts'}
+                      </strong>
+                      <p className="metric-note">
+                        {attentionOutlets[0]
+                          ? attentionOutlets[0].alerts.join(', ')
+                          : 'All tracked outlet launch checks currently look healthy.'}
+                      </p>
+                    </div>
+                  </article>
                 </div>
               </div>
 
-              <div className="dashboard-stats">
-                <article className="dashboard-card">
+              <div className="dashboard-stats dashboard-stats--hero">
+                <article className="dashboard-card dashboard-card--hero">
                   <span className="metric-label">Outlets</span>
                   <span className="metric-value">{outlets.length}</span>
+                  <p className="metric-note">All accessible operating locations</p>
                 </article>
-                <article className="dashboard-card">
+                <article className="dashboard-card dashboard-card--hero">
                   <span className="metric-label">Menus</span>
                   <span className="metric-value">
                     {outlets.reduce((sum, outlet) => sum + outlet.menuCount, 0)}
                   </span>
+                  <p className="metric-note">Total configured owner-side menus</p>
                 </article>
-                <article className="dashboard-card">
+                <article className="dashboard-card dashboard-card--hero">
                   <span className="metric-label">Orders</span>
                   <span className="metric-value">
                     {outlets.reduce(
@@ -458,8 +528,9 @@ export function DashboardPage() {
                       0,
                     )}
                   </span>
+                  <p className="metric-note">All recorded orders across the tenant</p>
                 </article>
-                <article className="dashboard-card">
+                <article className="dashboard-card dashboard-card--hero">
                   <span className="metric-label">Paid sales</span>
                   <span className="metric-value">
                     {formatCurrency(
@@ -470,6 +541,7 @@ export function DashboardPage() {
                       ),
                     )}
                   </span>
+                  <p className="metric-note">Gross paid value across all outlets</p>
                 </article>
               </div>
             </section>
@@ -488,31 +560,55 @@ export function DashboardPage() {
             </div>
 
             <div className="dashboard-stats">
-              <article className="dashboard-card">
+              <article className="dashboard-card dashboard-card--tone-accent">
                 <span className="metric-label">Live orders</span>
+                <span className="metric-icon">
+                  <ClipboardList aria-hidden="true" size={18} />
+                </span>
                 <span className="metric-value">
                   {companyMetrics.totalLiveOrders}
                 </span>
                 <p className="metric-note">Across all outlets right now</p>
               </article>
-              <article className="dashboard-card">
+              <article className="dashboard-card dashboard-card--tone-success">
                 <span className="metric-label">Average readiness</span>
+                <span className="metric-icon">
+                  <Sparkles aria-hidden="true" size={18} />
+                </span>
                 <span className="metric-value">
                   {companyMetrics.averageSetupReadiness}%
                 </span>
                 <p className="metric-note">Mean go-live readiness score</p>
               </article>
-              <article className="dashboard-card">
+              <article className="dashboard-card dashboard-card--tone-danger">
                 <span className="metric-label">Print failures</span>
+                <span className="metric-icon">
+                  <Printer aria-hidden="true" size={18} />
+                </span>
                 <span className="metric-value">
                   {companyMetrics.totalFailedPrintJobs}
                 </span>
                 <p className="metric-note">Failed print jobs awaiting review</p>
               </article>
+              <article className="dashboard-card dashboard-card--tone-neutral">
+                <span className="metric-label">Paid revenue</span>
+                <span className="metric-icon">
+                  <WalletCards aria-hidden="true" size={18} />
+                </span>
+                <span className="metric-value">
+                  {formatCurrency(
+                    company?.defaultCurrency ?? 'SGD',
+                    companyMetrics.totalPaidSales,
+                  )}
+                </span>
+                <p className="metric-note">
+                  Revenue already settled through the current ordering flows
+                </p>
+              </article>
             </div>
 
             <div className="outlet-grid">
-              <article className="list-item">
+              <article className="list-item list-item--elevated">
                 <h3>Top outlets</h3>
                 <div className="list-block">
                   {rankedOutlets.length === 0 ? (
@@ -535,7 +631,7 @@ export function DashboardPage() {
                 </div>
               </article>
 
-              <article className="list-item">
+              <article className="list-item list-item--elevated">
                 <h3>Attention needed</h3>
                 <div className="list-block">
                   {attentionOutlets.length === 0 ? (
@@ -550,6 +646,95 @@ export function DashboardPage() {
                   )}
                 </div>
               </article>
+            </div>
+          </section>
+
+          <section className="section-panel">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Launch watchlist</p>
+                <h2 className="serif">Where to push next</h2>
+                <p>
+                  These outlet cards compress setup blockers into a quick owner
+                  view so rollout decisions do not get buried inside forms.
+                </p>
+              </div>
+            </div>
+
+            <div className="outlet-grid">
+              {launchWatchlist.length === 0 ? (
+                <div className="empty-state">
+                  <strong>No outlets yet.</strong>
+                  <p>Create the first outlet to start the setup sequence.</p>
+                </div>
+              ) : (
+                launchWatchlist.map(({ entry, blockers }) => (
+                  <article className="list-item list-item--spotlight" key={entry.outlet.id}>
+                    <div className="section-header">
+                      <div>
+                        <h3>{entry.outlet.name}</h3>
+                        <p>
+                          {entry.outlet.slug} | {entry.outlet.currency} |{' '}
+                          {entry.outlet.timezone}
+                        </p>
+                      </div>
+                      <span
+                        className={
+                          blockers.length === 0 ? 'badge success' : 'badge warn'
+                        }
+                      >
+                        {blockers.length === 0
+                          ? 'Ready for rollout'
+                          : `${blockers.length} remaining`}
+                      </span>
+                    </div>
+
+                    <div className="detail-grid">
+                      <article className="info-card info-card--compact">
+                        <span className="metric-label">Readiness</span>
+                        <span className="metric-value">
+                          {entry.setupReadinessPercent}%
+                        </span>
+                        <p className="metric-note">
+                          {entry.onlineCardEnabled
+                            ? 'Checkout is live for QR ordering'
+                            : 'Checkout still needs attention'}
+                        </p>
+                      </article>
+                      <article className="info-card info-card--compact">
+                        <span className="metric-label">Live orders</span>
+                        <span className="metric-value">{entry.liveOrders}</span>
+                        <p className="metric-note">
+                          {entry.paidOrders} paid | {entry.totalOrders} total
+                        </p>
+                      </article>
+                    </div>
+
+                    <ul className="sub-list">
+                      {blockers.length === 0 ? (
+                        <li>Everything required for pilot handoff is in place.</li>
+                      ) : (
+                        blockers.map((blocker) => <li key={blocker}>{blocker}</li>)
+                      )}
+                    </ul>
+
+                    <div className="inline-actions">
+                      <Link
+                        className="secondary-button"
+                        href={`/outlets/${entry.outlet.id}/reports`}
+                      >
+                        View outlet
+                      </Link>
+                      <Link
+                        className="secondary-button"
+                        href={`/outlets/${entry.outlet.id}/payment-settings`}
+                      >
+                        Payment controls
+                      </Link>
+                    </div>
+                  </article>
+                ))
+              )}
             </div>
           </section>
 

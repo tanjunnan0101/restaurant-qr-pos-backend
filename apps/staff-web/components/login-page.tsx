@@ -53,6 +53,21 @@ export function LoginPage() {
               endpoint.
             </p>
           </div>
+
+          <div className="feature-grid">
+            <article className="feature-card">
+              <h3>Live queue</h3>
+              <p>Move directly from sign-in to orders, KDS, and table pressure.</p>
+            </article>
+            <article className="feature-card">
+              <h3>Outlet scoped</h3>
+              <p>Staff only see the outlets and roles granted by the backend.</p>
+            </article>
+            <article className="feature-card">
+              <h3>Cashier ready</h3>
+              <p>POS, manual workflows, and service coordination stay in one app.</p>
+            </article>
+          </div>
         </section>
 
         <section className="panel compact-card">

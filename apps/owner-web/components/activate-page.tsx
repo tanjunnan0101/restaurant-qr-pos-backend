@@ -79,6 +79,29 @@ export function ActivatePage() {
               slug should already be filled in.
             </p>
           </article>
+          <div className="kpi-grid">
+            <article className="dashboard-card">
+              <span className="metric-label">Step 1</span>
+              <span className="metric-value">Set password</span>
+              <p className="metric-note">
+                The activation token is one-time and marks the owner account active.
+              </p>
+            </article>
+            <article className="dashboard-card">
+              <span className="metric-label">Step 2</span>
+              <span className="metric-value">Sign in</span>
+              <p className="metric-note">
+                After activation, the page routes back to owner login automatically.
+              </p>
+            </article>
+            <article className="dashboard-card">
+              <span className="metric-label">Step 3</span>
+              <span className="metric-value">Continue setup</span>
+              <p className="metric-note">
+                Use the owner dashboard to finish menus, QR, payments, and printers.
+              </p>
+            </article>
+          </div>
         </section>
 
         <section className="form-panel">

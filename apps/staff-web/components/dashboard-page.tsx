@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  BellRing,
+  ChefHat,
+  Radio,
+  ScanLine,
+  TimerReset,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { getOrders, getOutlets, getTables } from '@/lib/api';
@@ -277,16 +284,83 @@ export function DashboardPage() {
         </section>
       ) : (
         <>
+          <section className="panel section-panel hero-panel hero-panel--staff">
+            <div className="hero-panel__header">
+              <div className="hero-panel__copy">
+                <p className="eyebrow">Shift snapshot</p>
+                <h2 className="section-title serif hero-panel__title">
+                  Keep the active queue visible and the next action obvious.
+                </h2>
+                <p className="hero-panel__lede hero-panel__lede--dark">
+                  The staff board is tuned for live service pressure: queue
+                  visibility, floor attention, and fast movement into orders,
+                  KDS, tables, and POS.
+                </p>
+                <div className="badge-row">
+                  <span
+                    className={`status-pill ${toneForRealtime(realtimeStatus)}`}
+                  >
+                    {formatRealtimeStatus(realtimeStatus)}
+                  </span>
+                  <span className="tag tag--dark">
+                    {outlets.length} outlet{outlets.length === 1 ? '' : 's'} in
+                    shift scope
+                  </span>
+                </div>
+              </div>
+
+              <div className="hero-panel__spotlight">
+                <article className="spotlight-card spotlight-card--danger">
+                  <span className="spotlight-card__icon">
+                    <BellRing aria-hidden="true" size={18} />
+                  </span>
+                  <div>
+                    <span className="metric-label">Guest attention</span>
+                    <strong className="spotlight-card__value">
+                      {outlets.reduce(
+                        (sum, outlet) => sum + outlet.openServiceRequests,
+                        0,
+                      )}
+                    </strong>
+                    <p className="metric-note">
+                      Live help requests currently waiting on the floor team.
+                    </p>
+                  </div>
+                </article>
+                <article className="spotlight-card spotlight-card--success">
+                  <span className="spotlight-card__icon">
+                    <ChefHat aria-hidden="true" size={18} />
+                  </span>
+                  <div>
+                    <span className="metric-label">Ready to run</span>
+                    <strong className="spotlight-card__value">
+                      {outlets.reduce((sum, outlet) => sum + outlet.readyToRun, 0)}
+                    </strong>
+                    <p className="metric-note">
+                      Orders nearest to a kitchen, pass, or service status change.
+                    </p>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+
           <section className="metric-board">
-            <article className="panel metric-card">
+            <article className="panel metric-card metric-card--accent">
               <span className="metric-label">Outlets</span>
+              <span className="metric-icon">
+                <ScanLine aria-hidden="true" size={18} />
+              </span>
               <strong className="metric-value">{outlets.length}</strong>
               <p className="supporting-copy">
                 Accessible in this staff session.
               </p>
             </article>
-            <article className="panel metric-card">
+            <article className="panel metric-card metric-card--accent">
               <span className="metric-label">Live queue</span>
+              <span className="metric-icon">
+                <Radio aria-hidden="true" size={18} />
+              </span>
               <strong className="metric-value">
                 {outlets.reduce((sum, outlet) => sum + outlet.liveQueue, 0)}
               </strong>
@@ -294,8 +368,11 @@ export function DashboardPage() {
                 Orders in kitchen, ready, or currently being served.
               </p>
             </article>
-            <article className="panel metric-card">
+            <article className="panel metric-card metric-card--warning">
               <span className="metric-label">Action now</span>
+              <span className="metric-icon">
+                <TimerReset aria-hidden="true" size={18} />
+              </span>
               <strong className="metric-value">
                 {outlets.reduce((sum, outlet) => sum + outlet.readyToRun, 0)}
               </strong>
@@ -303,7 +380,7 @@ export function DashboardPage() {
                 Orders closest to the next staff status change.
               </p>
             </article>
-            <article className="panel metric-card">
+            <article className="panel metric-card metric-card--success">
               <span className="metric-label">Occupied tables</span>
               <strong className="metric-value">
                 {outlets.reduce(
@@ -315,7 +392,7 @@ export function DashboardPage() {
                 Current table pressure across your accessible outlets.
               </p>
             </article>
-            <article className="panel metric-card">
+            <article className="panel metric-card metric-card--danger">
               <span className="metric-label">Help requests</span>
               <strong className="metric-value">
                 {outlets.reduce((sum, outlet) => sum + outlet.openServiceRequests, 0)}
@@ -324,7 +401,7 @@ export function DashboardPage() {
                 Guests currently waiting for staff attention from QR.
               </p>
             </article>
-            <article className="panel metric-card">
+            <article className="panel metric-card metric-card--warning">
               <span className="metric-label">Floor issues</span>
               <strong className="metric-value">
                 {outlets.reduce(
@@ -337,7 +414,7 @@ export function DashboardPage() {
                 Out-of-service tables plus live QR coverage gaps.
               </p>
             </article>
-            <article className="panel metric-card">
+            <article className="panel metric-card metric-card--neutral">
               <span className="metric-label">Live sync</span>
               <strong className="metric-value">
                 {formatRealtimeStatus(realtimeStatus)}
@@ -346,6 +423,67 @@ export function DashboardPage() {
                 Multi-outlet service updates are streaming into this dashboard.
               </p>
             </article>
+          </section>
+
+          <section className="panel section-panel">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Service priorities</p>
+                <h2 className="section-title serif">What the next ten minutes need</h2>
+                <p className="supporting-copy">
+                  Use this strip as the shift lead view before drilling into a
+                  specific outlet board.
+                </p>
+              </div>
+            </div>
+
+            <div className="operations-grid">
+              {outlets.slice(0, 4).map((entry) => (
+                <article className="sub-panel sub-panel--soft" key={entry.outlet.id}>
+                  <div className="section-header">
+                    <div>
+                      <h3>{entry.outlet.name}</h3>
+                      <p className="supporting-copy">{attentionSummary(entry)}</p>
+                    </div>
+                    <span className={`status-pill ${attentionTone(entry)}`}>
+                      {attentionLabel(entry)}
+                    </span>
+                  </div>
+                  <div className="queue-metrics">
+                    <div className="metric-inline">
+                      <span>Live</span>
+                      <strong>{entry.liveQueue}</strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>Ready next</span>
+                      <strong>{entry.readyToRun}</strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>Help</span>
+                      <strong>{entry.openServiceRequests}</strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>Tables busy</span>
+                      <strong>{entry.occupiedTables}</strong>
+                    </div>
+                  </div>
+                  <div className="inline-actions">
+                    <Link
+                      className="secondary-button"
+                      href={`/outlets/${entry.outlet.id}/orders`}
+                    >
+                      Open queue
+                    </Link>
+                    <Link
+                      className="secondary-button"
+                      href={`/outlets/${entry.outlet.id}/pos`}
+                    >
+                      Open POS
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
           </section>
 
           <section className="panel section-panel">
@@ -364,7 +502,7 @@ export function DashboardPage() {
 
             <div className="operations-grid">
               {outlets.map((entry) => (
-                <article className="panel queue-card" key={entry.outlet.id}>
+                <article className="panel queue-card queue-card--upgraded" key={entry.outlet.id}>
                   <div className="section-header">
                     <div>
                       <h3>{entry.outlet.name}</h3>
@@ -468,6 +606,21 @@ function formatRealtimeStatus(status: RealtimeStatus) {
       return 'Disconnected';
     default:
       return 'Idle';
+  }
+}
+
+function toneForRealtime(status: RealtimeStatus) {
+  switch (status) {
+    case 'connected':
+      return 'success';
+    case 'connecting':
+      return 'warning';
+    case 'error':
+      return 'danger';
+    case 'offline':
+      return 'neutral';
+    default:
+      return 'neutral';
   }
 }
 

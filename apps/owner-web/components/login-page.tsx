@@ -46,21 +46,34 @@ export function LoginPage() {
           <div className="owner-grid">
             <p className="eyebrow">Owner Sign In</p>
             <h1 className="display-title serif">
-              Enter the admin side of your restaurant.
+              Step into the control room for rollout, menus, and outlet health.
             </h1>
             <p className="lede">
-              This login is company-aware. Use the restaurant slug from
-              onboarding together with the owner email and password you
-              activated.
+              This login stays tenant-aware on purpose. Use the restaurant slug
+              from onboarding with the owner email and password you activated,
+              then continue into the live owner workspace.
             </p>
           </div>
-          <div className="mini-grid">
-            <article className="info-card">
-              <span className="metric-label">Needs</span>
+          <div className="kpi-grid">
+            <article className="dashboard-card">
+              <span className="metric-label">Tenant-aware</span>
               <span className="metric-value">Slug + email</span>
               <p className="metric-note">
-                Tenant selection is deliberate so shared hosting can still keep
-                data isolated.
+                Shared hosting stays safe because company selection is explicit.
+              </p>
+            </article>
+            <article className="dashboard-card">
+              <span className="metric-label">What opens next</span>
+              <span className="metric-value">Owner board</span>
+              <p className="metric-note">
+                Sales, readiness, payments, tables, staff, and printing.
+              </p>
+            </article>
+            <article className="dashboard-card">
+              <span className="metric-label">Activation path</span>
+              <span className="metric-value">Built in</span>
+              <p className="metric-note">
+                If this is a new client, activation is one click away from here.
               </p>
             </article>
           </div>
