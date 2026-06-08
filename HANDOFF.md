@@ -102,6 +102,8 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
   - item-level modifier-group assignment
   - item variants and price deltas
   - direct category and item editing without relying only on a raw textarea
+  - draft readiness checks and draft-vs-published comparison summaries before
+    publish
 - Added table and QR setup flows including QR rotation.
 - Added payment-settings controls and printing configuration/test/retry flows.
 - Added first owner reporting snapshots on the dashboard using existing admin
@@ -382,6 +384,7 @@ Current implementation status:
 - Implemented now:
   - structured owner menu draft editor for modifier groups, option pricing,
     item variants, and item-level modifier assignment
+  - clearer draft publish workflow with readiness checks and change summaries
   - first reporting snapshot on the owner dashboard using existing order list
     APIs for total orders, live orders, paid orders, and gross paid sales
   - dedicated outlet reporting route with time-window filters and richer

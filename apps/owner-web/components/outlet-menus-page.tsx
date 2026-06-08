@@ -883,12 +883,25 @@ export function OutletMenusPage() {
                 (version) => version.status === 'PUBLISHED',
               );
               const detail = menuDetails[menu.id];
+              const publishedVersion = detail
+                ? detail.versions.find((version) => version.status === 'PUBLISHED')
+                : undefined;
               const editableVersion = detail
                 ? getEditableVersion(detail)
                 : null;
               const draftVersion = detail
                 ? detail.versions.find((version) => version.status === 'DRAFT')
                 : null;
+              const currentDraftContent =
+                draftContent[menu.id] ??
+                versionToDraftContent(editableVersion ?? undefined);
+              const readinessIssues = getDraftReadinessIssues(currentDraftContent);
+              const draftSummary = summarizeDraftContent(currentDraftContent);
+              const publishedSummary = summarizeMenuVersion(publishedVersion);
+              const draftDiff = buildDraftDiff(
+                currentDraftContent,
+                publishedVersion,
+              );
               const isExpanded = expandedMenuId === menu.id;
 
               return (
@@ -987,6 +1000,99 @@ export function OutletMenusPage() {
                           <p className="eyebrow">Advanced controls</p>
                           <h4>Maintain draft content and item availability</h4>
                         </div>
+                      </div>
+
+                      <div className="outlet-grid">
+                        <article className="info-card">
+                          <span className="metric-label">Publish readiness</span>
+                          <span className="metric-value">
+                            {readinessIssues.length === 0 ? 'Ready' : 'Review'}
+                          </span>
+                          <p className="metric-note">
+                            {readinessIssues.length === 0
+                              ? 'This draft passes the owner-side checks and looks ready to publish.'
+                              : `${readinessIssues.length} issue${readinessIssues.length === 1 ? '' : 's'} should be reviewed before publishing.`}
+                          </p>
+                          <div className="badge-row">
+                            <span
+                              className={
+                                readinessIssues.length === 0
+                                  ? 'badge success'
+                                  : 'badge warn'
+                              }
+                            >
+                              {readinessIssues.length === 0
+                                ? 'Draft ready'
+                                : 'Needs attention'}
+                            </span>
+                            {draftVersion ? (
+                              <span className="badge">Draft in progress</span>
+                            ) : (
+                              <span className="badge">Published source view</span>
+                            )}
+                          </div>
+                        </article>
+
+                        <article className="info-card">
+                          <span className="metric-label">Draft vs published</span>
+                          <span className="metric-value">
+                            {publishedVersion ? 'Compared' : 'First publish'}
+                          </span>
+                          <p className="metric-note">
+                            {publishedVersion
+                              ? `Categories ${formatSignedDiff(draftDiff.categories)} • Items ${formatSignedDiff(draftDiff.items)} • Variants ${formatSignedDiff(draftDiff.variants)}`
+                              : 'There is no published version yet. Publishing this draft will create the first live menu.'}
+                          </p>
+                          <div className="badge-row">
+                            <span className="badge">
+                              Modifier groups {formatSignedDiff(draftDiff.modifierGroups)}
+                            </span>
+                            <span className="badge">
+                              Sold out {formatSignedDiff(draftDiff.soldOutItems)}
+                            </span>
+                          </div>
+                        </article>
+                      </div>
+
+                      {readinessIssues.length > 0 ? (
+                        <div className="alert warn">
+                          <strong>Review before publishing:</strong>
+                          <ul className="sub-list">
+                            {readinessIssues.map((issue) => (
+                              <li key={issue}>{issue}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className="alert success">
+                          Owner-side checks look good. You can save this draft
+                          and publish when ready.
+                        </div>
+                      )}
+
+                      <div className="outlet-grid">
+                        <article className="info-card">
+                          <span className="metric-label">Draft summary</span>
+                          <span className="metric-value">
+                            {draftSummary.items} items
+                          </span>
+                          <p className="metric-note">
+                            {draftSummary.categories} categories •{' '}
+                            {draftSummary.modifierGroups} modifier groups •{' '}
+                            {draftSummary.variants} variants
+                          </p>
+                        </article>
+                        <article className="info-card">
+                          <span className="metric-label">Published summary</span>
+                          <span className="metric-value">
+                            {publishedSummary.items} items
+                          </span>
+                          <p className="metric-note">
+                            {publishedSummary.categories} categories •{' '}
+                            {publishedSummary.modifierGroups} modifier groups •{' '}
+                            {publishedSummary.variants} variants
+                          </p>
+                        </article>
                       </div>
 
                       <div className="detail-grid">
@@ -2043,6 +2149,184 @@ function createEmptyVariant(index: number): DraftVariant {
     priceDeltaCents: 0,
     displayOrder: index,
   };
+}
+
+function summarizeDraftContent(content: DraftMenuContent) {
+  const categories = content.categories.length;
+  const items = content.categories.reduce(
+    (sum, category) => sum + category.items.length,
+    0,
+  );
+  const variants = content.categories.reduce(
+    (sum, category) =>
+      sum +
+      category.items.reduce(
+        (itemSum, item) => itemSum + (item.variants?.length ?? 0),
+        0,
+      ),
+    0,
+  );
+  const soldOutItems = content.categories.reduce(
+    (sum, category) =>
+      sum + category.items.filter((item) => item.soldOut).length,
+    0,
+  );
+  const modifierGroups = content.modifierGroups.length;
+  return {
+    categories,
+    items,
+    variants,
+    soldOutItems,
+    modifierGroups,
+  };
+}
+
+function summarizeMenuVersion(version: MenuDetail['versions'][number] | undefined) {
+  if (!version) {
+    return {
+      categories: 0,
+      items: 0,
+      variants: 0,
+      soldOutItems: 0,
+      modifierGroups: 0,
+    };
+  }
+
+  const categories = version.categories.length;
+  const items = version.categories.reduce(
+    (sum, category) => sum + category.items.length,
+    0,
+  );
+  const variants = version.categories.reduce(
+    (sum, category) =>
+      sum +
+      category.items.reduce(
+        (itemSum, item) => itemSum + item.variants.length,
+        0,
+      ),
+    0,
+  );
+  const soldOutItems = version.categories.reduce(
+    (sum, category) =>
+      sum + category.items.filter((item) => item.soldOut).length,
+    0,
+  );
+  const modifierGroups = version.modifierGroups.length;
+  return {
+    categories,
+    items,
+    variants,
+    soldOutItems,
+    modifierGroups,
+  };
+}
+
+function buildDraftDiff(
+  content: DraftMenuContent,
+  version: MenuDetail['versions'][number] | undefined,
+) {
+  const draft = summarizeDraftContent(content);
+  const published = summarizeMenuVersion(version);
+  return {
+    categories: draft.categories - published.categories,
+    items: draft.items - published.items,
+    variants: draft.variants - published.variants,
+    soldOutItems: draft.soldOutItems - published.soldOutItems,
+    modifierGroups: draft.modifierGroups - published.modifierGroups,
+  };
+}
+
+function getDraftReadinessIssues(content: DraftMenuContent) {
+  const issues: string[] = [];
+
+  if (content.categories.length === 0) {
+    issues.push('Add at least one category.');
+  }
+
+  const categoryNames = content.categories
+    .map((category) => category.name.trim().toLowerCase())
+    .filter(Boolean);
+  if (new Set(categoryNames).size !== categoryNames.length) {
+    issues.push('Category names should be unique.');
+  }
+
+  const modifierKeys = content.modifierGroups
+    .map((group) => group.key.trim())
+    .filter(Boolean);
+  if (new Set(modifierKeys).size !== modifierKeys.length) {
+    issues.push('Modifier group keys should be unique.');
+  }
+
+  const knownModifierKeys = new Set(modifierKeys);
+  const skus: string[] = [];
+
+  for (const category of content.categories) {
+    if (!category.name.trim()) {
+      issues.push('Every category needs a name.');
+      break;
+    }
+    if (category.items.length === 0) {
+      issues.push(`Category "${category.name}" has no items.`);
+    }
+
+    for (const item of category.items) {
+      if (item.sku?.trim()) {
+        skus.push(item.sku.trim().toLowerCase());
+      }
+      if (!item.name.trim()) {
+        issues.push(`An item in "${category.name}" is missing a name.`);
+      }
+      if ((item.preparationStationKey ?? '').trim().length === 0) {
+        issues.push(`Item "${item.name || 'Untitled item'}" needs a preparation station key.`);
+      }
+      for (const key of item.modifierGroupKeys ?? []) {
+        if (!knownModifierKeys.has(key)) {
+          issues.push(
+            `Item "${item.name || 'Untitled item'}" references missing modifier group "${key}".`,
+          );
+        }
+      }
+      if ((item.variants ?? []).some((variant) => !variant.name.trim())) {
+        issues.push(`All variants for "${item.name || 'Untitled item'}" need names.`);
+      }
+    }
+  }
+
+  if (new Set(skus).size !== skus.length) {
+    issues.push('Item SKUs should be unique within the menu.');
+  }
+
+  for (const group of content.modifierGroups) {
+    if (!group.key.trim()) {
+      issues.push('Every modifier group needs a key.');
+    }
+    if (!group.name.trim()) {
+      issues.push(`Modifier group "${group.key || 'untitled'}" needs a name.`);
+    }
+    if (group.options.length === 0) {
+      issues.push(`Modifier group "${group.name || group.key || 'untitled'}" needs at least one option.`);
+    }
+    if (group.minSelect > group.maxSelect) {
+      issues.push(`Modifier group "${group.name || group.key || 'untitled'}" has min selections greater than max selections.`);
+    }
+    if (group.required && group.minSelect < 1) {
+      issues.push(`Required modifier group "${group.name || group.key || 'untitled'}" must require at least one selection.`);
+    }
+    if (
+      group.options.some((option) => !option.name.trim())
+    ) {
+      issues.push(`All options in "${group.name || group.key || 'untitled'}" need names.`);
+    }
+  }
+
+  return [...new Set(issues)];
+}
+
+function formatSignedDiff(value: number) {
+  if (value > 0) {
+    return `+${value}`;
+  }
+  return `${value}`;
 }
 
 function formatPrice(cents: number, withCurrency = true) {

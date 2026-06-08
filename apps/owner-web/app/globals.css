@@ -386,6 +386,11 @@ button {
   color: var(--success);
 }
 
+.alert.warn {
+  background: #f6ecd4;
+  color: #8a6621;
+}
+
 .sidebar-panel {
   position: sticky;
   top: 24px;
@@ -538,6 +543,12 @@ button {
   border-radius: 18px;
   border: 1px dashed var(--border);
   background: rgba(248, 244, 236, 0.7);
+}
+
+.sub-list {
+  margin: 8px 0 0 18px;
+  display: grid;
+  gap: 6px;
 }
 
 .loading-panel {
