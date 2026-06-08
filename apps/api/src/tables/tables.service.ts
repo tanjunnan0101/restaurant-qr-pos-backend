@@ -529,7 +529,7 @@ export class TablesService {
     },
   ) {
     const material = createQrTokenMaterial();
-    const destinationPath = `/q/${material.publicCode}`;
+    const destinationPath = `/q/${material.publicCode}/${material.token}`;
     await tx.qrCode.create({
       data: {
         ...input,
@@ -540,7 +540,7 @@ export class TablesService {
     });
     return {
       publicCode: material.publicCode,
-      url: `${this.customerBaseUrl}${destinationPath}/${material.token}`,
+      url: `${this.customerBaseUrl}${destinationPath}`,
     };
   }
 }
