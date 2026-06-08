@@ -73,7 +73,9 @@ export class OutletsService {
           companyId: user.companyId,
           outletId: outlet.id,
           method,
-          enabled: method === PaymentMethod.ONLINE_CARD,
+          enabled:
+            method === PaymentMethod.ONLINE_CARD ||
+            method === PaymentMethod.CASH,
           updatedByUserId: user.userId,
         })),
       });

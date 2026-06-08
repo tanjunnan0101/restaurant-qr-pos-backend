@@ -8,7 +8,7 @@ Repository:
 ## Current state
 
 This repository is continuation-ready for the backend, the customer QR web app,
-the owner web app, and the printer-agent foundation.
+the owner web app, the staff web baseline, and the printer-agent foundation.
 
 Current deployed/staging truth at the end of this session:
 
@@ -18,6 +18,8 @@ Current deployed/staging truth at the end of this session:
 - Successful payments are visible in the HitPay sandbox dashboard.
 - The customer QR menu flow is working.
 - The owner web app is implemented and wired to the live backend APIs.
+- The staff web baseline is implemented and wired to live order, table, menu,
+  and payment APIs.
 - The remaining unvalidated area is physical printer hardware.
 
 The live customer checkout baseline is now:
@@ -43,6 +45,105 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 5. Replaced the placeholder `owner-web` app with a real Next.js owner console.
 6. Added the first owner-web write flows for payment settings, tables/QR,
    menu maintenance including advanced menu controls, and printing actions.
+7. Replaced the placeholder `staff-web` app with a real Next.js operations
+   baseline for staff login, live orders, and table visibility.
+
+## Entire work completed so far
+
+### Backend and platform
+
+- Built the NestJS multi-tenant backend with JWT auth, RBAC, outlet scoping,
+  Swagger, and health checks.
+- Implemented platform onboarding so a new restaurant tenant, owner user,
+  outlet, tables, menus, and activation flow can be provisioned from the API.
+- Added outlet management, menu management, table and QR management, payment
+  controls, order flows, and printing flows under the admin API.
+
+### Customer ordering flow
+
+- Built the customer QR ordering frontend in `apps/customer-web`.
+- Implemented QR resolution, menu browsing, cart flow, server-priced order
+  creation, and hosted payment redirect handling.
+- Removed public Stripe checkout and migrated the live customer payment path to
+  HitPay hosted checkout only.
+- Verified that paid orders now complete successfully and appear in the HitPay
+  sandbox dashboard.
+
+### Payments
+
+- Replaced the customer Stripe checkout path with HitPay.
+- Added HitPay payment request creation, webhook processing, and redirect
+  reconciliation.
+- Normalized the customer-facing online payment method to `ONLINE_CARD`.
+- Left legacy internal `stripe*` names in place only where needed for safe
+  compatibility, not because Stripe is still the active public provider.
+
+### Printing
+
+- Built printer setup and printer-agent support for LAN/Wi-Fi style outlet
+  printing.
+- Implemented kitchen and bar ticket release after confirmed payment.
+- Added automatic customer receipt queueing when a `RECEIPT` printer is
+  configured.
+- Added retry, reprint, test-print, lease, heartbeat, and job-complete/fail
+  flows.
+- Physical printer validation is still pending because no real printer hardware
+  is available yet.
+
+### Owner web
+
+- Replaced the owner-web placeholder with a real Next.js app.
+- Added owner activation and login using the live backend auth endpoints.
+- Hydrated the owner dashboard from real backend APIs.
+- Added outlet menu management flows including menu setup, draft replacement,
+  clone-to-draft, publish, and sold-out toggles.
+- Added table and QR setup flows including QR rotation.
+- Added payment-settings controls and printing configuration/test/retry flows.
+
+### Staff web
+
+- Replaced the staff-web placeholder with a real Next.js app baseline.
+- Added staff login using the live JWT auth flow.
+- Added a staff dashboard with outlet-level live queue and table summaries.
+- Added a live orders board with status progression from kitchen release through
+  completion.
+- Added a table overview screen.
+- Added a real walk-in POS composer with menu browsing, cart building, dine-in
+  table selection, customer capture, and order submission.
+- Added staff payment recovery actions from the order board:
+  - create or reopen HitPay hosted checkout for unpaid online-card orders
+  - verify manual PayNow payments and release those orders into the kitchen flow
+  - void unpaid or payment-processing orders before kitchen release
+  - reopen unpaid staff-assisted orders in POS edit mode and save amendments
+- Added additive backend admin endpoints for:
+  - staff POS order creation
+  - admin checkout creation
+  - manual PayNow verification using `order.manage`
+  - order cancellation for pre-kitchen cashier recovery
+  - unpaid order amendment for staff-assisted orders
+- Added staff cash settlement support:
+  - new `CASH` payment method in payment settings and Prisma enums
+  - owner-visible toggle in payment settings
+  - POS-side cash option that marks the order paid immediately
+  - immediate kitchen release for cash-settled orders
+- Added cashier UX polish on the staff POS:
+  - menu search across categories, item names, descriptions, and prep stations
+  - cash tendered entry with exact-cash shortcut
+  - live change-due or still-due calculation before cash settlement
+  - clearer post-submit actions for new-ticket reset and quick jump back to the
+    orders board
+  - cart-line editing so staff can reopen an item and update quantity,
+    variants, modifiers, or remarks before saving the ticket
+- Added a defensive HitPay webhook guard so locally cancelled orders do not get
+  revived by late payment status callbacks.
+
+### Documentation and continuation
+
+- Updated the main repo README, deployment context, design-system notes, and
+  handoff documentation to reflect the current architecture and active payment
+  provider.
+- Preserved the repo as continuation-ready so the next developer can continue
+  from owner-web and staff-web baselines instead of scaffolding again.
 
 ## What is implemented
 
@@ -61,17 +162,304 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 - Next.js customer ordering app.
 - Next.js owner/admin app with login, activation, dashboard hydration, and
   outlet management surfaces.
+- Next.js staff operations app with login, dashboard, order queue, tables
+  overview, and a real walk-in POS workflow.
 - Dockerfiles for API, customer web, and migration job.
 
 ## What is not implemented yet
 
 - KDS frontend.
-- Staff POS frontend.
+- Optional future cashier extensions such as discounts, split-tender flows,
+  held or suspended tickets, and any additional offline settlement methods
+  beyond the current online-card, manual-PayNow, cash, and void-order
+  baseline.
 - Real outlet printer validation on physical hardware.
 - Authenticated Socket.IO subscriptions.
 - Production rate limiting and abuse protection.
 - Error tracking, alerting, and backup/restore drills.
 - Full reporting, inventory, attendance, and operational dashboards.
+
+## Remaining development work
+
+### Highest priority next
+
+- Decide whether KDS should be a separate app or a focused real-time staff-web
+  mode.
+- Add authenticated real-time subscriptions so the staff board and future KDS
+  can update without refreshes.
+
+### Frontend work still open
+
+- KDS frontend.
+- Richer menu editing UX in owner-web for modifier groups, item variants, and
+  easier structured editing.
+- Finer-grained table/floor editing UX in owner-web if visual table management
+  is desired.
+- Full reporting and operational dashboards for owners or managers.
+
+### Hardware and operations work still open
+
+- Validate one real Windows printer-agent machine with a real thermal printer.
+- Confirm kitchen receipt, customer receipt, retry, and reprint behavior on
+  real outlet hardware and LAN conditions.
+- Add production rate limiting, abuse protection, alerting, and backup/restore
+  drills.
+- Add authenticated real-time subscriptions if the staff or KDS flow needs live
+  push updates instead of refresh-driven data.
+
+### Technical cleanup still open
+
+- Decide whether to rename legacy internal `stripe_*` schema and response fields
+  now that HitPay is the live provider.
+- Consider removing the obsolete `STRIPE_PAYNOW` enum path after the team is
+  confident no compatibility path still depends on it.
+
+## Four-phase delivery split
+
+Use the remaining work in four separate phases so different developers can work
+in parallel with controlled merge overlap.
+
+Recommended merge sequence:
+
+1. Build Phase 1 and Phase 2 in parallel.
+2. Merge Phase 1 and Phase 2 together into one integration branch.
+3. Build Phase 3 and Phase 4 in parallel.
+4. Merge Phase 3 and Phase 4 together into one integration branch.
+5. Merge the combined `phase-1 + phase-2` branch with the combined
+   `phase-3 + phase-4` branch last.
+
+This creates two logical tracks:
+
+- Operations product track: Phase 1 + Phase 2
+- Admin and hardening track: Phase 3 + Phase 4
+
+### Phase 1: Staff POS core
+
+Goal:
+
+- Turn `apps/staff-web` from an operations board into a real walk-in POS.
+
+Current implementation status:
+
+- Completed and ready for merge.
+- Implemented now:
+  - walk-in order composer at
+    `apps/staff-web/app/outlets/[outletId]/pos/page.tsx`
+  - menu browsing and customization-aware cart building
+  - dine-in table assignment and non-dine-in order support
+  - customer name and phone capture
+  - staff order creation through admin order APIs
+  - immediate HitPay checkout creation for online-card orders
+  - manual PayNow order creation path
+  - cash payment path with immediate settlement and kitchen release
+  - menu search for faster cashier lookup
+  - cash tender capture with live change-due calculation
+  - cart-line editing for quantity, remarks, variants, and modifiers
+  - clearer success-state actions after submit
+  - order-board payment actions to reopen HitPay checkout or verify manual
+    PayNow
+  - order-board void flow for unpaid or payment-processing orders
+  - order-board entry into POS edit mode for unpaid staff-assisted orders
+  - server-side amendment of unpaid staff-assisted orders with repricing and
+    payment reset
+- Phase 1 close-out decision:
+  - discounts, split tenders, suspended tickets, and additional offline
+    settlement methods are explicitly out of current Phase 1 scope
+  - if product wants those later, treat them as a new enhancement stream rather
+    than reopening the completed Phase 1 branch
+
+Scope:
+
+- Build the walk-in order composer in
+  `apps/staff-web/app/outlets/[outletId]/pos/page.tsx`
+- Add menu browsing for staff POS
+- Add cart building for dine-in and takeaway
+- Add table selection for dine-in orders
+- Add customer name and phone capture for walk-in orders
+- Add payment choice UI for staff-controlled settlement paths
+- Add order submission flow using backend APIs
+- Add post-submit order detail or confirmation state
+
+Expected backend work:
+
+- Only additive API work if needed for staff POS order creation
+- Keep changes contained to order creation, payments, and staff POS DTO paths
+- Do not rewrite owner-web or printing contracts unless required
+
+Primary ownership:
+
+- `apps/staff-web`
+- possibly `apps/api/src/orders`
+- possibly `apps/api/src/payments`
+
+Definition of done:
+
+- Staff can create a walk-in order from the staff app
+- The order is stored correctly in the backend
+- The order appears correctly in the staff order board
+- Staff can continue settlement from the order board for HitPay or manual
+  PayNow
+- Staff can settle cash orders with tendered/change guidance
+- Staff can edit cart lines before saving the ticket
+- Existing QR customer ordering is not broken
+
+### Phase 2: KDS and live operations
+
+Goal:
+
+- Build the kitchen display system and real-time service update flow.
+
+Scope:
+
+- Decide and implement KDS as either:
+  - a new `apps/kds-web`
+  - or a dedicated KDS mode inside `apps/staff-web`
+- Build a kitchen queue screen
+- Show tickets by status such as new, preparing, ready, completed
+- Add station filtering if needed
+- Add status actions for kitchen staff
+- Implement authenticated real-time subscriptions
+- Wire event updates for:
+  - payment confirmed
+  - kitchen ticket created
+  - order status changed
+
+Expected backend work:
+
+- Authenticated Socket.IO subscriptions
+- Stable realtime event payload shapes
+- Possibly station-focused read endpoints if existing order endpoints are not
+  enough
+
+Primary ownership:
+
+- `apps/api/src/realtime`
+- `apps/api/src/orders`
+- `apps/staff-web` or `apps/kds-web`
+
+Definition of done:
+
+- Kitchen screens update without manual refresh
+- Staff or KDS can move orders through preparation states
+- Newly paid orders appear in the live queue quickly
+
+Why Phase 1 and Phase 2 are mergeable:
+
+- Phase 1 is mainly staff POS order creation
+- Phase 2 is mainly kitchen consumption and realtime delivery
+- Shared backend overlap exists in orders, but it should remain manageable if
+  both phases keep API changes additive and avoid rewriting the same contracts
+
+### Phase 3: Owner web advanced management
+
+Goal:
+
+- Improve owner-web from a usable baseline into a stronger operator-facing admin
+  product.
+
+Scope:
+
+- Replace text-heavy menu editing with a richer structured editor
+- Add modifier-group and item-variant management UX
+- Improve draft and publish workflow clarity
+- Add finer table or floor editing UX if visual management is desired
+- Improve QR export and regenerate workflows
+- Add first reporting screens such as:
+  - sales overview
+  - outlet summary
+  - order volume summary
+
+Expected backend work:
+
+- Reuse existing endpoints first
+- Add read-only reporting endpoints only if needed
+- Avoid touching staff POS or KDS contracts unless unavoidable
+
+Primary ownership:
+
+- `apps/owner-web`
+- possibly reporting endpoints in `apps/api/src`
+
+Definition of done:
+
+- Owner can manage menus without relying on raw text editing alone
+- Owner table management is clearer
+- Owner sees useful business-level summaries
+
+### Phase 4: Production hardening and hardware validation
+
+Goal:
+
+- Make the system safer and more deployment-ready while validating printing on
+  real hardware.
+
+Scope:
+
+- Validate one real Windows printer-agent machine with a real thermal printer
+- Test kitchen receipt, customer receipt, retry, and reprint on actual outlet
+  hardware and LAN conditions
+- Add production rate limiting or abuse protection
+- Add error tracking hooks
+- Improve operational logging where useful
+- Define backup and restore drill steps
+- Review and clean legacy internal `stripe_*` naming where safe
+- Decide whether to deprecate the `STRIPE_PAYNOW` compatibility path
+
+Primary ownership:
+
+- `apps/printer-agent`
+- `apps/api/src/printing`
+- `apps/api/src/payments`
+- `docs/runbooks`
+- `docs/deployment.md`
+
+Definition of done:
+
+- Real printer workflow is validated
+- Basic production safeguards are added
+- Technical debt is reduced
+- Operational runbooks are updated
+
+Why Phase 3 and Phase 4 are mergeable:
+
+- Phase 3 is mostly owner-facing product and reporting work
+- Phase 4 is mostly backend, hardware, infra, and operational hardening work
+- Overlap is low if reporting endpoint changes are coordinated
+
+## Integration rules for all developers
+
+To keep the four phases mergeable, follow these rules:
+
+- Phase 1 owns the staff POS composer and staff order creation UX
+- Phase 2 owns KDS and realtime delivery
+- Phase 3 owns owner-web advanced admin flows
+- Phase 4 owns printer validation, production hardening, and backend cleanup
+- Keep API changes additive whenever possible
+- Do not rename existing enums, DTOs, or contracts without agreement
+- Do not mix unrelated cleanup into phase branches
+- Update this handoff after each phase is completed
+- Run `npm run check` before opening or merging any phase branch
+
+## Suggested branch names
+
+- `phase-1/staff-pos-core`
+- `phase-2/kds-realtime`
+- `phase-3/owner-advanced-management`
+- `phase-4/production-hardening-printing`
+
+## Suggested integration branches
+
+- `integration-ops` for Phase 1 + Phase 2
+- `integration-admin` for Phase 3 + Phase 4
+
+Suggested order:
+
+1. Merge Phase 1 into `integration-ops`
+2. Merge Phase 2 into `integration-ops`
+3. Merge Phase 3 into `integration-admin`
+4. Merge Phase 4 into `integration-admin`
+5. Merge `integration-ops` and `integration-admin`
+6. Run full regression and only then merge to `main`
 
 ## What was validated locally
 
@@ -86,6 +474,9 @@ and build. Physical printer testing was intentionally skipped because printer
 hardware is not available yet.
 
 The owner-web implementation was also validated through full repo checks,
+typecheck, and production builds.
+
+The staff-web implementation was also validated through full repo checks,
 typecheck, and production builds.
 
 ## What was validated in deployed staging
@@ -152,6 +543,7 @@ In a second terminal:
 ```powershell
 npm run dev:customer
 npm run dev:owner
+npm run dev:staff
 ```
 
 Useful checks:
@@ -166,16 +558,16 @@ npm run build
 
 1. Use `docs/runbooks/staging-rollout.md` and
    `docs/runbooks/production-readiness.md` as the operational checklist.
-2. Do not block continuation on printer validation. Go straight into
-   `owner-web` continuation first.
+2. Do not block continuation on printer validation.
 3. Validate one real Windows printer-agent machine against the target thermal
    printer later, including the new customer-receipt output.
 4. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
    column names after staging is stable.
-5. Continue from the current owner-web baseline rather than scaffolding from
-   scratch.
-6. Start the next remaining frontend phase:
-   - `apps/staff-web`
+5. Continue from the current owner-web and staff-web baselines rather than
+   scaffolding from scratch.
+6. Next frontend priorities:
+   - complete walk-in POS order entry in `apps/staff-web`
+   - decide whether KDS should be its own app or a focused staff-web mode
 
 The payment flow no longer needs rescue work unless HitPay credentials are
 rotated or the deployment environment changes.
@@ -185,8 +577,8 @@ rotated or the deployment environment changes.
 - API: `apps/api/src`
 - Customer web: `apps/customer-web`
 - Owner web: `apps/owner-web`
+- Staff web: `apps/staff-web`
 - Printer agent: `apps/printer-agent/src`
-- Future staff app placeholder: `apps/staff-web`
 - Prisma schema and migrations: `packages/db/prisma`
 - Runbooks: `docs/runbooks`
 - Deployment guide: `docs/deployment.md`
@@ -203,3 +595,6 @@ rotated or the deployment environment changes.
   format. Modifier groups and item variants still need richer UI treatment.
 - The owner-web tables screen currently favors bulk text setup plus QR rotation
   rather than fine-grained visual editing.
+- The staff-web operations board and walk-in POS baseline are live. Remaining
+  POS work is now about cashier refinement and advanced settlement flows rather
+  than first-time scaffolding.

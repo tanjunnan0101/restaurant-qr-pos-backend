@@ -1,6 +1,6 @@
 # Restaurant QR POS Design System
 
-Status: implemented customer ordering foundation and owner-web scaffold, 2026-06-08
+Status: implemented customer ordering foundation, owner-web, and staff-web baseline, 2026-06-08
 
 ## Product Principles
 
@@ -87,6 +87,18 @@ provider while preserving PayNow disable controls for backend-supported staff
 POS/payment scopes. Printer screens should describe Wi-Fi printer compatibility
 through the local printer-agent path and leave physical validation as a hardware
 task.
+
+## Staff Web Service Variant
+
+The staff console should feel faster, tighter, and more shift-focused than the
+owner console. Use darker backgrounds, brighter action contrast, dense queue
+cards, and unmistakable status language so a staff member can understand the
+next operational move within seconds.
+
+Staff routes should prioritize order progression, table state, and the upcoming
+walk-in POS composer. The UI must remain touch-friendly on tablets and laptop
+screens during service, while keeping all critical status labels explicit in
+text rather than color alone.
 
 ## Delivery Checklist
 

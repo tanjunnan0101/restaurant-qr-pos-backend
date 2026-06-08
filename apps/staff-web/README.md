@@ -1,28 +1,21 @@
-# Staff Web Placeholder
+# Staff Web
 
-This directory reserves the future staff-facing web application without adding
-it to the current build pipeline yet.
+Staff-facing operations console for outlet teams.
 
-Recommended first scope:
+Current baseline:
 
-- Staff login
-- Outlet switcher
-- Live order board
-- Order status transitions
-- Table overview
-- Basic POS order entry for walk-in orders
+- Company-aware JWT login using the existing backend auth flow
+- Outlet dashboard with live order and table summaries
+- Outlet order board with status progression
+- Outlet tables overview
+- POS continuation route reserved for the next implementation slice
 
-Suggested implementation approach:
+Local dev:
 
-- Next.js App Router
-- Reuse the existing API and JWT auth model
-- Start with a read-only operations board before full POS flows
+```powershell
+npm run dev:staff
+```
 
-Suggested first routes:
+Default local URL:
 
-- `/login`
-- `/outlets`
-- `/orders`
-- `/orders/:orderId`
-- `/tables`
-- `/pos`
+- `http://localhost:3003`

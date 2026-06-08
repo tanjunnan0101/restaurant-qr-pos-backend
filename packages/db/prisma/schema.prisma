@@ -38,6 +38,7 @@ enum PaymentMethod {
   ONLINE_CARD
   STRIPE_PAYNOW
   MANUAL_PAYNOW
+  CASH
 }
 
 enum MenuStatus {

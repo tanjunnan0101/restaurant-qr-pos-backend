@@ -16,7 +16,7 @@ import type {
   DisablePaymentScopeDto,
   EnablePaymentScopeDto,
 } from './dto/payment-control.dto';
-import { evaluatePaymentAvailability } from './payment-availability';
+import { evaluateMethodEffectiveness } from './payment-availability';
 
 @Injectable()
 export class PaymentSettingsService {
@@ -213,7 +213,8 @@ export class PaymentSettingsService {
     if (
       scope === 'ONLINE_CARD' ||
       scope === 'STRIPE_PAYNOW' ||
-      scope === 'MANUAL_PAYNOW'
+      scope === 'MANUAL_PAYNOW' ||
+      scope === 'CASH'
     ) {
       return PaymentMethod[scope];
     }
@@ -257,7 +258,7 @@ export class PaymentSettingsService {
     };
     methods: PaymentMethodSetting[];
   }) {
-    const effective = evaluatePaymentAvailability({
+    const effective = evaluateMethodEffectiveness({
       online: {
         enabled: settings.control.onlinePaymentsEnabled,
         disabledUntil: settings.control.onlineDisabledUntil,

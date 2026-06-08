@@ -1,6 +1,7 @@
 import { PaymentMethod } from '@restaurant-pos/db';
 import { describe, expect, it } from 'vitest';
 import {
+  evaluateMethodEffectiveness,
   evaluatePaymentAvailability,
   isToggleEffective,
 } from './payment-availability';
@@ -41,12 +42,18 @@ describe('payment availability', () => {
           enabled: true,
           disabledUntil: null,
         },
+        {
+          method: PaymentMethod.CASH,
+          enabled: true,
+          disabledUntil: null,
+        },
       ],
     });
 
     expect(result.ONLINE_CARD).toBe(true);
     expect(result.STRIPE_PAYNOW).toBe(false);
     expect(result.MANUAL_PAYNOW).toBe(false);
+    expect(result.CASH).toBe(false);
   });
 
   it('blocks the hosted checkout method when the provider master switch is off', () => {
@@ -70,11 +77,46 @@ describe('payment availability', () => {
           enabled: true,
           disabledUntil: null,
         },
+        {
+          method: PaymentMethod.CASH,
+          enabled: true,
+          disabledUntil: null,
+        },
       ],
     });
 
     expect(result.ONLINE_CARD).toBe(false);
     expect(result.STRIPE_PAYNOW).toBe(false);
     expect(result.MANUAL_PAYNOW).toBe(false);
+    expect(result.CASH).toBe(false);
+  });
+
+  it('reports manual and cash methods as effective for staff operations when enabled', () => {
+    const result = evaluateMethodEffectiveness({
+      now,
+      online: { enabled: false, disabledUntil: null },
+      stripe: { enabled: false, disabledUntil: null },
+      methods: [
+        {
+          method: PaymentMethod.ONLINE_CARD,
+          enabled: true,
+          disabledUntil: null,
+        },
+        {
+          method: PaymentMethod.MANUAL_PAYNOW,
+          enabled: true,
+          disabledUntil: null,
+        },
+        {
+          method: PaymentMethod.CASH,
+          enabled: true,
+          disabledUntil: null,
+        },
+      ],
+    });
+
+    expect(result.ONLINE_CARD).toBe(false);
+    expect(result.MANUAL_PAYNOW).toBe(true);
+    expect(result.CASH).toBe(true);
   });
 });

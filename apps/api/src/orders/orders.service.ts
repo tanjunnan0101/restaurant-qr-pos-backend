@@ -24,12 +24,17 @@ import {
 } from '@restaurant-pos/db';
 import type { AuthenticatedUser } from '../common/types/authenticated-user';
 import { PrismaService } from '../database/prisma.service';
-import { evaluatePaymentAvailability } from '../payment-settings/payment-availability';
+import {
+  evaluatePaymentAvailability,
+  isToggleEffective,
+} from '../payment-settings/payment-availability';
 import { OperationsGateway } from '../realtime/operations.gateway';
 import { verifyQrToken } from '../tables/qr-token';
 import { TenantService } from '../tenant/tenant.service';
 import { renderCustomerReceipt } from './customer-receipt-renderer';
+import type { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import type { CreatePublicOrderDto } from './dto/create-public-order.dto';
+import type { UpdateAdminOrderDto } from './dto/update-admin-order.dto';
 import { createOrderFingerprint } from './order-fingerprint';
 import { calculateOrderTotals } from './order-pricing';
 import { renderKitchenTicket } from './kitchen-ticket-renderer';
@@ -59,6 +64,14 @@ const orderDetailInclude = {
     include: { printer: true },
   },
 } satisfies Prisma.OrderInclude;
+
+type RequestedOrderItemInput = {
+  menuItemId: string;
+  variantId?: string;
+  quantity: number;
+  modifierOptionIds?: string[];
+  remarks?: string;
+};
 
 @Injectable()
 export class OrdersService {
@@ -314,6 +327,338 @@ export class OrdersService {
     return this.toPublicResponse(order);
   }
 
+  async createAdminOrder(
+    user: AuthenticatedUser,
+    outletId: string,
+    idempotencyKey: string,
+    dto: CreateAdminOrderDto,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+    if (!idempotencyKey || idempotencyKey.length > 120) {
+      throw new BadRequestException(
+        'A valid Idempotency-Key header is required.',
+      );
+    }
+    if (dto.serviceType === ServiceType.DINE_IN && !dto.tableId) {
+      throw new BadRequestException('Dine-in staff orders require a table.');
+    }
+
+    const [outlet, table] = await Promise.all([
+      this.prisma.outlet.findFirst({
+        where: { id: outletId, companyId: user.companyId },
+      }),
+      dto.tableId
+        ? this.prisma.diningTable.findFirst({
+            where: {
+              id: dto.tableId,
+              companyId: user.companyId,
+              outletId,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+    if (!outlet) {
+      throw new NotFoundException('Outlet not found.');
+    }
+    if (dto.tableId && (!table || !table.active)) {
+      throw new BadRequestException('Selected table is not available.');
+    }
+    if (dto.serviceType !== ServiceType.DINE_IN && dto.tableId) {
+      throw new BadRequestException(
+        'Only dine-in staff orders can be attached to a table.',
+      );
+    }
+
+    await this.assertAdminPaymentMethodAvailable(outletId, dto.paymentMethod);
+
+    const fingerprint = createOrderFingerprint({
+      tableId: dto.tableId ?? null,
+      serviceType: dto.serviceType,
+      paymentMethod: dto.paymentMethod,
+      customerName: dto.customerName ?? null,
+      customerPhone: dto.customerPhone ?? null,
+      items: dto.items,
+    });
+    const existing = await this.prisma.order.findUnique({
+      where: {
+        companyId_idempotencyKey: {
+          companyId: user.companyId,
+          idempotencyKey,
+        },
+      },
+      include: orderDetailInclude,
+    });
+    if (existing) {
+      if (existing.requestFingerprint !== fingerprint) {
+        throw new ConflictException(
+          'This idempotency key was already used for a different order.',
+        );
+      }
+      return existing;
+    }
+
+    const menu = await this.loadPublishedMenu(outletId, {
+      menuId: dto.menuId,
+      channels: [MenuChannel.POS, MenuChannel.BOTH],
+      notFoundMessage:
+        'No published POS menu is available for the selected outlet menu.',
+    });
+    const publishedVersion = menu.versions[0];
+    if (!publishedVersion) {
+      throw new ConflictException(
+        'No published POS menu is available for the selected outlet menu.',
+      );
+    }
+    const pricedItems = this.priceItems(publishedVersion, { items: dto.items });
+    const totals = calculateOrderTotals({
+      lines: pricedItems.map((item) => ({
+        quantity: item.quantity,
+        unitPriceCents: item.unitPriceCents,
+        taxable: item.taxable,
+        serviceChargeable: item.serviceChargeable,
+      })),
+      gstEnabled: outlet.gstEnabled,
+      gstRateBps: outlet.gstRateBps,
+      serviceChargeEnabled: outlet.serviceChargeEnabled,
+      serviceChargeBps: outlet.serviceChargeBps,
+    });
+    const businessDateText = this.businessDate(new Date(), outlet.timezone);
+    const businessDate = new Date(`${businessDateText}T00:00:00.000Z`);
+
+    let orderId: string | undefined;
+    for (let attempt = 0; attempt < 2 && !orderId; attempt += 1) {
+      try {
+        orderId = await this.prisma.$transaction(async (tx) => {
+          const sequence = await tx.orderSequence.upsert({
+            where: {
+              outletId_businessDate: {
+                outletId,
+                businessDate,
+              },
+            },
+            update: { lastNumber: { increment: 1 } },
+            create: {
+              outletId,
+              businessDate,
+              lastNumber: 1,
+            },
+          });
+          const orderNumber = `${businessDateText.replaceAll('-', '')}-${String(
+            sequence.lastNumber,
+          ).padStart(4, '0')}`;
+
+          let tableSessionId: string | null = null;
+          if (table) {
+            let tableSession = await tx.tableSession.findUnique({
+              where: { activeTableKey: table.id },
+            });
+            tableSession ??= await tx.tableSession.create({
+              data: {
+                companyId: user.companyId,
+                outletId,
+                tableId: table.id,
+                activeTableKey: table.id,
+                status: TableSessionStatus.ORDERING,
+              },
+            });
+            tableSessionId = tableSession.id;
+          }
+
+          const manualPayNow =
+            dto.paymentMethod === PaymentMethod.MANUAL_PAYNOW;
+          const cashPayment = dto.paymentMethod === PaymentMethod.CASH;
+          const paidAt = cashPayment ? new Date() : null;
+          const order = await tx.order.create({
+            data: {
+              companyId: user.companyId,
+              outletId,
+              tableId: table?.id ?? null,
+              tableSessionId,
+              orderNumber,
+              businessDate,
+              source: dto.source ?? OrderSource.POS,
+              serviceType: dto.serviceType,
+              status: cashPayment
+                ? OrderStatus.PAID
+                : OrderStatus.PENDING_PAYMENT,
+              paymentStatus: cashPayment
+                ? OrderPaymentStatus.PAID
+                : manualPayNow
+                  ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                  : OrderPaymentStatus.PENDING,
+              currency: outlet.currency,
+              ...totals,
+              idempotencyKey,
+              requestFingerprint: fingerprint,
+              customerName: dto.customerName,
+              customerPhone: dto.customerPhone,
+              createdByUserId: user.userId,
+              paidAt,
+              items: {
+                create: pricedItems.map((item) => ({
+                  companyId: user.companyId,
+                  menuItemId: item.menuItemId,
+                  itemName: item.itemName,
+                  sku: item.sku,
+                  variantId: item.variantId,
+                  variantName: item.variantName,
+                  preparationStationKey: item.preparationStationKey,
+                  quantity: item.quantity,
+                  baseUnitPriceCents: item.baseUnitPriceCents,
+                  modifierUnitCents: item.modifierUnitCents,
+                  unitPriceCents: item.unitPriceCents,
+                  lineTotalCents: item.lineTotalCents,
+                  taxable: item.taxable,
+                  serviceChargeable: item.serviceChargeable,
+                  remarks: item.remarks,
+                  modifiers: {
+                    create: item.modifiers.map((modifier) => ({
+                      companyId: user.companyId,
+                      modifierGroupId: modifier.modifierGroupId,
+                      modifierGroupName: modifier.modifierGroupName,
+                      modifierOptionId: modifier.modifierOptionId,
+                      modifierOptionName: modifier.modifierOptionName,
+                      priceDeltaCents: modifier.priceDeltaCents,
+                    })),
+                  },
+                })),
+              },
+              payments: {
+                create: {
+                  companyId: user.companyId,
+                  outletId,
+                  provider:
+                    manualPayNow || cashPayment
+                      ? PaymentProvider.MANUAL
+                      : PaymentProvider.HITPAY,
+                  method: dto.paymentMethod,
+                  status: cashPayment
+                    ? PaymentStatus.SUCCEEDED
+                    : manualPayNow
+                      ? PaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                      : PaymentStatus.CREATED,
+                  amountCents: totals.grandTotalCents,
+                  currency: outlet.currency,
+                  verifiedByUserId: cashPayment ? user.userId : null,
+                  verifiedAt: paidAt,
+                  paidAt,
+                },
+              },
+            },
+          });
+          if (tableSessionId) {
+            await tx.tableSession.update({
+              where: { id: tableSessionId },
+              data: {
+                status: manualPayNow
+                  ? TableSessionStatus.PAYMENT_PENDING
+                  : TableSessionStatus.ORDERED,
+              },
+            });
+          }
+          if (cashPayment) {
+            const releasableOrder = await tx.order.findUnique({
+              where: { id: order.id },
+              include: {
+                outlet: true,
+                table: true,
+                items: { include: { modifiers: true } },
+              },
+            });
+            if (!releasableOrder) {
+              throw new NotFoundException('Order not found after creation.');
+            }
+            await this.releaseOrderToKitchen(tx, releasableOrder);
+            await tx.clientOnboarding.updateMany({
+              where: {
+                companyId: user.companyId,
+                testOrderCompletedAt: null,
+              },
+              data: { testOrderCompletedAt: paidAt ?? new Date() },
+            });
+          }
+          await tx.auditLog.create({
+            data: {
+              companyId: user.companyId,
+              outletId,
+              actorUserId: user.userId,
+              actionType: 'ADMIN_ORDER_CREATED',
+              entityType: 'order',
+              entityId: order.id,
+              afterJson: {
+                orderNumber,
+                totalCents: totals.grandTotalCents,
+                paymentMethod: dto.paymentMethod,
+                serviceType: dto.serviceType,
+                source: dto.source ?? OrderSource.POS,
+              },
+              reason: 'Staff created a POS-assisted order.',
+              requestId,
+              ipAddress,
+            },
+          });
+          return order.id;
+        });
+      } catch (error) {
+        if (!this.isUniqueConstraintError(error)) {
+          throw error;
+        }
+        const duplicate = await this.prisma.order.findUnique({
+          where: {
+            companyId_idempotencyKey: {
+              companyId: user.companyId,
+              idempotencyKey,
+            },
+          },
+          include: orderDetailInclude,
+        });
+        if (duplicate) {
+          if (duplicate.requestFingerprint !== fingerprint) {
+            throw new ConflictException(
+              'This idempotency key was already used for a different order.',
+            );
+          }
+          return duplicate;
+        }
+        if (attempt === 1) {
+          throw new ConflictException(
+            'The table session changed while the order was submitted. Please retry.',
+          );
+        }
+      }
+    }
+    if (!orderId) {
+      throw new ConflictException('Order could not be created.');
+    }
+
+    const order = await this.loadOrder(orderId);
+    this.operations.publishToOutlet(outletId, 'order.created', {
+      orderId,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      totalCents: order.grandTotalCents,
+    });
+    if (dto.paymentMethod === PaymentMethod.CASH) {
+      this.operations.publishToOutlet(outletId, 'payment.confirmed', {
+        orderId,
+        orderNumber: order.orderNumber,
+        paymentStatus: order.paymentStatus,
+      });
+      this.operations.publishToOutlet(outletId, 'kitchen.ticket.created', {
+        orderId,
+        orderNumber: order.orderNumber,
+        tickets: order.kitchenTickets.map((ticket) => ({
+          id: ticket.id,
+          stationId: ticket.stationId,
+        })),
+      });
+    }
+    return order;
+  }
+
   async getPublicOrder(publicCode: string, token: string, orderId: string) {
     const qr = await this.loadValidQr(publicCode, token);
     const order = await this.prisma.order.findFirst({
@@ -511,6 +856,416 @@ export class OrdersService {
     return order;
   }
 
+  async cancelAdminOrder(
+    user: AuthenticatedUser,
+    outletId: string,
+    orderId: string,
+    reason: string,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+
+    await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        where: { id: orderId, companyId: user.companyId, outletId },
+        include: {
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      });
+      if (!order) {
+        throw new NotFoundException('Order not found.');
+      }
+      if (order.status === OrderStatus.CANCELLED) {
+        return;
+      }
+      if (
+        order.status !== OrderStatus.PENDING_PAYMENT &&
+        order.status !== OrderStatus.PAYMENT_PROCESSING
+      ) {
+        throw new ConflictException(
+          `Order cannot be cancelled while it is ${order.status}.`,
+        );
+      }
+
+      const now = new Date();
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.CANCELLED,
+          paymentStatus: OrderPaymentStatus.CANCELLED,
+          completedAt: null,
+          cancelledAt: now,
+        },
+      });
+      await tx.payment.updateMany({
+        where: {
+          orderId: order.id,
+          status: {
+            notIn: [PaymentStatus.SUCCEEDED, PaymentStatus.CANCELLED],
+          },
+        },
+        data: {
+          status: PaymentStatus.CANCELLED,
+          failedAt: now,
+          failureReason: 'order_cancelled_by_staff',
+        },
+      });
+      if (order.tableSessionId) {
+        await tx.tableSession.update({
+          where: { id: order.tableSessionId },
+          data: {
+            status: TableSessionStatus.CLOSED,
+            activeTableKey: null,
+            closedAt: now,
+          },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          actorUserId: user.userId,
+          actionType: 'ORDER_CANCELLED',
+          entityType: 'order',
+          entityId: order.id,
+          beforeJson: {
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+          },
+          afterJson: {
+            status: OrderStatus.CANCELLED,
+            paymentStatus: OrderPaymentStatus.CANCELLED,
+          },
+          reason,
+          requestId,
+          ipAddress,
+        },
+      });
+    });
+
+    const order = await this.getAdmin(user, outletId, orderId);
+    this.operations.publishToOutlet(outletId, 'order.status.changed', {
+      orderId,
+      status: OrderStatus.CANCELLED,
+    });
+    return order;
+  }
+
+  async amendAdminOrder(
+    user: AuthenticatedUser,
+    outletId: string,
+    orderId: string,
+    dto: UpdateAdminOrderDto,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+    if (dto.serviceType === ServiceType.DINE_IN && !dto.tableId) {
+      throw new BadRequestException('Dine-in staff orders require a table.');
+    }
+
+    const [outlet, table, existingOrder] = await Promise.all([
+      this.prisma.outlet.findFirst({
+        where: { id: outletId, companyId: user.companyId },
+      }),
+      dto.tableId
+        ? this.prisma.diningTable.findFirst({
+            where: {
+              id: dto.tableId,
+              companyId: user.companyId,
+              outletId,
+            },
+          })
+        : Promise.resolve(null),
+      this.prisma.order.findFirst({
+        where: { id: orderId, companyId: user.companyId, outletId },
+        include: {
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      }),
+    ]);
+    if (!outlet) {
+      throw new NotFoundException('Outlet not found.');
+    }
+    if (!existingOrder) {
+      throw new NotFoundException('Order not found.');
+    }
+    if (existingOrder.status !== OrderStatus.PENDING_PAYMENT) {
+      throw new ConflictException(
+        `Only orders still awaiting payment can be amended. Current status: ${existingOrder.status}.`,
+      );
+    }
+    if (dto.tableId && (!table || !table.active)) {
+      throw new BadRequestException('Selected table is not available.');
+    }
+    if (dto.serviceType !== ServiceType.DINE_IN && dto.tableId) {
+      throw new BadRequestException(
+        'Only dine-in staff orders can be attached to a table.',
+      );
+    }
+
+    await this.assertAdminPaymentMethodAvailable(outletId, dto.paymentMethod);
+
+    const menu = await this.loadPublishedMenu(outletId, {
+      menuId: dto.menuId,
+      channels: [MenuChannel.POS, MenuChannel.BOTH],
+      notFoundMessage:
+        'No published POS menu is available for the selected outlet menu.',
+    });
+    const publishedVersion = menu.versions[0];
+    if (!publishedVersion) {
+      throw new ConflictException(
+        'No published POS menu is available for the selected outlet menu.',
+      );
+    }
+
+    const fingerprint = createOrderFingerprint({
+      tableId: dto.tableId ?? null,
+      serviceType: dto.serviceType,
+      paymentMethod: dto.paymentMethod,
+      customerName: dto.customerName ?? null,
+      customerPhone: dto.customerPhone ?? null,
+      items: dto.items,
+    });
+    const pricedItems = this.priceItems(publishedVersion, { items: dto.items });
+    const totals = calculateOrderTotals({
+      lines: pricedItems.map((item) => ({
+        quantity: item.quantity,
+        unitPriceCents: item.unitPriceCents,
+        taxable: item.taxable,
+        serviceChargeable: item.serviceChargeable,
+      })),
+      gstEnabled: outlet.gstEnabled,
+      gstRateBps: outlet.gstRateBps,
+      serviceChargeEnabled: outlet.serviceChargeEnabled,
+      serviceChargeBps: outlet.serviceChargeBps,
+    });
+
+    const manualPayNow = dto.paymentMethod === PaymentMethod.MANUAL_PAYNOW;
+    const cashPayment = dto.paymentMethod === PaymentMethod.CASH;
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      let nextTableSessionId = existingOrder.tableSessionId;
+
+      if (
+        existingOrder.tableSessionId &&
+        (!dto.tableId || existingOrder.tableId !== dto.tableId)
+      ) {
+        await tx.tableSession.update({
+          where: { id: existingOrder.tableSessionId },
+          data: {
+            status: TableSessionStatus.CLOSED,
+            activeTableKey: null,
+            closedAt: now,
+          },
+        });
+        nextTableSessionId = null;
+      }
+
+      if (table) {
+        if (!nextTableSessionId || existingOrder.tableId !== table.id) {
+          let tableSession = await tx.tableSession.findUnique({
+            where: { activeTableKey: table.id },
+          });
+          tableSession ??= await tx.tableSession.create({
+            data: {
+              companyId: user.companyId,
+              outletId,
+              tableId: table.id,
+              activeTableKey: table.id,
+              status: TableSessionStatus.ORDERING,
+            },
+          });
+          nextTableSessionId = tableSession.id;
+        }
+
+        await tx.tableSession.update({
+          where: { id: nextTableSessionId },
+          data: {
+            status: manualPayNow
+              ? TableSessionStatus.PAYMENT_PENDING
+              : TableSessionStatus.ORDERED,
+          },
+        });
+      }
+
+      await tx.payment.updateMany({
+        where: {
+          orderId: existingOrder.id,
+          status: {
+            notIn: [PaymentStatus.SUCCEEDED, PaymentStatus.CANCELLED],
+          },
+        },
+        data: {
+          status: PaymentStatus.CANCELLED,
+          failedAt: now,
+          failureReason: 'order_amended_by_staff',
+        },
+      });
+      await tx.orderItem.deleteMany({
+        where: { orderId: existingOrder.id },
+      });
+      await tx.order.update({
+        where: { id: existingOrder.id },
+        data: {
+          tableId: table?.id ?? null,
+          tableSessionId: nextTableSessionId,
+          source: dto.source ?? OrderSource.POS,
+          serviceType: dto.serviceType,
+          status: cashPayment ? OrderStatus.PAID : OrderStatus.PENDING_PAYMENT,
+          paymentStatus: cashPayment
+            ? OrderPaymentStatus.PAID
+            : manualPayNow
+              ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
+              : OrderPaymentStatus.PENDING,
+          currency: outlet.currency,
+          ...totals,
+          requestFingerprint: fingerprint,
+          customerName: dto.customerName,
+          customerPhone: dto.customerPhone,
+          paidAt: cashPayment ? now : null,
+          sentToKitchenAt: null,
+          completedAt: null,
+          cancelledAt: null,
+          items: {
+            create: pricedItems.map((item) => ({
+              companyId: user.companyId,
+              menuItemId: item.menuItemId,
+              itemName: item.itemName,
+              sku: item.sku,
+              variantId: item.variantId,
+              variantName: item.variantName,
+              preparationStationKey: item.preparationStationKey,
+              quantity: item.quantity,
+              baseUnitPriceCents: item.baseUnitPriceCents,
+              modifierUnitCents: item.modifierUnitCents,
+              unitPriceCents: item.unitPriceCents,
+              lineTotalCents: item.lineTotalCents,
+              taxable: item.taxable,
+              serviceChargeable: item.serviceChargeable,
+              remarks: item.remarks,
+              modifiers: {
+                create: item.modifiers.map((modifier) => ({
+                  companyId: user.companyId,
+                  modifierGroupId: modifier.modifierGroupId,
+                  modifierGroupName: modifier.modifierGroupName,
+                  modifierOptionId: modifier.modifierOptionId,
+                  modifierOptionName: modifier.modifierOptionName,
+                  priceDeltaCents: modifier.priceDeltaCents,
+                })),
+              },
+            })),
+          },
+          payments: {
+            create: {
+              companyId: user.companyId,
+              outletId,
+              provider:
+                manualPayNow || cashPayment
+                  ? PaymentProvider.MANUAL
+                  : PaymentProvider.HITPAY,
+              method: dto.paymentMethod,
+              status: cashPayment
+                ? PaymentStatus.SUCCEEDED
+                : manualPayNow
+                  ? PaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                  : PaymentStatus.CREATED,
+              amountCents: totals.grandTotalCents,
+              currency: outlet.currency,
+              verifiedByUserId: cashPayment ? user.userId : null,
+              verifiedAt: cashPayment ? now : null,
+              paidAt: cashPayment ? now : null,
+            },
+          },
+        },
+      });
+      if (cashPayment) {
+        const releasableOrder = await tx.order.findUnique({
+          where: { id: existingOrder.id },
+          include: {
+            outlet: true,
+            table: true,
+            items: { include: { modifiers: true } },
+          },
+        });
+        if (!releasableOrder) {
+          throw new NotFoundException('Order not found after amendment.');
+        }
+        await this.releaseOrderToKitchen(tx, releasableOrder);
+        await tx.clientOnboarding.updateMany({
+          where: {
+            companyId: user.companyId,
+            testOrderCompletedAt: null,
+          },
+          data: { testOrderCompletedAt: now },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          actorUserId: user.userId,
+          actionType: 'ADMIN_ORDER_AMENDED',
+          entityType: 'order',
+          entityId: existingOrder.id,
+          beforeJson: {
+            status: existingOrder.status,
+            paymentStatus: existingOrder.paymentStatus,
+            totalCents: existingOrder.grandTotalCents,
+            tableId: existingOrder.tableId,
+          },
+          afterJson: {
+            status: cashPayment
+              ? OrderStatus.PAID
+              : OrderStatus.PENDING_PAYMENT,
+            paymentStatus: cashPayment
+              ? OrderPaymentStatus.PAID
+              : manualPayNow
+                ? OrderPaymentStatus.MANUAL_VERIFICATION_REQUIRED
+                : OrderPaymentStatus.PENDING,
+            totalCents: totals.grandTotalCents,
+            tableId: table?.id ?? null,
+            paymentMethod: dto.paymentMethod,
+            serviceType: dto.serviceType,
+            source: dto.source ?? OrderSource.POS,
+          },
+          reason: 'Staff amended an unpaid POS-assisted order.',
+          requestId,
+          ipAddress,
+        },
+      });
+    });
+
+    const order = await this.getAdmin(user, outletId, orderId);
+    this.operations.publishToOutlet(outletId, 'order.updated', {
+      orderId,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      totalCents: order.grandTotalCents,
+    });
+    if (dto.paymentMethod === PaymentMethod.CASH) {
+      this.operations.publishToOutlet(outletId, 'payment.confirmed', {
+        orderId,
+        orderNumber: order.orderNumber,
+        paymentStatus: order.paymentStatus,
+      });
+      this.operations.publishToOutlet(outletId, 'kitchen.ticket.created', {
+        orderId,
+        orderNumber: order.orderNumber,
+        tickets: order.kitchenTickets.map((ticket) => ({
+          id: ticket.id,
+          stationId: ticket.stationId,
+        })),
+      });
+    }
+    return order;
+  }
+
   async updateStatus(
     user: AuthenticatedUser,
     outletId: string,
@@ -630,12 +1385,20 @@ export class OrdersService {
     return qr;
   }
 
-  private async loadPublishedQrMenu(outletId: string) {
+  private async loadPublishedMenu(
+    outletId: string,
+    options: {
+      channels: MenuChannel[];
+      menuId?: string;
+      notFoundMessage?: string;
+    },
+  ) {
     const menu = await this.prisma.menu.findFirst({
       where: {
+        ...(options.menuId ? { id: options.menuId } : {}),
         outletId,
         status: MenuStatus.ACTIVE,
-        channel: { in: [MenuChannel.QR, MenuChannel.BOTH] },
+        channel: { in: options.channels },
         versions: {
           some: { status: MenuVersionStatus.PUBLISHED },
         },
@@ -663,17 +1426,24 @@ export class OrdersService {
     });
     if (!menu?.versions[0]) {
       throw new ConflictException(
-        'No published QR menu is available for this outlet.',
+        options.notFoundMessage ?? 'No published menu is available.',
       );
     }
     return menu;
   }
 
+  private async loadPublishedQrMenu(outletId: string) {
+    return this.loadPublishedMenu(outletId, {
+      channels: [MenuChannel.QR, MenuChannel.BOTH],
+      notFoundMessage: 'No published QR menu is available for this outlet.',
+    });
+  }
+
   private priceItems(
     version: Awaited<
-      ReturnType<OrdersService['loadPublishedQrMenu']>
+      ReturnType<OrdersService['loadPublishedMenu']>
     >['versions'][number],
-    dto: CreatePublicOrderDto,
+    dto: { items: RequestedOrderItemInput[] },
   ) {
     const itemById = new Map(version.items.map((item) => [item.id, item]));
     return dto.items.map((requested) => {
@@ -790,6 +1560,52 @@ export class OrdersService {
         `${method} is currently unavailable for this outlet.`,
       );
     }
+  }
+
+  private async assertAdminPaymentMethodAvailable(
+    outletId: string,
+    method: PaymentMethod,
+  ): Promise<void> {
+    const [control, methods] = await Promise.all([
+      this.prisma.outletPaymentControl.findUnique({ where: { outletId } }),
+      this.prisma.paymentMethodSetting.findMany({ where: { outletId } }),
+    ]);
+    if (!control) {
+      throw new ConflictException(
+        'Payment settings are not configured for this outlet.',
+      );
+    }
+
+    const methodSetting = methods.find((entry) => entry.method === method);
+    if (!methodSetting) {
+      throw new ConflictException(
+        `${method} is not configured for this outlet.`,
+      );
+    }
+
+    if (method === PaymentMethod.ONLINE_CARD) {
+      return this.assertPaymentMethodAvailable(outletId, method);
+    }
+
+    if (method === PaymentMethod.MANUAL_PAYNOW) {
+      if (!isToggleEffective(methodSetting)) {
+        throw new ConflictException(
+          `${method} is currently unavailable for this outlet.`,
+        );
+      }
+      return;
+    }
+
+    if (method === PaymentMethod.CASH) {
+      if (!isToggleEffective(methodSetting)) {
+        throw new ConflictException(
+          `${method} is currently unavailable for this outlet.`,
+        );
+      }
+      return;
+    }
+
+    throw new ConflictException(`${method} is not supported for staff POS.`);
   }
 
   async releaseOrderToKitchen(

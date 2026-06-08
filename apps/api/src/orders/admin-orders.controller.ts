@@ -15,10 +15,13 @@ import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../common/types/authenticated-user';
+import { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import {
+  CancelOrderDto,
   UpdateOrderStatusDto,
   VerifyManualPayNowDto,
 } from './dto/order-actions.dto';
+import { UpdateAdminOrderDto } from './dto/update-admin-order.dto';
 import { OrdersService } from './orders.service';
 
 @ApiTags('Orders')
@@ -26,6 +29,27 @@ import { OrdersService } from './orders.service';
 @Controller('admin/outlets/:outletId/orders')
 export class AdminOrdersController {
   constructor(private readonly orders: OrdersService) {}
+
+  @Post()
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Permissions('order.manage')
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() dto: CreateAdminOrderDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.orders.createAdminOrder(
+      user,
+      outletId,
+      idempotencyKey ?? '',
+      dto,
+      request.id,
+      ipAddress,
+    );
+  }
 
   @Get()
   @Permissions('order.read')
@@ -47,9 +71,49 @@ export class AdminOrdersController {
     return this.orders.getAdmin(user, outletId, orderId);
   }
 
+  @Post(':orderId/cancel')
+  @Permissions('order.manage')
+  cancel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: CancelOrderDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.orders.cancelAdminOrder(
+      user,
+      outletId,
+      orderId,
+      dto.reason,
+      request.id,
+      ipAddress,
+    );
+  }
+
+  @Post(':orderId/amend')
+  @Permissions('order.manage')
+  amend(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: UpdateAdminOrderDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.orders.amendAdminOrder(
+      user,
+      outletId,
+      orderId,
+      dto,
+      request.id,
+      ipAddress,
+    );
+  }
+
   @Post(':orderId/manual-paynow/verify')
   @ApiHeader({ name: 'Idempotency-Key', required: true })
-  @Permissions('payment.settings.manage')
+  @Permissions('order.manage')
   verifyManualPayNow(
     @CurrentUser() user: AuthenticatedUser,
     @Param('outletId') outletId: string,

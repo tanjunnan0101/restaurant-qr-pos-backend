@@ -4,6 +4,7 @@ export const paymentScopes = [
   'ONLINE_CARD',
   'STRIPE_PAYNOW',
   'MANUAL_PAYNOW',
+  'CASH',
 ] as const;
 
 export type PaymentScope = (typeof paymentScopes)[number];

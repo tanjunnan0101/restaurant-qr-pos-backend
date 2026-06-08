@@ -7,15 +7,16 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run prisma:generate && npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/api && npm run build --workspace @restaurant-pos/printer-agent && npm run build --workspace @restaurant-pos/customer-web && npm run build --workspace @restaurant-pos/owner-web",
+    "build": "npm run prisma:generate && npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/api && npm run build --workspace @restaurant-pos/printer-agent && npm run build --workspace @restaurant-pos/customer-web && npm run build --workspace @restaurant-pos/owner-web && npm run build --workspace @restaurant-pos/staff-web",
     "dev": "npm run prisma:generate && npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run dev --workspace @restaurant-pos/api",
     "dev:customer": "npm run dev --workspace @restaurant-pos/customer-web",
     "dev:owner": "npm run dev --workspace @restaurant-pos/owner-web",
+    "dev:staff": "npm run dev --workspace @restaurant-pos/staff-web",
     "start": "npm run start --workspace @restaurant-pos/api",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "npm run prisma:generate && npm run typecheck --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/db && npm run typecheck --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/types && npm run typecheck --workspace @restaurant-pos/api && npm run typecheck --workspace @restaurant-pos/printer-agent && npm run typecheck --workspace @restaurant-pos/customer-web && npm run typecheck --workspace @restaurant-pos/owner-web",
+    "typecheck": "npm run prisma:generate && npm run typecheck --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/db && npm run typecheck --workspace @restaurant-pos/types && npm run build --workspace @restaurant-pos/types && npm run typecheck --workspace @restaurant-pos/api && npm run typecheck --workspace @restaurant-pos/printer-agent && npm run typecheck --workspace @restaurant-pos/customer-web && npm run typecheck --workspace @restaurant-pos/owner-web && npm run typecheck --workspace @restaurant-pos/staff-web",
     "test": "npm run prisma:generate && npm run build --workspace @restaurant-pos/db && npm run build --workspace @restaurant-pos/types && npm run test --workspace @restaurant-pos/api",
     "prisma:generate": "npm run prisma:generate --workspace @restaurant-pos/db",
     "prisma:validate": "npm run prisma:validate --workspace @restaurant-pos/db",

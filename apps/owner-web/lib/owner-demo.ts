@@ -227,6 +227,15 @@ export const paymentControls: Array<{
     detail:
       'Present for compatibility while the live hosted provider remains HitPay.',
   },
+  {
+    scope: 'CASH',
+    label: 'Cash settlement',
+    provider: 'Staff immediate-settlement path',
+    state: 'Enabled',
+    tone: 'success',
+    detail:
+      'Lets staff mark walk-in orders paid immediately and send them to the kitchen without hosted checkout.',
+  },
 ];
 
 export const printerChecks = [

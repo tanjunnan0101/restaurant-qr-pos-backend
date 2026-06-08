@@ -1,7 +1,7 @@
 # Restaurant QR POS
 
-Multi-tenant restaurant QR ordering platform with a live customer ordering
-frontend, HitPay checkout, and local printer-agent support.
+Multi-tenant restaurant QR ordering platform with live customer, owner, and
+staff web surfaces, HitPay checkout, and local printer-agent support.
 
 Start with [HANDOFF.md](HANDOFF.md) for the current continuation baseline. For
 deployment and rollout, use:
@@ -18,6 +18,7 @@ Implemented now:
 - Prisma/PostgreSQL schema for restaurants, outlets, menus, tables, orders,
   payments, and print jobs.
 - Customer QR ordering web app in `apps/customer-web`.
+- Staff operations web app baseline in `apps/staff-web`.
 - Menu publishing, sold-out controls, table QR generation, and QR rotation.
 - Server-priced order creation with idempotency protection.
 - Hosted HitPay checkout for the public customer flow.
@@ -26,13 +27,13 @@ Implemented now:
 - Automatic customer receipt queueing when a `RECEIPT` printer is configured.
 - Windows/LAN printer agent for ESC/POS thermal printers.
 - One-call client onboarding and owner activation.
-- Initial owner-web scaffold with activation, login, and read-only dashboard hydration.
+- Owner-web with activation, login, dashboard hydration, and outlet setup flows.
+- Staff-web with login, operations dashboard, orders board, and table overview.
 
 Not implemented yet:
 
-- Staff POS frontend.
 - KDS frontend.
-- Full owner dashboard write flows.
+- Full staff walk-in POS order entry.
 - Physical printer acceptance on a real outlet network.
 - Production observability, rate limiting, backup/restore drills, and
   horizontally scaled Socket.IO.
@@ -48,6 +49,7 @@ Not implemented yet:
 7. Run `npm run dev`.
 8. In a second terminal, run `npm run dev:customer`.
 9. In a third terminal, run `npm run dev:owner`.
+10. In a fourth terminal, run `npm run dev:staff`.
 
 Useful local URLs:
 
@@ -55,6 +57,7 @@ Useful local URLs:
 - API health: `http://localhost:3001/api/v1/health`
 - Customer app shell: `http://localhost:3000`
 - Owner app shell: `http://localhost:3002`
+- Staff app shell: `http://localhost:3003`
 
 Seeded owner login defaults to `owner@example.com` / `ChangeMe123!` unless
 you override them in `.env`.
@@ -112,15 +115,25 @@ See [docs/runbooks/order-and-printer-flow.md](docs/runbooks/order-and-printer-fl
 
 ## Owner web
 
-The owner console now lives in `apps/owner-web` and currently supports:
+The owner console in `apps/owner-web` currently supports:
 
 - account activation
 - owner login
-- a read-only dashboard
-- outlet menu visibility
-- outlet table and QR visibility
-- outlet payment-settings visibility
-- outlet printing visibility
+- dashboard hydration
+- outlet menu management
+- outlet table and QR setup
+- outlet payment-settings controls
+- outlet printing configuration and retry/test flows
 
-It is intentionally read-first for the first scaffold. The next phase is to add
-write flows for menu setup, table setup, payment toggles, and printing setup.
+## Staff web
+
+The staff console in `apps/staff-web` currently supports:
+
+- staff login through the live JWT auth flow
+- accessible outlet dashboard with live queue summaries
+- outlet order board with status progression from kitchen release to completion
+- outlet table overview
+- a reserved POS continuation route for walk-in order entry
+
+The next phase is to turn the POS continuation route into full walk-in order
+entry and settlement tooling.

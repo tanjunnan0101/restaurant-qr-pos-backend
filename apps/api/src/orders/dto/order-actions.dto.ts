@@ -1,6 +1,12 @@
 import { IsEnum, IsInt, IsString, Length, Min } from 'class-validator';
 import { OrderStatus } from '@restaurant-pos/db';
 
+export class CancelOrderDto {
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
+}
+
 export class VerifyManualPayNowDto {
   @IsInt()
   @Min(1)

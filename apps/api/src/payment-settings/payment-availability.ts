@@ -25,12 +25,32 @@ export function evaluatePaymentAvailability(input: {
     disabledUntil: Date | null;
   }>;
 }): Record<PaymentMethod, boolean> {
-  const now = input.now ?? new Date();
-  const onlineEnabled = isToggleEffective(input.online, now);
-  const stripeEnabled = isToggleEffective(input.stripe, now);
+  const effective = evaluateMethodEffectiveness(input);
   const customerSupportedMethods = new Set<PaymentMethod>([
     PaymentMethod.ONLINE_CARD,
   ]);
+
+  return Object.fromEntries(
+    Object.entries(effective).map(([method, enabled]) => [
+      method,
+      customerSupportedMethods.has(method as PaymentMethod) && enabled,
+    ]),
+  ) as Record<PaymentMethod, boolean>;
+}
+
+export function evaluateMethodEffectiveness(input: {
+  now?: Date;
+  online: Toggle;
+  stripe: Toggle;
+  methods: Array<{
+    method: PaymentMethod;
+    enabled: boolean;
+    disabledUntil: Date | null;
+  }>;
+}): Record<PaymentMethod, boolean> {
+  const now = input.now ?? new Date();
+  const onlineEnabled = isToggleEffective(input.online, now);
+  const stripeEnabled = isToggleEffective(input.stripe, now);
   const hostedCheckoutMethods = new Set<PaymentMethod>([
     PaymentMethod.ONLINE_CARD,
     PaymentMethod.STRIPE_PAYNOW,
@@ -40,13 +60,11 @@ export function evaluatePaymentAvailability(input: {
     input.methods.map((method) => {
       const methodEnabled = isToggleEffective(method, now);
       const needsStripe = hostedCheckoutMethods.has(method.method);
-      const supported = customerSupportedMethods.has(method.method);
       return [
         method.method,
-        supported &&
-          onlineEnabled &&
-          methodEnabled &&
-          (!needsStripe || stripeEnabled),
+        needsStripe
+          ? onlineEnabled && methodEnabled && stripeEnabled
+          : methodEnabled,
       ];
     }),
   ) as Record<PaymentMethod, boolean>;

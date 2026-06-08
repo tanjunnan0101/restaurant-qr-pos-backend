@@ -19,6 +19,7 @@ import { OrdersService } from '../orders/orders.service';
 import { evaluatePaymentAvailability } from '../payment-settings/payment-availability';
 import { OperationsGateway } from '../realtime/operations.gateway';
 import { verifyQrToken } from '../tables/qr-token';
+import { TenantService } from '../tenant/tenant.service';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { ReconcileHitPayReturnDto } from './dto/reconcile-hitpay-return.dto';
 import {
@@ -56,6 +57,7 @@ export class PaymentsService {
     private readonly hitpay: HitPayGateway,
     private readonly orders: OrdersService,
     private readonly operations: OperationsGateway,
+    private readonly tenant: TenantService,
   ) {}
 
   async createCheckout(
@@ -73,7 +75,6 @@ export class PaymentsService {
       );
     }
     const qr = await this.loadValidQr(publicCode, token);
-    await this.assertPaymentMethodAvailable(qr.outletId, dto.paymentMethod);
 
     const order = await this.prisma.order.findFirst({
       where: {
@@ -89,6 +90,85 @@ export class PaymentsService {
     if (!order) {
       throw new NotFoundException('Order not found.');
     }
+    return this.createHostedCheckoutForOrder(
+      order,
+      dto,
+      idempotencyKey,
+      requestId,
+      ipAddress,
+    );
+  }
+
+  async createAdminCheckout(
+    user: {
+      companyId: string;
+      userId: string;
+    },
+    outletId: string,
+    orderId: string,
+    idempotencyKey: string,
+    dto: CreateCheckoutDto,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+    if (!idempotencyKey || idempotencyKey.length > 120) {
+      throw new BadRequestException(
+        'A valid Idempotency-Key header is required.',
+      );
+    }
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        companyId: user.companyId,
+        outletId,
+      },
+      include: {
+        payments: { orderBy: { createdAt: 'desc' } },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found.');
+    }
+    return this.createHostedCheckoutForOrder(
+      order,
+      dto,
+      idempotencyKey,
+      requestId,
+      ipAddress,
+    );
+  }
+
+  private async createHostedCheckoutForOrder(
+    order: Awaited<ReturnType<PrismaService['order']['findFirst']>> & {
+      id: string;
+      companyId: string;
+      outletId: string;
+      orderNumber: string;
+      grandTotalCents: number;
+      currency: string;
+      status: OrderStatus;
+      paymentStatus: OrderPaymentStatus;
+      tableSessionId: string | null;
+      payments: Array<{
+        id: string;
+        provider: PaymentProvider;
+        method: PaymentMethod;
+        status: PaymentStatus;
+        amountCents: number;
+        currency: string;
+        creationIdempotencyKey: string | null;
+        stripeCheckoutSessionId: string | null;
+        stripeCheckoutUrl: string | null;
+        checkoutExpiresAt: Date | null;
+      }>;
+    },
+    dto: CreateCheckoutDto,
+    idempotencyKey: string,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.assertPaymentMethodAvailable(order.outletId, dto.paymentMethod);
     if (paidOrderStatuses.includes(order.status)) {
       throw new ConflictException('This order is already paid.');
     }
@@ -622,6 +702,37 @@ export class PaymentsService {
       context.statusHint ?? paymentRequest.status,
     );
     const providerPayment = this.primaryHitPayPayment(paymentRequest);
+
+    if (
+      payment.order.status === OrderStatus.CANCELLED ||
+      payment.order.paymentStatus === OrderPaymentStatus.CANCELLED ||
+      payment.status === PaymentStatus.CANCELLED
+    ) {
+      await tx.auditLog.create({
+        data: {
+          companyId: payment.companyId,
+          outletId: payment.outletId,
+          actionType: 'HITPAY_EVENT_IGNORED',
+          entityType: 'payment',
+          entityId: payment.id,
+          afterJson: {
+            paymentRequestId: paymentRequest.id,
+            providerStatus: paymentRequest.status,
+            normalizedStatus,
+          },
+          reason:
+            'Ignored HitPay status update because the order or payment was already cancelled locally.',
+          requestId: context.requestId,
+          ipAddress: context.ipAddress,
+        },
+      });
+      return {
+        duplicate: false,
+        released: false,
+        outletId: payment.outletId,
+        orderId: payment.orderId,
+      };
+    }
 
     if (normalizedStatus === 'PROCESSING') {
       await tx.payment.updateMany({

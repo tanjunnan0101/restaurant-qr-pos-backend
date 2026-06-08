@@ -54,6 +54,13 @@ const PAYMENT_SCOPE_DESCRIPTORS: Record<PaymentScope, ScopeCardDescriptor> = {
       'Staff-side manual verification flow. It is not exposed in the current customer checkout experience.',
     legacyNote: 'Operational fallback only.',
   },
+  CASH: {
+    scope: 'CASH',
+    label: 'Cash settlement',
+    description:
+      'Staff-side immediate cash settlement for POS-assisted orders. Orders can be marked paid and released without hosted checkout.',
+    legacyNote: 'Operational POS method only.',
+  },
 };
 
 export function OutletPaymentSettingsPage() {

@@ -182,6 +182,13 @@ export class PlatformOnboardingService {
               enabled: false,
               updatedByUserId: owner.id,
             },
+            {
+              companyId: company.id,
+              outletId: outlet.id,
+              method: PaymentMethod.CASH,
+              enabled: true,
+              updatedByUserId: owner.id,
+            },
           ],
         });
 

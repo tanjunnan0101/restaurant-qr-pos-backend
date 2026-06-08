@@ -11,7 +11,8 @@ export type PaymentScope =
   | 'STRIPE'
   | 'ONLINE_CARD'
   | 'STRIPE_PAYNOW'
-  | 'MANUAL_PAYNOW';
+  | 'MANUAL_PAYNOW'
+  | 'CASH';
 
 export interface OwnerSession {
   accessToken: string;
