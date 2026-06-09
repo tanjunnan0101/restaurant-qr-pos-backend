@@ -235,6 +235,22 @@ export function cloneMenuDraft(token: string, outletId: string, menuId: string) 
   );
 }
 
+export function replaceMenuDraft(
+  token: string,
+  outletId: string,
+  menuId: string,
+  input: import('./types').ReplaceMenuDraftInput,
+) {
+  return request<StaffMenuDetail>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/menus/${encodeURIComponent(menuId)}/draft`,
+    {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export function publishMenu(token: string, outletId: string, menuId: string) {
   return request<StaffMenuDetail>(
     `/admin/outlets/${encodeURIComponent(outletId)}/menus/${encodeURIComponent(menuId)}/publish`,

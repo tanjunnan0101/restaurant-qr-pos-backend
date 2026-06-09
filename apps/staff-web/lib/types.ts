@@ -322,6 +322,60 @@ export interface StaffMenuDetail {
   }>;
 }
 
+export interface SetupMenuInput {
+  name: string;
+  slug: string;
+  channel?: MenuChannel;
+  isDefault?: boolean;
+  publish?: boolean;
+  modifierGroups?: Array<{
+    key: string;
+    name: string;
+    minSelect: number;
+    maxSelect: number;
+    required: boolean;
+    displayOrder?: number;
+    options: Array<{
+      name: string;
+      priceDeltaCents: number;
+      displayOrder?: number;
+    }>;
+  }>;
+  categories: Array<{
+    name: string;
+    displayOrder?: number;
+    active?: boolean;
+    items: Array<{
+      sku?: string;
+      name: string;
+      description?: string;
+      basePriceCents: number;
+      taxable?: boolean;
+      serviceChargeable?: boolean;
+      preparationStationKey?: string;
+      active?: boolean;
+      soldOut?: boolean;
+      displayOrder?: number;
+      variants?: Array<{
+        name: string;
+        sku?: string;
+        priceDeltaCents: number;
+        active?: boolean;
+        displayOrder?: number;
+      }>;
+      modifierGroupKeys?: string[];
+    }>;
+  }>;
+}
+
+export interface ReplaceMenuDraftInput {
+  name?: string;
+  channel?: MenuChannel;
+  isDefault?: boolean;
+  modifierGroups?: SetupMenuInput['modifierGroups'];
+  categories: SetupMenuInput['categories'];
+}
+
 export interface MenuItemAvailabilityResponse {
   id: string;
   soldOut: boolean;

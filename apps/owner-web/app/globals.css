@@ -710,6 +710,31 @@ button {
   border-color: rgba(21, 94, 99, 0.18);
 }
 
+.operations-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.operations-summary-card {
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  background: rgba(255, 253, 248, 0.82);
+  border: 1px solid rgba(29, 23, 18, 0.08);
+  color: var(--ink);
+}
+
+.operations-summary-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.operations-summary-card p {
+  margin: 10px 0 0;
+}
+
 .hero-panel__title {
   margin: 0;
   font-size: clamp(2.3rem, 4vw, 3.8rem);
@@ -993,7 +1018,8 @@ button {
   }
 
   .workspace-hero__header,
-  .workspace-meta-grid {
+  .workspace-meta-grid,
+  .operations-summary-grid {
     grid-template-columns: 1fr;
   }
 

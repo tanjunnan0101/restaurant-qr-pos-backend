@@ -7,6 +7,7 @@ import {
   getMenus,
   getOutletAuditLogs,
   publishMenu,
+  replaceMenuDraft,
   setMenuItemSoldOut,
 } from '@/lib/api';
 import { OutletAuditFeed } from '@/components/outlet-audit-feed';
@@ -15,6 +16,7 @@ import type {
   MenuListEntry,
   OutletAuditLogEntry,
   RealtimeStatus,
+  ReplaceMenuDraftInput,
   StaffMenuDetail,
 } from '@/lib/types';
 import {
@@ -24,6 +26,32 @@ import {
 } from './outlet-page-base';
 
 type ItemVisibilityFilter = 'ALL' | 'AVAILABLE' | 'SOLD_OUT';
+
+type QuickCategoryMode = 'EXISTING' | 'NEW';
+type QuickDraftContent = {
+  modifierGroups: NonNullable<ReplaceMenuDraftInput['modifierGroups']>;
+  categories: ReplaceMenuDraftInput['categories'];
+};
+
+type QuickDraftCategory = QuickDraftContent['categories'][number];
+type QuickDraftItem = QuickDraftCategory['items'][number];
+type QuickDraftVariant = NonNullable<QuickDraftItem['variants']>[number];
+type QuickDraftModifierGroup = QuickDraftContent['modifierGroups'][number];
+type QuickDraftModifierOption = QuickDraftModifierGroup['options'][number];
+type QuickEditableCategory = QuickDraftCategory & { id?: string };
+type QuickAddItemInput = {
+  quickCategoryMode: QuickCategoryMode;
+  quickCategoryId: string;
+  quickCategoryName: string;
+  quickItemName: string;
+  quickItemPriceCents: number;
+  quickItemSku: string;
+  quickItemDescription: string;
+  quickItemStation: string;
+  quickItemTaxable: boolean;
+  quickItemServiceChargeable: boolean;
+  quickItemActive: boolean;
+};
 
 export function OutletMenusPage() {
   const {
@@ -47,6 +75,19 @@ export function OutletMenusPage() {
   const [error, setError] = useState<string | null>(null);
   const [auditEntries, setAuditEntries] = useState<OutletAuditLogEntry[]>([]);
   const [status, setStatus] = useState<RealtimeStatus>('idle');
+  const [quickCategoryMode, setQuickCategoryMode] =
+    useState<QuickCategoryMode>('EXISTING');
+  const [quickCategoryId, setQuickCategoryId] = useState('');
+  const [quickCategoryName, setQuickCategoryName] = useState('');
+  const [quickItemName, setQuickItemName] = useState('');
+  const [quickItemPrice, setQuickItemPrice] = useState('');
+  const [quickItemSku, setQuickItemSku] = useState('');
+  const [quickItemDescription, setQuickItemDescription] = useState('');
+  const [quickItemStation, setQuickItemStation] = useState('main-kitchen');
+  const [quickItemTaxable, setQuickItemTaxable] = useState(true);
+  const [quickItemServiceChargeable, setQuickItemServiceChargeable] =
+    useState(true);
+  const [quickItemActive, setQuickItemActive] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const outletAccess = useMemo(
@@ -204,6 +245,30 @@ export function OutletMenusPage() {
   const selectedVersion =
     menuDetail?.versions.find((version) => version.id === selectedVersionId) ??
     null;
+  const editableVersion = menuDetail
+    ? menuDetail.versions.find((version) => version.status === 'DRAFT') ??
+      menuDetail.versions.find((version) => version.status === 'PUBLISHED') ??
+      menuDetail.versions[0] ??
+      null
+    : null;
+
+  useEffect(() => {
+    if (quickCategoryMode !== 'EXISTING') {
+      return;
+    }
+    const categories = editableVersion?.categories ?? [];
+    if (categories.length === 0) {
+      setQuickCategoryId('');
+      return;
+    }
+    if (
+      quickCategoryId &&
+      categories.some((category) => category.id === quickCategoryId)
+    ) {
+      return;
+    }
+    setQuickCategoryId(categories[0]?.id ?? '');
+  }, [editableVersion, quickCategoryId, quickCategoryMode]);
 
   const filteredCategories = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -245,6 +310,8 @@ export function OutletMenusPage() {
         .flatMap((category) => category.items)
         .filter((item) => item.soldOut).length ?? 0,
   };
+  const categoryCount = selectedVersion?.categories.length ?? 0;
+  const readyItems = Math.max(itemSummary.total - itemSummary.soldOut, 0);
 
   async function handleCloneDraft() {
     if (!session?.accessToken || !outletId || !selectedMenuId) {
@@ -402,6 +469,105 @@ export function OutletMenusPage() {
     }
   }
 
+  async function handleQuickAddItem() {
+    if (!session?.accessToken || !outletId || !menuDetail || !editableVersion) {
+      return;
+    }
+
+    if (editableVersion.status !== 'DRAFT') {
+      setError(
+        'Create a draft first before adding items. Clone the published menu into a draft, then try again.',
+      );
+      return;
+    }
+
+    const itemName = quickItemName.trim();
+    const categoryName = quickCategoryName.trim();
+    const priceCents = parseCurrencyToCents(quickItemPrice);
+    if (!itemName) {
+      setError('Enter an item name before saving to the draft.');
+      return;
+    }
+    if (priceCents === null || priceCents < 0) {
+      setError('Enter a valid item price before saving to the draft.');
+      return;
+    }
+    if (quickCategoryMode === 'EXISTING' && !quickCategoryId) {
+      setError('Choose an existing category or switch to creating a new one.');
+      return;
+    }
+    if (quickCategoryMode === 'NEW' && !categoryName) {
+      setError('Enter a new category name before saving to the draft.');
+      return;
+    }
+    if (
+      quickCategoryMode === 'NEW' &&
+      editableVersion.categories.some(
+        (category) =>
+          category.name.trim().toLowerCase() === categoryName.toLowerCase(),
+      )
+    ) {
+      setError(
+        'That category already exists in this draft. Choose it from the list instead of creating a duplicate.',
+      );
+      return;
+    }
+
+    const payload = buildQuickDraftPayload(menuDetail, editableVersion, {
+      quickCategoryMode,
+      quickCategoryId,
+      quickCategoryName: categoryName,
+      quickItemName: itemName,
+      quickItemPriceCents: priceCents,
+      quickItemSku: quickItemSku.trim(),
+      quickItemDescription: quickItemDescription.trim(),
+      quickItemStation: quickItemStation.trim() || 'main-kitchen',
+      quickItemTaxable,
+      quickItemServiceChargeable,
+      quickItemActive,
+    });
+
+    setActionBusyId('quick-add-item');
+    setError(null);
+    try {
+      const result = await replaceMenuDraft(
+        session.accessToken,
+        outletId,
+        menuDetail.id,
+        payload,
+      );
+      setMenuDetail(result);
+      setSelectedVersionId(resolveDefaultVersionId(result));
+      setQuickItemName('');
+      setQuickItemPrice('');
+      setQuickItemSku('');
+      setQuickItemDescription('');
+      setQuickItemStation('main-kitchen');
+      setQuickItemTaxable(true);
+      setQuickItemServiceChargeable(true);
+      setQuickItemActive(true);
+      if (quickCategoryMode === 'NEW') {
+        const createdCategory = result.versions
+          .find((version) => version.status === 'DRAFT')
+          ?.categories.find(
+            (category) =>
+              category.name.trim().toLowerCase() === categoryName.toLowerCase(),
+          );
+        setQuickCategoryMode('EXISTING');
+        setQuickCategoryId(createdCategory?.id ?? '');
+        setQuickCategoryName('');
+      }
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : 'Failed to save the quick item to the draft.',
+      );
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
   const hasDraft =
     menuDetail?.versions.some((version) => version.status === 'DRAFT') ?? false;
   const hasPublished =
@@ -444,6 +610,62 @@ export function OutletMenusPage() {
         </section>
       ) : (
         <>
+          <section className="workspace-hero workspace-hero--staff">
+            <div className="workspace-hero__header">
+              <div className="workspace-hero__copy">
+                <p className="eyebrow">Menu quick edit</p>
+                <h2 className="section-title serif">Keep service-ready items current</h2>
+                <p className="supporting-copy">
+                  This menu board now supports fast staff-side menu operations:
+                  spot sold-out items, clone a draft, add a missing item, and
+                  publish when your role allows it.
+                </p>
+              </div>
+              <div className="workspace-pill-grid">
+                <div className="workspace-pill current">
+                  <span>Realtime</span>
+                  <strong>{formatRealtimeStatus(status)}</strong>
+                </div>
+                <div className="workspace-pill">
+                  <span>Edit mode</span>
+                  <strong>
+                    {hasDraft ? 'Draft available' : hasPublished ? 'Published only' : 'First setup'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+            <div className="operations-summary-grid">
+              <article className="operations-summary-card">
+                <span className="metric-label">Menus</span>
+                <strong>{menus.length}</strong>
+                <p className="supporting-copy">
+                  Menu records currently available for this outlet.
+                </p>
+              </article>
+              <article className="operations-summary-card">
+                <span className="metric-label">Categories</span>
+                <strong>{categoryCount}</strong>
+                <p className="supporting-copy">
+                  Visible categories in the selected menu version.
+                </p>
+              </article>
+              <article className="operations-summary-card">
+                <span className="metric-label">Ready to sell</span>
+                <strong>{readyItems}</strong>
+                <p className="supporting-copy">
+                  Available items after sold-out filtering is applied.
+                </p>
+              </article>
+              <article className="operations-summary-card">
+                <span className="metric-label">Sold out</span>
+                <strong>{itemSummary.soldOut}</strong>
+                <p className="supporting-copy">
+                  Items currently hidden from customer and staff ordering.
+                </p>
+              </article>
+            </div>
+          </section>
+
           <section className="metric-board">
             <article className="panel metric-card">
               <span className="metric-label">Menus</span>
@@ -470,7 +692,8 @@ export function OutletMenusPage() {
                 <h2 className="section-title serif">Outlet menu controls</h2>
                 <p className="supporting-copy">
                   Choose a menu, review the current draft or published version,
-                  and adjust sold-out state at item level.
+                  and adjust sold-out state at item level. Staff with menu
+                  permissions can also use the quick editor below.
                 </p>
               </div>
               <div className="inline-actions">
@@ -566,6 +789,169 @@ export function OutletMenusPage() {
               </div>
             </div>
           </section>
+
+          {canManageMenus ? (
+            <section className="panel section-panel queue-card--upgraded">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">Quick edit</p>
+                  <h2 className="section-title serif">Add an item without leaving service</h2>
+                  <p className="supporting-copy">
+                    Inspired by the fastest restaurant POS edit flows: make a
+                    draft, add a category or item, save, then publish when
+                    ready.
+                  </p>
+                </div>
+                <span
+                  className={`status-pill ${
+                    editableVersion?.status === 'DRAFT' ? 'success' : 'warning'
+                  }`}
+                >
+                  {editableVersion?.status === 'DRAFT'
+                    ? 'Draft editing live'
+                    : 'Draft required'}
+                </span>
+              </div>
+
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="quick-category-mode">Target category</label>
+                  <select
+                    id="quick-category-mode"
+                    onChange={(event) =>
+                      setQuickCategoryMode(event.target.value as QuickCategoryMode)
+                    }
+                    value={quickCategoryMode}
+                  >
+                    <option value="EXISTING">Use existing category</option>
+                    <option value="NEW">Create new category</option>
+                  </select>
+                </div>
+                {quickCategoryMode === 'EXISTING' ? (
+                  <div className="field">
+                    <label htmlFor="quick-category-id">Category</label>
+                    <select
+                      id="quick-category-id"
+                      onChange={(event) => setQuickCategoryId(event.target.value)}
+                      value={quickCategoryId}
+                    >
+                      <option value="">Select category</option>
+                      {(editableVersion?.categories ?? []).map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="field">
+                    <label htmlFor="quick-category-name">New category name</label>
+                    <input
+                      id="quick-category-name"
+                      onChange={(event) => setQuickCategoryName(event.target.value)}
+                      placeholder="Seasonal specials"
+                      value={quickCategoryName}
+                    />
+                  </div>
+                )}
+                <div className="field">
+                  <label htmlFor="quick-item-name">Item name</label>
+                  <input
+                    id="quick-item-name"
+                    onChange={(event) => setQuickItemName(event.target.value)}
+                    placeholder="Grilled seabass"
+                    value={quickItemName}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="quick-item-price">Price</label>
+                  <input
+                    id="quick-item-price"
+                    inputMode="decimal"
+                    onChange={(event) => setQuickItemPrice(event.target.value)}
+                    placeholder="18.90"
+                    value={quickItemPrice}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="quick-item-sku">SKU</label>
+                  <input
+                    id="quick-item-sku"
+                    onChange={(event) => setQuickItemSku(event.target.value)}
+                    placeholder="FISH-SEA-001"
+                    value={quickItemSku}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="quick-item-station">Prep station</label>
+                  <input
+                    id="quick-item-station"
+                    onChange={(event) => setQuickItemStation(event.target.value)}
+                    placeholder="main-kitchen"
+                    value={quickItemStation}
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <label htmlFor="quick-item-description">Description</label>
+                <textarea
+                  id="quick-item-description"
+                  onChange={(event) => setQuickItemDescription(event.target.value)}
+                  placeholder="Short staff-friendly or guest-facing description"
+                  rows={3}
+                  value={quickItemDescription}
+                />
+              </div>
+
+              <div className="inline-actions">
+                <label className="checkbox-row">
+                  <input
+                    checked={quickItemTaxable}
+                    onChange={(event) => setQuickItemTaxable(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Taxable</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    checked={quickItemServiceChargeable}
+                    onChange={(event) =>
+                      setQuickItemServiceChargeable(event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  <span>Service chargeable</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    checked={quickItemActive}
+                    onChange={(event) => setQuickItemActive(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Visible in menu</span>
+                </label>
+              </div>
+
+              <div className="inline-actions">
+                <button
+                  className="primary-button"
+                  disabled={actionBusyId === 'quick-add-item'}
+                  onClick={() => void handleQuickAddItem()}
+                  type="button"
+                >
+                  {actionBusyId === 'quick-add-item'
+                    ? 'Saving to draft...'
+                    : 'Add item to draft'}
+                </button>
+                <span className="supporting-copy">
+                  {editableVersion?.status === 'DRAFT'
+                    ? 'Saves directly into the current draft version.'
+                    : 'Clone a published menu into a draft first, then quick add items here.'}
+                </span>
+              </div>
+            </section>
+          ) : null}
 
           {busy ? (
             <section className="panel section-panel">
@@ -731,4 +1117,187 @@ function formatRealtimeStatus(status: RealtimeStatus) {
     default:
       return 'Idle';
   }
+}
+
+function parseCurrencyToCents(value: string): number | null {
+  const normalized = value.replace(/\$/g, '').trim();
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
+    return null;
+  }
+  return Math.round(Number(normalized) * 100);
+}
+
+function buildQuickDraftPayload(
+  menuDetail: StaffMenuDetail,
+  editableVersion: StaffMenuDetail['versions'][number],
+  input: QuickAddItemInput,
+): ReplaceMenuDraftInput {
+  const draft = versionToQuickDraft(editableVersion);
+  const categories = [...draft.categories];
+  const newItem = createQuickDraftItem(input);
+
+  if (input.quickCategoryMode === 'NEW') {
+    categories.push({
+      name: input.quickCategoryName,
+      displayOrder: categories.length,
+      active: true,
+      items: [{ ...newItem, displayOrder: 0 }],
+    });
+  } else {
+    const targetCategoryIndex = categories.findIndex(
+      (category) => category.id === input.quickCategoryId,
+    );
+    if (targetCategoryIndex === -1) {
+      throw new Error('The selected category is no longer available in this draft.');
+    }
+    const targetCategory = categories[targetCategoryIndex];
+    categories[targetCategoryIndex] = {
+      ...targetCategory,
+      items: [
+        ...targetCategory.items,
+        { ...newItem, displayOrder: targetCategory.items.length },
+      ],
+    };
+  }
+
+  return {
+    name: menuDetail.name,
+    channel: menuDetail.channel,
+    isDefault: menuDetail.isDefault,
+    modifierGroups: draft.modifierGroups.map(stripModifierGroupIds),
+    categories: categories.map(stripCategoryIds),
+  };
+}
+
+function versionToQuickDraft(
+  version: StaffMenuDetail['versions'][number],
+): QuickDraftContent & {
+  categories: QuickEditableCategory[];
+} {
+  return {
+    modifierGroups: version.modifierGroups.map((group) => ({
+      key: group.key,
+      name: group.name,
+      minSelect: group.minSelect,
+      maxSelect: group.maxSelect,
+      required: group.required,
+      displayOrder: group.displayOrder,
+      options: group.options.map((option) => ({
+        name: option.name,
+        priceDeltaCents: option.priceDeltaCents,
+        displayOrder: option.displayOrder,
+      })),
+    })),
+    categories: version.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      displayOrder: category.displayOrder,
+      active: category.active,
+      items: category.items.map((item) => ({
+        sku: item.sku ?? undefined,
+        name: item.name,
+        description: item.description ?? undefined,
+        basePriceCents: item.basePriceCents,
+        taxable: item.taxable,
+        serviceChargeable: item.serviceChargeable,
+        preparationStationKey: item.preparationStationKey,
+        active: item.active,
+        soldOut: item.soldOut,
+        displayOrder: item.displayOrder,
+        variants: item.variants.map((variant) => ({
+          name: variant.name,
+          sku: variant.sku ?? undefined,
+          priceDeltaCents: variant.priceDeltaCents,
+          active: variant.active,
+          displayOrder: variant.displayOrder,
+        })),
+        modifierGroupKeys: item.itemModifierGroups
+          .sort((left, right) => left.displayOrder - right.displayOrder)
+          .map(({ modifierGroup }) => modifierGroup.key),
+      })),
+    })),
+  };
+}
+
+function createQuickDraftItem(input: QuickAddItemInput): QuickDraftItem {
+  return {
+    sku: input.quickItemSku || undefined,
+    name: input.quickItemName,
+    description: input.quickItemDescription || undefined,
+    basePriceCents: input.quickItemPriceCents,
+    taxable: input.quickItemTaxable,
+    serviceChargeable: input.quickItemServiceChargeable,
+    preparationStationKey: input.quickItemStation,
+    active: input.quickItemActive,
+    soldOut: false,
+    displayOrder: 0,
+    variants: [],
+    modifierGroupKeys: [],
+  };
+}
+
+function stripCategoryIds(
+  category: QuickDraftCategory & { id?: string },
+): ReplaceMenuDraftInput['categories'][number] {
+  return {
+    name: category.name,
+    displayOrder: category.displayOrder,
+    active: category.active,
+    items: category.items.map(stripItemIds),
+  };
+}
+
+function stripItemIds(item: QuickDraftItem): QuickDraftCategory['items'][number] {
+  return {
+    sku: item.sku,
+    name: item.name,
+    description: item.description,
+    basePriceCents: item.basePriceCents,
+    taxable: item.taxable,
+    serviceChargeable: item.serviceChargeable,
+    preparationStationKey: item.preparationStationKey,
+    active: item.active,
+    soldOut: item.soldOut,
+    displayOrder: item.displayOrder,
+    variants: (item.variants ?? []).map(stripVariantIds),
+    modifierGroupKeys: item.modifierGroupKeys ?? [],
+  };
+}
+
+function stripVariantIds(
+  variant: QuickDraftVariant,
+): NonNullable<QuickDraftCategory['items'][number]['variants']>[number] {
+  return {
+    name: variant.name,
+    sku: variant.sku,
+    priceDeltaCents: variant.priceDeltaCents,
+    active: variant.active,
+    displayOrder: variant.displayOrder,
+  };
+}
+
+function stripModifierGroupIds(
+  group: QuickDraftModifierGroup,
+): NonNullable<ReplaceMenuDraftInput['modifierGroups']>[number] {
+  return {
+    key: group.key,
+    name: group.name,
+    minSelect: group.minSelect,
+    maxSelect: group.maxSelect,
+    required: group.required,
+    displayOrder: group.displayOrder,
+    options: group.options.map(stripModifierOptionIds),
+  };
+}
+
+function stripModifierOptionIds(
+  option: QuickDraftModifierOption,
+): NonNullable<
+  NonNullable<ReplaceMenuDraftInput['modifierGroups']>[number]['options']
+>[number] {
+  return {
+    name: option.name,
+    priceDeltaCents: option.priceDeltaCents,
+    displayOrder: option.displayOrder,
+  };
 }

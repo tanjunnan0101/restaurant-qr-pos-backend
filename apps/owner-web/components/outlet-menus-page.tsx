@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   cloneMenuDraft,
   createMenuSetup,
@@ -745,6 +745,47 @@ export function OutletMenusPage() {
     }
   }
 
+  const menuWorkspaceSummary = useMemo(() => {
+    const totalMenus = menus.length;
+    const draftMenus = menus.filter((menu) =>
+      menu.versions.some((version) => version.status === 'DRAFT'),
+    ).length;
+    const publishedMenus = menus.filter((menu) =>
+      menu.versions.some((version) => version.status === 'PUBLISHED'),
+    ).length;
+    const totalVersions = menus.reduce(
+      (sum, menu) => sum + menu.versions.length,
+      0,
+    );
+    const defaultMenu = menus.find((menu) => menu.isDefault) ?? null;
+
+    let nextActionTitle = 'Create the first live menu';
+    let nextActionBody =
+      'Use the quick launch form to publish one guest-ready menu for QR, POS, or both.';
+
+    if (totalMenus > 0 && draftMenus === 0) {
+      nextActionTitle = 'Clone a published menu into draft';
+      nextActionBody =
+        'Use draft mode for pricing, category, and item changes before touching the live guest menu.';
+    }
+
+    if (draftMenus > 0) {
+      nextActionTitle = 'Review and publish the active draft';
+      nextActionBody =
+        'Open advanced controls, clear readiness issues, and push the draft live when service is ready.';
+    }
+
+    return {
+      totalMenus,
+      draftMenus,
+      publishedMenus,
+      totalVersions,
+      defaultMenu,
+      nextActionTitle,
+      nextActionBody,
+    };
+  }, [menus]);
+
   return (
     <OutletPageLayout
       title="Menu workspace"
@@ -752,15 +793,110 @@ export function OutletMenusPage() {
     >
       {outlet && <OutletHeader outlet={outlet} />}
 
+      <section className="section-panel workspace-hero">
+        <div className="workspace-hero__header">
+          <div className="workspace-hero__copy">
+            <p className="eyebrow">Owner menu control</p>
+            <h2 className="serif hero-panel__title">
+              Build, stage, and ship menu changes without losing service flow.
+            </h2>
+            <p className="hero-panel__lede">
+              The strongest restaurant systems separate quick launch, draft
+              iteration, and live service controls. This workspace now follows
+              that same rhythm so owners can set menus up fast and still manage
+              change safely.
+            </p>
+          </div>
+          <div className="workspace-pill-grid">
+            <div className="workspace-pill current">
+              <span>
+                {menuWorkspaceSummary.defaultMenu
+                  ? `Default: ${menuWorkspaceSummary.defaultMenu.name}`
+                  : 'Default menu not set'}
+              </span>
+            </div>
+            <div className="workspace-pill">
+              <span>{menuWorkspaceSummary.totalVersions} total versions</span>
+            </div>
+            <div className="workspace-pill">
+              <span>{menuWorkspaceSummary.publishedMenus} published menus</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="operations-summary-grid">
+          <article className="operations-summary-card">
+            <span className="metric-label">Menus configured</span>
+            <strong>{menuWorkspaceSummary.totalMenus}</strong>
+            <p>All outlet menus currently available across QR, POS, or both.</p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Drafts in flight</span>
+            <strong>{menuWorkspaceSummary.draftMenus}</strong>
+            <p>Menu revisions waiting for review, save, or publish.</p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Published</span>
+            <strong>{menuWorkspaceSummary.publishedMenus}</strong>
+            <p>Live menus that can currently serve guests or staff orders.</p>
+          </article>
+          <article className="operations-summary-card">
+            <span className="metric-label">Best next step</span>
+            <strong>{menuWorkspaceSummary.nextActionTitle}</strong>
+            <p>{menuWorkspaceSummary.nextActionBody}</p>
+          </article>
+        </div>
+      </section>
+
       <section className="section-panel">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Workflow lanes</p>
+            <h2 className="serif">Three menu jobs, one cleaner owner flow</h2>
+            <p>
+              Launch a menu quickly, iterate safely in draft, and keep live
+              service accurate with sold-out controls and publish checkpoints.
+            </p>
+          </div>
+        </div>
+
+        <div className="outlet-grid">
+          <article className="info-card info-card--compact">
+            <span className="metric-label">1. Quick launch</span>
+            <span className="metric-value">Type and go live</span>
+            <p className="metric-note">
+              Use the guided setup form below to create a first usable menu from
+              categories and items in one pass.
+            </p>
+          </article>
+          <article className="info-card info-card--compact">
+            <span className="metric-label">2. Draft lab</span>
+            <span className="metric-value">Edit before impact</span>
+            <p className="metric-note">
+              Clone a published menu into draft, adjust items, modifiers, and
+              categories, then compare readiness before publishing.
+            </p>
+          </article>
+          <article className="info-card info-card--compact">
+            <span className="metric-label">3. Live service control</span>
+            <span className="metric-value">Protect the floor</span>
+            <p className="metric-note">
+              Mark items sold out, keep the default menu clear, and avoid
+              pushing half-finished changes during service hours.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="section-panel list-item--elevated">
         <div className="section-header">
           <div>
             <p className="eyebrow">Menu setup</p>
             <h2 className="serif">Create a menu in one pass</h2>
             <p>
-              This onboarding flow is optimized for getting a usable menu live
-              quickly. Add category headers and item lines, then publish
-              immediately or save as a draft.
+              Start with the fastest setup path: define categories, add item
+              lines, choose the sales channel, then either publish immediately
+              or hold the result as a draft.
             </p>
           </div>
         </div>
@@ -858,6 +994,10 @@ export function OutletMenusPage() {
           <div>
             <p className="eyebrow">Menus</p>
             <h2 className="serif">Current outlet menus</h2>
+            <p>
+              Open any menu to inspect versions, compare draft against
+              published, and manage sold-out visibility from the same surface.
+            </p>
           </div>
         </div>
 
@@ -905,7 +1045,7 @@ export function OutletMenusPage() {
               const isExpanded = expandedMenuId === menu.id;
 
               return (
-                <article className="list-item" key={menu.id}>
+                <article className="list-item list-item--elevated" key={menu.id}>
                   <div className="section-header">
                     <div>
                       <h3>{menu.name}</h3>
