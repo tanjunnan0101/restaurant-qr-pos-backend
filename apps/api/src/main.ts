@@ -1,16 +1,19 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     rawBody: true,
   });
+  app.useBodyParser('json', { limit: '4mb' });
+  app.useBodyParser('urlencoded', { extended: true, limit: '4mb' });
   const config = app.get(ConfigService);
   const trustProxy = config.get<boolean>('API_TRUST_PROXY') ?? true;
 

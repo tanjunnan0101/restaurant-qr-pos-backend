@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@restaurant-pos/db';
+import { UserStatus, type Prisma } from '@restaurant-pos/db';
 import type { AuthenticatedUser } from '../common/types/authenticated-user';
 import { PrismaService } from '../database/prisma.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -78,35 +78,55 @@ export class AttendanceService {
     private readonly tenant: TenantService,
   ) {}
 
-  async getCurrent(user: AuthenticatedUser, outletId: string) {
+  async getCurrent(
+    user: AuthenticatedUser,
+    outletId: string,
+    targetUserId?: string,
+  ) {
     await this.tenant.assertOutlet(user.companyId, outletId);
 
-    const [settings, currentSession, recentSessions] = await Promise.all([
-      this.getOrCreateSettings(this.prisma, user.companyId, outletId, user.userId),
-      attendanceSessions(this.prisma).findFirst({
-        where: {
-          companyId: user.companyId,
+    const subject = await this.resolveAttendanceSubject(
+      this.prisma,
+      user.companyId,
+      outletId,
+      targetUserId ?? user.userId,
+    );
+
+    const [settings, currentSession, recentSessions, staffRoster] =
+      await Promise.all([
+        this.getOrCreateSettings(
+          this.prisma,
+          user.companyId,
           outletId,
-          userId: user.userId,
-          status: 'CLOCKED_IN',
-        },
-        orderBy: { clockInAt: 'desc' },
-        include: attendanceSessionInclude,
-      }),
-      attendanceSessions(this.prisma).findMany({
-        where: {
-          companyId: user.companyId,
-          outletId,
-          userId: user.userId,
-        },
-        orderBy: { clockInAt: 'desc' },
-        take: 5,
-        include: attendanceSessionInclude,
-      }),
-    ]);
+          user.userId,
+        ),
+        attendanceSessions(this.prisma).findFirst({
+          where: {
+            companyId: user.companyId,
+            outletId,
+            userId: subject.id,
+            status: 'CLOCKED_IN',
+          },
+          orderBy: { clockInAt: 'desc' },
+          include: attendanceSessionInclude,
+        }),
+        attendanceSessions(this.prisma).findMany({
+          where: {
+            companyId: user.companyId,
+            outletId,
+            userId: subject.id,
+          },
+          orderBy: { clockInAt: 'desc' },
+          take: 8,
+          include: attendanceSessionInclude,
+        }),
+        this.listAttendanceRoster(this.prisma, user.companyId, outletId),
+      ]);
 
     return {
       settings: this.toSettingResponse(settings),
+      selectedUser: subject,
+      staffRoster,
       currentSession: currentSession
         ? this.toSessionResponse(currentSession)
         : null,
@@ -126,6 +146,12 @@ export class AttendanceService {
     await this.tenant.assertOutlet(user.companyId, outletId);
 
     return this.prisma.$transaction(async (tx) => {
+      const subject = await this.resolveAttendanceSubject(
+        tx,
+        user.companyId,
+        outletId,
+        dto.userId ?? user.userId,
+      );
       const settings = await this.getOrCreateSettings(
         tx,
         user.companyId,
@@ -142,7 +168,7 @@ export class AttendanceService {
         where: {
           companyId: user.companyId,
           outletId,
-          userId: user.userId,
+          userId: subject.id,
           status: 'CLOCKED_IN',
         },
         select: { id: true },
@@ -164,7 +190,7 @@ export class AttendanceService {
         data: {
           companyId: user.companyId,
           outletId,
-          userId: user.userId,
+          userId: subject.id,
           status: 'CLOCKED_IN',
           approvalStatus: 'PENDING',
           clockInDeviceLabel: normalizeText(dto.deviceLabel),
@@ -197,11 +223,15 @@ export class AttendanceService {
           entityId: session.id,
           afterJson: {
             sessionId: session.id,
+            attendanceUserId: subject.id,
+            attendanceUserName: subject.fullName,
             clockInAt: session.clockInAt,
             deviceLabel: normalizeText(dto.deviceLabel),
             photoProvided: Boolean(photoPayload),
           } as Prisma.InputJsonValue,
-          reason: normalizeText(dto.note) ?? 'Staff member clocked in.',
+          reason:
+            normalizeText(dto.note) ??
+            `${subject.fullName} clocked in from the staff station.`,
           requestId,
           ipAddress,
         },
@@ -226,6 +256,12 @@ export class AttendanceService {
     await this.tenant.assertOutlet(user.companyId, outletId);
 
     return this.prisma.$transaction(async (tx) => {
+      const subject = await this.resolveAttendanceSubject(
+        tx,
+        user.companyId,
+        outletId,
+        dto.userId ?? user.userId,
+      );
       const settings = await this.getOrCreateSettings(
         tx,
         user.companyId,
@@ -236,7 +272,7 @@ export class AttendanceService {
         where: {
           companyId: user.companyId,
           outletId,
-          userId: user.userId,
+          userId: subject.id,
           status: 'CLOCKED_IN',
         },
         orderBy: { clockInAt: 'desc' },
@@ -310,12 +346,16 @@ export class AttendanceService {
           } as Prisma.InputJsonValue,
           afterJson: {
             status: 'CLOCKED_OUT',
+            attendanceUserId: subject.id,
+            attendanceUserName: subject.fullName,
             clockOutAt,
             workedMinutes,
             approvalStatus: flagged ? 'FLAGGED' : 'PENDING',
             photoProvided: Boolean(photoPayload),
           } as Prisma.InputJsonValue,
-          reason: normalizeText(dto.note) ?? 'Staff member clocked out.',
+          reason:
+            normalizeText(dto.note) ??
+            `${subject.fullName} clocked out from the staff station.`,
           requestId,
           ipAddress,
         },
@@ -622,6 +662,128 @@ export class AttendanceService {
       });
 
       return this.toSessionResponse(updated);
+    });
+  }
+
+  private async resolveAttendanceSubject(
+    client: Prisma.TransactionClient | PrismaService,
+    companyId: string,
+    outletId: string,
+    targetUserId: string,
+  ) {
+    const access = await client.userOutletAccess.findFirst({
+      where: {
+        companyId,
+        outletId,
+        userId: targetUserId,
+        user: {
+          deletedAt: null,
+          status: UserStatus.ACTIVE,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        role: {
+          select: {
+            systemKey: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!access) {
+      throw new NotFoundException(
+        'Selected staff member is not active for this outlet.',
+      );
+    }
+
+    return {
+      id: access.user.id,
+      fullName: access.user.fullName,
+      email: access.user.email,
+      roleKey: access.role.systemKey,
+      roleName: access.role.name,
+    };
+  }
+
+  private async listAttendanceRoster(
+    client: Prisma.TransactionClient | PrismaService,
+    companyId: string,
+    outletId: string,
+  ) {
+    const [accessRows, activeSessions] = await Promise.all([
+      client.userOutletAccess.findMany({
+        where: {
+          companyId,
+          outletId,
+          user: {
+            deletedAt: null,
+            status: UserStatus.ACTIVE,
+          },
+        },
+        orderBy: [{ user: { fullName: 'asc' } }],
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+            },
+          },
+          role: {
+            select: {
+              systemKey: true,
+              name: true,
+            },
+          },
+        },
+      }),
+      attendanceSessions(client).findMany({
+        where: {
+          companyId,
+          outletId,
+          status: 'CLOCKED_IN',
+        },
+        select: {
+          id: true,
+          userId: true,
+          clockInAt: true,
+        },
+      }) as Promise<Array<{ id: string; userId: string; clockInAt: Date }>>,
+    ]);
+
+    const activeSessionMap = new Map<string, { id: string; clockInAt: Date }>(
+      activeSessions.map((session) => [
+        session.userId,
+        {
+          id: session.id,
+          clockInAt: session.clockInAt,
+        },
+      ]),
+    );
+
+    return accessRows.map((access) => {
+      const activeSession = activeSessionMap.get(access.user.id);
+      return {
+        id: access.user.id,
+        fullName: access.user.fullName,
+        email: access.user.email,
+        roleKey: access.role.systemKey,
+        roleName: access.role.name,
+        activeSession: activeSession
+          ? {
+              id: activeSession.id,
+              clockInAt: activeSession.clockInAt,
+            }
+          : null,
+      };
     });
   }
 

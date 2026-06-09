@@ -19,6 +19,7 @@ import type {
   AdjustAttendanceSessionDto,
   ApproveAttendanceSessionDto,
   ClockAttendanceDto,
+  GetAttendanceCurrentQueryDto,
   ListAttendanceSessionsQueryDto,
   UpdateAttendanceSettingsDto,
 } from './dto/attendance.dto';
@@ -34,8 +35,9 @@ export class AttendanceController {
   getCurrent(
     @CurrentUser() user: AuthenticatedUser,
     @Param('outletId') outletId: string,
+    @Query() query: GetAttendanceCurrentQueryDto,
   ) {
-    return this.attendance.getCurrent(user, outletId);
+    return this.attendance.getCurrent(user, outletId, query.userId);
   }
 
   @Post('clock-in')

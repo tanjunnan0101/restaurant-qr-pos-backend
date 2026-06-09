@@ -7,6 +7,7 @@ import {
   getTables,
   resolveTableServiceRequest,
   rotateTableQr,
+  setupDiningTables,
   updateTableStatus,
 } from '@/lib/api';
 import { createOperationsSocket, outletOperationsEvents } from '@/lib/realtime';
@@ -59,6 +60,7 @@ export function OutletTablesPage() {
   const [serviceRequestActionId, setServiceRequestActionId] = useState<string | null>(
     null,
   );
+  const [setupBusy, setSetupBusy] = useState(false);
   const [freshQrUrls, setFreshQrUrls] = useState<Record<string, string>>({});
   const [tableOrderSnapshots, setTableOrderSnapshots] = useState<
     Record<string, TableOrderSnapshot>
@@ -248,7 +250,7 @@ export function OutletTablesPage() {
     filteredZones.find((zone) => zone.id === selectedZoneId) ??
     filteredZones[0] ??
     null;
-  const boardTables = activeZone?.tables ?? [];
+  const boardTables = filteredZones.flatMap((zone) => zone.tables);
   const selectedTable =
     boardTables.find((table) => table.id === selectedTableId) ?? boardTables[0] ?? null;
   const selectedTableSnapshot = selectedTable
@@ -383,6 +385,64 @@ export function OutletTablesPage() {
     }
   }
 
+  async function handleLoadDemoFloor() {
+    if (!session?.accessToken || !outletId) {
+      return;
+    }
+
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const result = await setupDiningTables(session.accessToken, outletId, {
+        rotateExistingQr: false,
+        zones: [
+          {
+            name: 'Main Floor',
+            displayOrder: 0,
+            active: true,
+            tables: [
+              { tableCode: 'T01', displayName: 'Table 1', capacity: 2, shape: 'SQUARE' },
+              { tableCode: 'T02', displayName: 'Table 2', capacity: 2, shape: 'SQUARE' },
+              { tableCode: 'T03', displayName: 'Table 3', capacity: 4, shape: 'RECTANGLE' },
+              { tableCode: 'T04', displayName: 'Table 4', capacity: 4, shape: 'RECTANGLE' },
+              { tableCode: 'T05', displayName: 'Table 5', capacity: 6, shape: 'ROUND' },
+              { tableCode: 'T06', displayName: 'Table 6', capacity: 6, shape: 'ROUND' },
+            ],
+          },
+          {
+            name: 'Window Side',
+            displayOrder: 1,
+            active: true,
+            tables: [
+              { tableCode: 'T07', displayName: 'Table 7', capacity: 2, shape: 'SQUARE' },
+              { tableCode: 'T08', displayName: 'Table 8', capacity: 2, shape: 'SQUARE' },
+              { tableCode: 'T09', displayName: 'Table 9', capacity: 4, shape: 'RECTANGLE' },
+              { tableCode: 'T10', displayName: 'Table 10', capacity: 4, shape: 'RECTANGLE' },
+            ],
+          },
+        ],
+      });
+      setZones(result.zones);
+      setFreshQrUrls(
+        Object.fromEntries(
+          result.qrCodes
+            .filter((entry) => entry.qrUrl)
+            .map((entry) => [entry.tableId, entry.qrUrl as string]),
+        ),
+      );
+      setSelectedZoneId(result.zones[0]?.id ?? '');
+      setSelectedTableId(result.zones[0]?.tables[0]?.id ?? '');
+    } catch (setupError) {
+      setError(
+        setupError instanceof Error
+          ? setupError.message
+          : 'The sample floor could not be prepared.',
+      );
+    } finally {
+      setSetupBusy(false);
+    }
+  }
+
   return (
     <OutletPageLayout
       title="Tables"
@@ -413,14 +473,26 @@ export function OutletTablesPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Floor controls</p>
-              <h2 className="section-title">Find and act fast</h2>
+              <h2 className="section-title">Whole floor visibility</h2>
               <p className="supporting-copy">
-                Search, filter, and jump straight into service actions.
+                Search, filter, and operate tables from a full-room board.
               </p>
             </div>
-            <span className={`status-pill ${realtimeStatus === 'connected' ? 'success' : realtimeStatus === 'error' ? 'danger' : 'warning'}`}>
-              {formatRealtimeStatus(realtimeStatus)}
-            </span>
+            <div className="table-inspector__actions">
+              <span className={`status-pill ${realtimeStatus === 'connected' ? 'success' : realtimeStatus === 'error' ? 'danger' : 'warning'}`}>
+                {formatRealtimeStatus(realtimeStatus)}
+              </span>
+              {canManageTables && canManageQr ? (
+                <button
+                  className="secondary-button"
+                  disabled={setupBusy}
+                  onClick={() => void handleLoadDemoFloor()}
+                  type="button"
+                >
+                  {setupBusy ? 'Loading floor...' : 'Load 10-table demo floor'}
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="form-grid floor-control-form">
@@ -503,14 +575,15 @@ export function OutletTablesPage() {
                 <div>
                   <p className="eyebrow">Table board</p>
                   <h2 className="section-title">
-                    {activeZone ? activeZone.name : 'All zones'}
+                    {activeZone ? activeZone.name : 'Whole floor'}
                   </h2>
                   <p className="supporting-copy">
-                    {boardTables.length} table{boardTables.length === 1 ? '' : 's'} visible in this zone.
+                    {boardTables.length} table{boardTables.length === 1 ? '' : 's'} visible across{' '}
+                    {filteredZones.length} zone{filteredZones.length === 1 ? '' : 's'}.
                   </p>
                 </div>
                 <span className={`status-pill ${activeZone?.active ? 'success' : 'neutral'}`}>
-                  {activeZone?.active ? 'Zone active' : 'Zone inactive'}
+                  {activeZone?.active ? 'Floor active' : 'Floor inactive'}
                 </span>
               </div>
 
@@ -540,56 +613,91 @@ export function OutletTablesPage() {
                       <h3 className="section-title">Tap a table to operate</h3>
                     </div>
                     <p className="supporting-copy">
-                      Tiles show live state, active tickets, and guest alerts.
+                      Every zone stays visible at once so the team can scan the whole room in one pass.
                     </p>
                   </div>
 
-                  <div className="floor-tile-grid">
-                    {boardTables.map((table) => {
-                      const snapshot = tableOrderSnapshots[table.id];
-                      const hasHelp = table.serviceRequests.length > 0;
+                  <div className="floor-zone-board">
+                    {filteredZones.map((zone) => (
+                      <section className="floor-zone-section" key={zone.id}>
+                        <div className="floor-zone-section__header">
+                          <div>
+                            <h4>{zone.name}</h4>
+                            <p className="supporting-copy">
+                              {zone.tables.length} table{zone.tables.length === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                          <span
+                            className={`status-pill ${
+                              zone.id === activeZone?.id
+                                ? 'info'
+                                : zone.active
+                                  ? 'success'
+                                  : 'neutral'
+                            }`}
+                          >
+                            {zone.id === activeZone?.id
+                              ? 'Focus zone'
+                              : zone.active
+                                ? 'Visible'
+                                : 'Inactive'}
+                          </span>
+                        </div>
 
-                      return (
-                        <button
-                          className={
-                            table.id === selectedTable?.id
-                              ? 'floor-tile active'
-                              : 'floor-tile'
-                          }
-                          key={table.id}
-                          onClick={() => setSelectedTableId(table.id)}
-                          type="button"
-                        >
-                          <div className="floor-tile__badges">
-                            <span className={`status-pill ${statusTone(table.status)}`}>
-                              {formatEnum(table.status)}
-                            </span>
-                            {hasHelp ? (
-                              <span className="mini-badge mini-badge--danger">
-                                Help
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className={`floor-tile__surface floor-tile__surface--${shapeClass(table.shape)}`}>
-                            <strong>{table.tableCode}</strong>
-                          </div>
-                          <div className="floor-tile__copy">
-                            <strong>{table.displayName}</strong>
-                            <span>
-                              {table.capacity ? `${table.capacity} seats` : 'Flexible seating'}
-                            </span>
-                          </div>
-                          <div className="floor-tile__footer">
-                            <span>{snapshot?.activeCount ?? 0} live</span>
-                            <span>
-                              {table.qrCodes.length > 0
-                                ? `QR ${table.qrCodes[0].publicCode}`
-                                : 'No QR'}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                        <div className="floor-tile-grid">
+                          {zone.tables.map((table) => {
+                            const snapshot = tableOrderSnapshots[table.id];
+                            const hasHelp = table.serviceRequests.length > 0;
+
+                            return (
+                              <button
+                                className={
+                                  table.id === selectedTable?.id
+                                    ? 'floor-tile active'
+                                    : 'floor-tile'
+                                }
+                                key={table.id}
+                                onClick={() => {
+                                  setSelectedZoneId(zone.id);
+                                  setSelectedTableId(table.id);
+                                }}
+                                type="button"
+                              >
+                                <div className="floor-tile__badges">
+                                  <span className={`status-pill ${statusTone(table.status)}`}>
+                                    {formatEnum(table.status)}
+                                  </span>
+                                  {hasHelp ? (
+                                    <span className="mini-badge mini-badge--danger">
+                                      Help
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div
+                                  className={`floor-tile__surface floor-tile__surface--${shapeClass(table.shape)}`}
+                                >
+                                  <strong>{table.tableCode}</strong>
+                                </div>
+                                <div className="floor-tile__copy">
+                                  <strong>{table.displayName}</strong>
+                                  <span>
+                                    {table.capacity ? `${table.capacity} seats` : 'Flexible seating'}
+                                  </span>
+                                </div>
+                                <div className="floor-tile__footer">
+                                  <span>{snapshot?.activeCount ?? 0} live</span>
+                                  <span>
+                                    {table.qrCodes.length > 0
+                                      ? `QR ${table.qrCodes[0].publicCode}`
+                                      : 'No QR'}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    ))}
                   </div>
                 </section>
 
@@ -600,7 +708,7 @@ export function OutletTablesPage() {
                         <span className="metric-label">Selected table</span>
                         <h3 className="section-title">{selectedTable.displayName}</h3>
                         <p className="supporting-copy">
-                          {selectedTable.tableCode} · {formatEnum(selectedTable.shape)} ·{' '}
+                          {selectedTable.tableCode} | {formatEnum(selectedTable.shape)} |{' '}
                           {selectedTable.capacity
                             ? `${selectedTable.capacity} seats`
                             : 'Flexible seating'}

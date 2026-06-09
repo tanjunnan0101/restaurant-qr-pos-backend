@@ -1310,6 +1310,9 @@ export function OutletPosPage() {
                 placeholder="Search items, categories, or stations"
                 value={menuSearch}
               />
+              <a className="secondary-button" href="#current-ticket">
+                Current ticket
+              </a>
             </div>
           </div>
 
@@ -1427,7 +1430,10 @@ export function OutletPosPage() {
           )}
         </section>
 
-        <aside className="panel section-panel pos-sidebar pos-ticket-card">
+        <aside
+          className="panel section-panel pos-sidebar pos-ticket-card"
+          id="current-ticket"
+        >
           <div className="pos-ticket-builder">
             <p className="eyebrow">Order builder</p>
             <h2 className="section-title">Current ticket</h2>
@@ -1448,7 +1454,7 @@ export function OutletPosPage() {
                 </strong>
                 <p className="supporting-copy">
                   {selectedTable
-                    ? `${selectedTable.zoneName} · ${selectedTable.displayName}`
+                    ? `${selectedTable.zoneName} | ${selectedTable.displayName}`
                     : 'No table linked yet.'}
                 </p>
               </article>

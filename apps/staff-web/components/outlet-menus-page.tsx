@@ -9,6 +9,7 @@ import {
   publishMenu,
   replaceMenuDraft,
   setMenuItemSoldOut,
+  setupMenu,
 } from '@/lib/api';
 import { OutletAuditFeed } from '@/components/outlet-audit-feed';
 import { createOperationsSocket, outletOperationsEvents } from '@/lib/realtime';
@@ -88,6 +89,11 @@ export function OutletMenusPage() {
   const [quickItemServiceChargeable, setQuickItemServiceChargeable] =
     useState(true);
   const [quickItemActive, setQuickItemActive] = useState(true);
+  const [newMenuName, setNewMenuName] = useState('');
+  const [newMenuSlug, setNewMenuSlug] = useState('');
+  const [newMenuChannel, setNewMenuChannel] = useState<'QR' | 'POS' | 'BOTH'>(
+    'BOTH',
+  );
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const outletAccess = useMemo(
@@ -409,6 +415,73 @@ export function OutletMenusPage() {
         actionError instanceof Error
           ? actionError.message
           : 'Failed to publish menu.',
+      );
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  async function handleCreateMenu() {
+    if (!session?.accessToken || !outletId) {
+      return;
+    }
+
+    const trimmedName = newMenuName.trim();
+    const slug = (newMenuSlug.trim() || slugifyMenuName(trimmedName)).trim();
+
+    if (!trimmedName) {
+      setError('Enter a menu name before creating the menu.');
+      return;
+    }
+
+    if (!slug) {
+      setError('A valid menu slug is required.');
+      return;
+    }
+
+    setActionBusyId('create-menu');
+    setError(null);
+    try {
+      const result = await setupMenu(session.accessToken, outletId, {
+        name: trimmedName,
+        slug,
+        channel: newMenuChannel,
+        isDefault: menus.length === 0,
+        publish: false,
+        categories: [
+          {
+            name: 'New category',
+            displayOrder: 0,
+            active: true,
+            items: [
+              {
+                name: 'Edit me',
+                description:
+                  'Replace this placeholder item with the first real product.',
+                basePriceCents: 0,
+                taxable: true,
+                serviceChargeable: true,
+                preparationStationKey: 'main-kitchen',
+                active: true,
+                soldOut: true,
+                displayOrder: 0,
+              },
+            ],
+          },
+        ],
+      });
+      setMenus((current) => [toMenuListEntry(result), ...current]);
+      setSelectedMenuId(result.id);
+      setMenuDetail(result);
+      setSelectedVersionId(resolveDefaultVersionId(result));
+      setNewMenuName('');
+      setNewMenuSlug('');
+      setNewMenuChannel('BOTH');
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : 'Failed to create the menu.',
       );
     } finally {
       setActionBusyId(null);
@@ -758,6 +831,70 @@ export function OutletMenusPage() {
                 <article className="support-config-card">
                   <div className="support-config-card__header">
                     <div>
+                      <p className="eyebrow">Add menu</p>
+                      <h3>Create a new menu shell</h3>
+                    </div>
+                    <span className="status-pill neutral">Draft first</span>
+                  </div>
+                  <div className="form-grid">
+                    <div className="field">
+                      <label htmlFor="new-menu-name">Menu name</label>
+                      <input
+                        id="new-menu-name"
+                        onChange={(event) => setNewMenuName(event.target.value)}
+                        placeholder="Dinner menu"
+                        value={newMenuName}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="new-menu-slug">Menu slug</label>
+                      <input
+                        id="new-menu-slug"
+                        onChange={(event) => setNewMenuSlug(event.target.value)}
+                        placeholder="dinner-menu"
+                        value={newMenuSlug}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="new-menu-channel">Channel</label>
+                      <select
+                        id="new-menu-channel"
+                        onChange={(event) =>
+                          setNewMenuChannel(
+                            event.target.value as 'QR' | 'POS' | 'BOTH',
+                          )
+                        }
+                        value={newMenuChannel}
+                      >
+                        <option value="BOTH">QR and POS</option>
+                        <option value="QR">QR only</option>
+                        <option value="POS">POS only</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="support-note">
+                    This creates a draft menu with one placeholder item so the
+                    team can immediately start editing from the staff workspace.
+                  </p>
+                  <div className="support-card__actions">
+                    <button
+                      className="primary-button"
+                      disabled={actionBusyId === 'create-menu'}
+                      onClick={() => void handleCreateMenu()}
+                      type="button"
+                    >
+                      {actionBusyId === 'create-menu'
+                        ? 'Creating...'
+                        : 'Create menu'}
+                    </button>
+                  </div>
+                </article>
+              ) : null}
+
+              {canManageMenus ? (
+                <article className="support-config-card">
+                  <div className="support-config-card__header">
+                    <div>
                       <p className="eyebrow">Quick add</p>
                       <h3>Drop in a missing item</h3>
                     </div>
@@ -907,6 +1044,74 @@ export function OutletMenusPage() {
             </aside>
 
             <div className="support-board-panel">
+              {canManageMenus ? (
+                <article className="panel section-panel support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Add menu</p>
+                      <h2 className="section-title">Create a new menu shell</h2>
+                      <p className="supporting-copy">
+                        Start a new QR, POS, or shared menu from here, then add categories and items below.
+                      </p>
+                    </div>
+                    <span className="status-pill info">New menu</span>
+                  </div>
+                  <div className="form-grid">
+                    <div className="field">
+                      <label htmlFor="new-menu-name-board">Menu name</label>
+                      <input
+                        id="new-menu-name-board"
+                        onChange={(event) => {
+                          const nextName = event.target.value;
+                          setNewMenuName(nextName);
+                          if (!newMenuSlug.trim()) {
+                            setNewMenuSlug(slugifyMenuName(nextName));
+                          }
+                        }}
+                        placeholder="Breakfast menu"
+                        value={newMenuName}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="new-menu-slug-board">Menu slug</label>
+                      <input
+                        id="new-menu-slug-board"
+                        onChange={(event) => setNewMenuSlug(event.target.value)}
+                        placeholder="breakfast-menu"
+                        value={newMenuSlug}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="new-menu-channel-board">Channel</label>
+                      <select
+                        id="new-menu-channel-board"
+                        onChange={(event) =>
+                          setNewMenuChannel(
+                            event.target.value as 'QR' | 'POS' | 'BOTH',
+                          )
+                        }
+                        value={newMenuChannel}
+                      >
+                        <option value="BOTH">QR + POS</option>
+                        <option value="QR">QR only</option>
+                        <option value="POS">POS only</option>
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label>Action</label>
+                      <button
+                        className="primary-button"
+                        disabled={actionBusyId === 'create-menu'}
+                        onClick={() => void handleCreateMenu()}
+                        type="button"
+                      >
+                        {actionBusyId === 'create-menu' ? 'Creating...' : 'Create menu'}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ) : null}
+
               <section className="support-summary-grid">
                 <article className="support-card">
                   <div className="support-card__header">
@@ -1182,6 +1387,32 @@ function parseCurrencyToCents(value: string): number | null {
     return null;
   }
   return Math.round(Number(normalized) * 100);
+}
+
+function slugifyMenuName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function toMenuListEntry(menu: StaffMenuDetail): MenuListEntry {
+  return {
+    id: menu.id,
+    name: menu.name,
+    slug: menu.slug,
+    channel: menu.channel,
+    isDefault: menu.isDefault,
+    status: menu.status,
+    versions: menu.versions.map((version) => ({
+      id: version.id,
+      versionNumber: version.versionNumber,
+      status: version.status,
+      publishedAt: version.publishedAt,
+      updatedAt: version.updatedAt,
+    })),
+  };
 }
 
 function buildQuickDraftPayload(

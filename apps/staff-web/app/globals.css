@@ -1882,7 +1882,7 @@ body {
 
 .operations-layout,
 .pos-layout {
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr);
   align-items: start;
 }
 
@@ -1943,6 +1943,92 @@ body {
 
 .support-list-grid {
   grid-template-columns: 1fr;
+}
+
+.operations-stack,
+.attendance-station,
+.attendance-station-grid,
+.attendance-roster-grid,
+.attendance-kiosk-grid,
+.attendance-action-row,
+.attendance-photo-proof {
+  display: grid;
+  gap: 18px;
+}
+
+.attendance-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 18px;
+}
+
+.attendance-hero__copy,
+.attendance-hero__meta {
+  display: grid;
+  gap: 10px;
+}
+
+.attendance-hero__meta {
+  justify-items: end;
+}
+
+.attendance-station-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  align-items: start;
+}
+
+.attendance-roster-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.attendance-roster-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 251, 245, 0.98);
+  text-align: left;
+}
+
+.attendance-roster-card p,
+.attendance-roster-card small {
+  color: var(--muted);
+}
+
+.attendance-roster-card.active {
+  border-color: rgba(30, 109, 115, 0.34);
+  background: linear-gradient(180deg, rgba(242, 249, 247, 0.98), rgba(236, 245, 243, 0.98));
+  box-shadow: 0 0 0 3px rgba(30, 109, 115, 0.1);
+}
+
+.attendance-kiosk-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.attendance-photo-proof {
+  gap: 12px;
+}
+
+.attendance-photo-preview {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 24px;
+  border: 1px solid rgba(120, 87, 52, 0.18);
+}
+
+.attendance-photo-empty {
+  min-height: 220px;
+  place-items: center;
+  text-align: center;
+}
+
+.attendance-action-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .support-card,
@@ -2066,22 +2152,20 @@ body {
 }
 
 .floor-board-layout {
-  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: 1fr;
 }
 
 .floor-control-rail {
-  position: sticky;
-  top: 18px;
   display: grid;
   gap: 18px;
 }
 
 .floor-control-form {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .floor-summary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .floor-board-panel {
@@ -2091,7 +2175,7 @@ body {
 
 .floor-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }
@@ -2113,6 +2197,32 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.floor-zone-board {
+  display: grid;
+  gap: 18px;
+}
+
+.floor-zone-section {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 253, 248, 0.82);
+}
+
+.floor-zone-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 14px;
+}
+
+.floor-zone-section__header h4 {
+  margin: 0;
+  font-size: 1.2rem;
 }
 
 .floor-zone-chip {
@@ -2143,7 +2253,7 @@ body {
 
 .floor-tile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
 }
 
@@ -2316,8 +2426,7 @@ body {
 }
 
 .table-inspector {
-  position: sticky;
-  top: 18px;
+  position: static;
 }
 
 .table-inspector__hero {
@@ -2577,6 +2686,7 @@ body {
 }
 
 .pos-shell-card {
+  order: 2;
   display: grid;
   gap: 18px;
 }
@@ -2647,16 +2757,25 @@ body {
 }
 
 .pos-ticket-card {
+  order: 1;
   position: sticky;
   top: 14px;
   display: grid;
   gap: 18px;
+  max-height: calc(100vh - 28px);
+  overflow: auto;
 }
 
 .pos-live-rail,
 .pos-ticket-builder {
   display: grid;
   gap: 14px;
+}
+
+.cart-list {
+  max-height: 32vh;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .pos-ticket-section {
@@ -2700,6 +2819,7 @@ body {
   .service-board-layout,
   .kitchen-station-layout,
   .support-station-layout,
+  .attendance-station-grid,
   .floor-board-layout,
   .floor-workspace,
   .detail-grid,
@@ -2743,6 +2863,8 @@ body {
   .table-grid--board,
   .operations-grid,
   .form-grid,
+  .attendance-kiosk-grid,
+  .attendance-action-row,
   .floor-summary-grid,
   .support-summary-grid,
   .table-card__stats,
@@ -2759,7 +2881,9 @@ body {
   .staff-command-header,
   .outlet-terminal-bar__identity,
   .workspace-hero__header,
+  .attendance-hero,
   .floor-canvas__header,
+  .floor-zone-section__header,
   .table-inspector__hero,
   .section-header {
     flex-direction: column;

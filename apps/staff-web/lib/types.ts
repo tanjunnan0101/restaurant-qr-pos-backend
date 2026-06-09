@@ -206,6 +206,23 @@ export interface TableZone {
   }>;
 }
 
+export interface SetupDiningTablesInput {
+  zones: Array<{
+    name: string;
+    displayOrder?: number;
+    active?: boolean;
+    tables: Array<{
+      tableCode: string;
+      displayName: string;
+      capacity?: number;
+      shape?: string;
+      status?: DiningTableStatus;
+      active?: boolean;
+    }>;
+  }>;
+  rotateExistingQr?: boolean;
+}
+
 export interface OutletOperationsSummary {
   outlet: OutletSummary;
   totalOrders: number;
@@ -818,6 +835,24 @@ export interface AttendanceSessionEntry {
 
 export interface AttendanceCurrentResponse {
   settings: AttendanceSettingsResponse;
+  selectedUser: {
+    id: string;
+    fullName: string;
+    email: string;
+    roleKey: string;
+    roleName: string;
+  };
+  staffRoster: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    roleKey: string;
+    roleName: string;
+    activeSession: {
+      id: string;
+      clockInAt: string;
+    } | null;
+  }>;
   currentSession: AttendanceSessionEntry | null;
   recentSessions: AttendanceSessionEntry[];
 }

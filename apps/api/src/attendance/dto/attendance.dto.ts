@@ -21,6 +21,15 @@ const attendanceApprovalStatuses = [
 ] as const;
 
 export class ClockAttendanceDto {
+  @ApiPropertyOptional({
+    description:
+      'Optional target staff user when attendance is captured from a shared station.',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  userId?: string;
+
   @ApiPropertyOptional({ example: 'Front counter iPad' })
   @IsOptional()
   @IsString()
@@ -41,6 +50,17 @@ export class ClockAttendanceDto {
   @IsString()
   @MaxLength(2000000)
   photoDataUrl?: string;
+}
+
+export class GetAttendanceCurrentQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Optional target staff user when reviewing attendance from a shared station.',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  userId?: string;
 }
 
 export class ListAttendanceSessionsQueryDto {

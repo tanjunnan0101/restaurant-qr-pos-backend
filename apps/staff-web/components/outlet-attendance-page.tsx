@@ -16,6 +16,9 @@ import {
   useOutletContext,
 } from './outlet-page-base';
 
+const PHOTO_REQUIRED_MESSAGE =
+  'A clock photo is required on this station before continuing.';
+
 export function OutletAttendancePage() {
   const {
     session,
@@ -29,15 +32,31 @@ export function OutletAttendancePage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [deviceLabel, setDeviceLabel] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [deviceLabel, setDeviceLabel] = useState('Front counter iPad');
   const [note, setNote] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(undefined);
   const [photoName, setPhotoName] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
-  async function refresh(authToken: string) {
-    const current = await getAttendanceCurrent(authToken, outletId);
+  async function refresh(authToken: string, nextUserId?: string | null) {
+    const current = await getAttendanceCurrent(
+      authToken,
+      outletId,
+      nextUserId ?? selectedUserId ?? undefined,
+    );
     setPayload(current);
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const platformLabel = /iPad|iPhone|Macintosh/.test(window.navigator.userAgent)
+      ? 'Front counter iPad'
+      : 'Staff station';
+    setDeviceLabel(platformLabel);
+  }, []);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -49,8 +68,13 @@ export function OutletAttendancePage() {
     async function load() {
       setBusy(true);
       try {
-        await refresh(authToken);
+        const current = await getAttendanceCurrent(
+          authToken,
+          outletId,
+          selectedUserId ?? undefined,
+        );
         if (!cancelled) {
+          setPayload(current);
           setError(null);
         }
       } catch (loadError) {
@@ -72,18 +96,23 @@ export function OutletAttendancePage() {
     return () => {
       cancelled = true;
     };
-  }, [outletId, session]);
+  }, [outletId, selectedUserId, session]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    setDeviceLabel(window.navigator.userAgent.slice(0, 120));
-  }, []);
-
+  const selectedUser =
+    payload?.selectedUser ??
+    (session
+      ? {
+          id: session.user.id,
+          fullName: session.user.fullName,
+          email: session.user.email,
+          roleKey: 'STAFF',
+          roleName: 'Staff',
+        }
+      : null);
   const currentSession = payload?.currentSession ?? null;
-  const settings = payload?.settings ?? null;
   const recentSessions = payload?.recentSessions ?? [];
+  const staffRoster = payload?.staffRoster ?? [];
+  const settings = payload?.settings;
 
   const currentDuration = useMemo(() => {
     if (!currentSession) {
@@ -101,7 +130,11 @@ export function OutletAttendancePage() {
   }, [currentSession]);
 
   async function handleSubmitClock(action: 'in' | 'out') {
-    if (!session?.accessToken || !settings) {
+    if (!session?.accessToken || !selectedUser) {
+      return;
+    }
+    if (!photoDataUrl) {
+      setError(PHOTO_REQUIRED_MESSAGE);
       return;
     }
     setActionBusy(true);
@@ -110,23 +143,25 @@ export function OutletAttendancePage() {
     try {
       if (action === 'in') {
         await clockInAttendance(session.accessToken, outletId, {
+          userId: selectedUser.id,
           deviceLabel: deviceLabel.trim() || undefined,
           note: note.trim() || undefined,
           photoDataUrl,
         });
-        setSuccess('Clock-in recorded.');
+        setSuccess(`${selectedUser.fullName} clocked in.`);
       } else {
         await clockOutAttendance(session.accessToken, outletId, {
+          userId: selectedUser.id,
           deviceLabel: deviceLabel.trim() || undefined,
           note: note.trim() || undefined,
           photoDataUrl,
         });
-        setSuccess('Clock-out recorded.');
+        setSuccess(`${selectedUser.fullName} clocked out.`);
       }
       setNote('');
       setPhotoDataUrl(undefined);
       setPhotoName(null);
-      await refresh(session.accessToken);
+      await refresh(session.accessToken, selectedUser.id);
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -144,15 +179,33 @@ export function OutletAttendancePage() {
       setPhotoName(null);
       return;
     }
+
+    setPhotoBusy(true);
+    setError(null);
     setPhotoName(file.name);
-    const result = await readFileAsDataUrl(file);
-    setPhotoDataUrl(result);
+    try {
+      const result = await compressImageForAttendance(file);
+      setPhotoDataUrl(result);
+    } catch (photoError) {
+      setPhotoDataUrl(undefined);
+      setPhotoName(null);
+      setError(
+        photoError instanceof Error
+          ? photoError.message
+          : 'Could not prepare the photo.',
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
   }
+
+  const selectedRosterEntry =
+    staffRoster.find((entry) => entry.id === selectedUser?.id) ?? null;
 
   return (
     <OutletPageLayout
       title="Attendance"
-      subtitle="Run clock-in, proof capture, and shift history from one outlet screen."
+      subtitle="Shared-device clocking with employee selection and mandatory photo proof."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -174,84 +227,112 @@ export function OutletAttendancePage() {
         </section>
       ) : null}
 
-      {!outletBusy && !busy && payload && settings ? (
-        <section className="operations-layout support-station-layout">
-          <aside className="panel section-panel support-control-rail">
-            <article className="support-config-card">
-              <div className="support-config-card__header">
+      {!outletBusy && !busy && payload && selectedUser && settings ? (
+        <section className="operations-stack attendance-station">
+          <section className="panel section-panel attendance-hero">
+            <div className="attendance-hero__copy">
+              <p className="eyebrow">Shared shift station</p>
+              <h2 className="section-title">Who is clocking?</h2>
+              <p className="supporting-copy">
+                Staff tap their own name, take a photo on the iPad, and then
+                start or end the shift from this station.
+              </p>
+            </div>
+            <div className="attendance-hero__meta">
+              <span className="status-pill warning">Photo required</span>
+              <span className="status-pill neutral">{deviceLabel}</span>
+            </div>
+          </section>
+
+          <section className="panel section-panel">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Staff roster</p>
+                <h2 className="section-title">Select employee</h2>
+              </div>
+              <span className="supporting-copy">
+                {staffRoster.length} active staff linked to this outlet
+              </span>
+            </div>
+            <div className="attendance-roster-grid">
+              {staffRoster.map((entry) => {
+                const active = entry.id === selectedUser.id;
+                return (
+                  <button
+                    className={
+                      active
+                        ? 'attendance-roster-card active'
+                        : 'attendance-roster-card'
+                    }
+                    key={entry.id}
+                    onClick={() => {
+                      setSelectedUserId(entry.id);
+                      setPhotoDataUrl(undefined);
+                      setPhotoName(null);
+                      setSuccess(null);
+                      setError(null);
+                    }}
+                    type="button"
+                  >
+                    <div>
+                      <strong>{entry.fullName}</strong>
+                      <p>{entry.roleName}</p>
+                      <small>{entry.email}</small>
+                    </div>
+                    <span
+                      className={`status-pill ${
+                        entry.activeSession ? 'warning' : 'success'
+                      }`}
+                    >
+                      {entry.activeSession ? 'On shift' : 'Ready'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="attendance-station-grid">
+            <section className="panel section-panel attendance-capture-card">
+              <div className="section-header">
                 <div>
-                  <p className="eyebrow">Shift station</p>
-                  <h2 className="section-title">Clock control</h2>
+                  <p className="eyebrow">Clock action</p>
+                  <h2 className="section-title">{selectedUser.fullName}</h2>
+                  <p className="supporting-copy">
+                    {selectedUser.roleName} | {selectedUser.email}
+                  </p>
                 </div>
                 <span
                   className={`status-pill ${
-                    currentSession ? 'success' : 'neutral'
+                    currentSession ? 'warning' : 'neutral'
                   }`}
                 >
                   {currentSession ? 'On shift' : 'Off shift'}
                 </span>
               </div>
-              <p className="supporting-copy">
-                Attendance uses server time. Add a note or proof image when the
-                shift needs a traceable handoff.
-              </p>
-              <div className="support-inline-meta">
-                <span>{settings.allowManualClockIn ? 'Manual on' : 'Manual off'}</span>
-                <span>
-                  {settings.requirePhoto ? 'Photo required' : 'Photo optional'}
-                </span>
-                <span>{settings.maxShiftHours}h max shift</span>
-              </div>
-            </article>
 
-            <article className="support-config-card">
-              <div className="support-config-card__header">
-                <div>
-                  <p className="eyebrow">Current shift</p>
-                  <h3>{currentSession ? 'Active session' : 'Ready to clock in'}</h3>
+              <div className="attendance-kiosk-grid">
+                <div className="field">
+                  <label htmlFor="attendance-device">Station label</label>
+                  <input
+                    id="attendance-device"
+                    onChange={(event) => setDeviceLabel(event.target.value)}
+                    value={deviceLabel}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="attendance-note">Shift note</label>
+                  <input
+                    id="attendance-note"
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Opening, handover, closing, etc."
+                    value={note}
+                  />
                 </div>
               </div>
-              {currentSession ? (
-                <div className="support-note">
-                  <strong>Started {formatDateTime(currentSession.clockInAt)}</strong>
-                  <span>Live duration: {currentDuration ?? 'Calculating...'}</span>
-                  {currentSession.clockInDeviceLabel ? (
-                    <span>Device: {currentSession.clockInDeviceLabel}</span>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="support-note">
-                  Start your shift here when you are ready to work this outlet.
-                </div>
-              )}
-
-              {!settings.allowManualClockIn && !currentSession ? (
-                <div className="alert error">
-                  Manual clock-in is disabled. Please ask a manager for help.
-                </div>
-              ) : null}
 
               <div className="field">
-                <label htmlFor="attendance-device">Device label</label>
-                <input
-                  id="attendance-device"
-                  onChange={(event) => setDeviceLabel(event.target.value)}
-                  value={deviceLabel}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="attendance-note">Shift note</label>
-                <input
-                  id="attendance-note"
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Opening shift, delivery late, etc."
-                  value={note}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="attendance-photo">
-                  Photo proof {settings.requirePhoto ? '(required)' : '(optional)'}
-                </label>
+                <label htmlFor="attendance-photo">Take employee photo</label>
                 <input
                   accept="image/*"
                   capture="user"
@@ -262,166 +343,200 @@ export function OutletAttendancePage() {
                   type="file"
                 />
                 <p className="supporting-copy">
-                  {photoName ? `Selected: ${photoName}` : 'No photo selected yet.'}
+                  Use the front camera on the iPad. The image is compressed
+                  before upload so the shift can be saved reliably.
                 </p>
               </div>
-              {photoDataUrl ? (
-                <img
-                  alt="Attendance proof preview"
-                  src={photoDataUrl}
-                  style={{
-                    maxWidth: '100%',
-                    borderRadius: 18,
-                    border: '1px solid rgba(120, 87, 52, 0.18)',
-                  }}
-                />
-              ) : null}
-              <div className="support-card__actions">
+
+              <div className="attendance-photo-proof">
+                {photoDataUrl ? (
+                  <img
+                    alt="Attendance proof preview"
+                    className="attendance-photo-preview"
+                    src={photoDataUrl}
+                  />
+                ) : (
+                  <div className="empty-state attendance-photo-empty">
+                    <strong>No photo captured yet</strong>
+                    <p className="supporting-copy">
+                      A selfie is required before clocking in or out.
+                    </p>
+                  </div>
+                )}
+                <div className="support-inline-meta">
+                  <span>{photoName ?? 'Waiting for camera capture'}</span>
+                  <span>{photoBusy ? 'Preparing image...' : 'Ready for upload'}</span>
+                </div>
+              </div>
+
+              <div className="attendance-action-row">
                 {!currentSession ? (
                   <button
                     className="primary-button"
-                    disabled={
-                      actionBusy ||
-                      !settings.allowManualClockIn ||
-                      (settings.requirePhoto && !photoDataUrl)
-                    }
+                    disabled={actionBusy || photoBusy || !photoDataUrl}
                     onClick={() => void handleSubmitClock('in')}
                     type="button"
                   >
-                    {actionBusy ? 'Saving...' : 'Clock in'}
+                    {actionBusy ? 'Saving...' : `Clock in ${selectedUser.fullName}`}
                   </button>
                 ) : (
                   <button
                     className="primary-button"
-                    disabled={actionBusy || (settings.requirePhoto && !photoDataUrl)}
+                    disabled={actionBusy || photoBusy || !photoDataUrl}
                     onClick={() => void handleSubmitClock('out')}
                     type="button"
                   >
-                    {actionBusy ? 'Saving...' : 'Clock out'}
+                    {actionBusy ? 'Saving...' : `Clock out ${selectedUser.fullName}`}
                   </button>
                 )}
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    setPhotoDataUrl(undefined);
+                    setPhotoName(null);
+                    setError(null);
+                  }}
+                  type="button"
+                >
+                  Retake photo
+                </button>
               </div>
-            </article>
-          </aside>
-
-          <div className="support-board-panel">
-            <section className="support-summary-grid">
-              <article className="support-card">
-                <div className="support-card__header">
-                  <div>
-                    <p className="eyebrow">Status</p>
-                    <h3>{currentSession ? 'Clocked in' : 'Off shift'}</h3>
-                  </div>
-                  <span className="status-pill neutral">Live</span>
-                </div>
-                <p className="supporting-copy">
-                  Current attendance state for this outlet session.
-                </p>
-              </article>
-              <article className="support-card">
-                <div className="support-card__header">
-                  <div>
-                    <p className="eyebrow">Proof</p>
-                    <h3>{settings.requirePhoto ? 'Required' : 'Optional'}</h3>
-                  </div>
-                  <span className="status-pill neutral">Policy</span>
-                </div>
-                <p className="supporting-copy">
-                  Whether photo capture is needed for this outlet.
-                </p>
-              </article>
-              <article className="support-card">
-                <div className="support-card__header">
-                  <div>
-                    <p className="eyebrow">Max shift</p>
-                    <h3>{settings.maxShiftHours} hours</h3>
-                  </div>
-                  <span className="status-pill warning">Review limit</span>
-                </div>
-                <p className="supporting-copy">
-                  Threshold before a shift should be reviewed.
-                </p>
-              </article>
-              <article className="support-card">
-                <div className="support-card__header">
-                  <div>
-                    <p className="eyebrow">Recent sessions</p>
-                    <h3>{recentSessions.length}</h3>
-                  </div>
-                  <span className="status-pill neutral">History</span>
-                </div>
-                <p className="supporting-copy">
-                  Recent clock-in and clock-out records in view.
-                </p>
-              </article>
             </section>
 
-            <article className="panel section-panel support-card">
-              <div className="support-card__header">
+            <aside className="panel section-panel attendance-status-card">
+              <div className="section-header">
                 <div>
-                  <p className="eyebrow">Shift timeline</p>
-                  <h2 className="section-title">Recent sessions</h2>
+                  <p className="eyebrow">Shift status</p>
+                  <h2 className="section-title">
+                    {currentSession ? 'Currently clocked in' : 'Ready to start'}
+                  </h2>
                 </div>
-                <span className="status-pill neutral">{recentSessions.length} entries</span>
+                <span className="status-pill neutral">
+                  {settings.maxShiftHours}h max shift
+                </span>
               </div>
-              {recentSessions.length === 0 ? (
-                <div className="empty-state">
-                  <strong>No attendance records yet.</strong>
+
+              {currentSession ? (
+                <div className="soft-note">
+                  <strong>Started {formatDateTime(currentSession.clockInAt)}</strong>
+                  <p className="supporting-copy">
+                    Live duration: {currentDuration ?? 'Calculating...'}
+                  </p>
+                  {currentSession.clockInDeviceLabel ? (
+                    <p className="supporting-copy">
+                      Device: {currentSession.clockInDeviceLabel}
+                    </p>
+                  ) : null}
                 </div>
               ) : (
-                <div className="list-block">
-                  {recentSessions.map((entry) => (
-                    <article className="list-item" key={entry.id}>
-                      <div className="support-list-card__header">
-                        <div>
-                          <h3>{formatDateTime(entry.clockInAt)}</h3>
-                          <p className="supporting-copy">
-                            {entry.status === 'CLOCKED_IN'
-                              ? 'Open shift'
-                              : 'Completed shift'}
-                          </p>
-                        </div>
-                        <div className="tag-row">
-                          <span className={`status-pill ${statusTone(entry.status)}`}>
-                            {formatEnum(entry.status)}
-                          </span>
-                          <span
-                            className={`status-pill ${approvalTone(entry.approvalStatus)}`}
-                          >
-                            {formatEnum(entry.approvalStatus)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="support-inline-meta">
-                        <span>Worked {formatDuration(entry.workedMinutes)}</span>
-                        <span>
-                          Clock-out {formatDateTime(entry.clockOutAt) || 'Still on shift'}
-                        </span>
-                      </div>
-                      {entry.reviewReason ? (
-                        <div className="alert error">{entry.reviewReason}</div>
-                      ) : null}
-                      {entry.photos.length > 0 ? (
-                        <div className="tag-row">
-                          {entry.photos.map((photo) => (
-                            <a
-                              className="tag"
-                              href={photo.photoUrl}
-                              key={photo.id}
-                              rel="noreferrer"
-                              target="_blank"
-                            >
-                              {formatEnum(photo.type)} photo
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-                    </article>
-                  ))}
+                <div className="soft-note">
+                  <strong>{selectedUser.fullName} is off shift</strong>
+                  <p className="supporting-copy">
+                    Select the employee, take the proof photo, then start the
+                    shift from this station.
+                  </p>
                 </div>
               )}
-            </article>
-          </div>
+
+              <div className="detail-overview-grid floor-summary-grid">
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Role</span>
+                  <strong className="scope-card-value">{selectedUser.roleName}</strong>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Recent sessions</span>
+                  <strong className="scope-card-value">{recentSessions.length}</strong>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Photo policy</span>
+                  <strong className="scope-card-value">Required</strong>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Outlet policy</span>
+                  <strong className="scope-card-value">
+                    {settings.allowManualClockIn ? 'Manual on' : 'Manual off'}
+                  </strong>
+                </article>
+              </div>
+
+              {selectedRosterEntry?.activeSession ? (
+                <div className="support-note">
+                  <strong>Open shift detected</strong>
+                  <span>
+                    Clocked in {formatDateTime(selectedRosterEntry.activeSession.clockInAt)}
+                  </span>
+                </div>
+              ) : null}
+            </aside>
+          </section>
+
+          <section className="panel section-panel">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Shift timeline</p>
+                <h2 className="section-title">Recent sessions</h2>
+              </div>
+              <span className="status-pill neutral">
+                {recentSessions.length} entries
+              </span>
+            </div>
+            {recentSessions.length === 0 ? (
+              <div className="empty-state">
+                <strong>No attendance records yet.</strong>
+              </div>
+            ) : (
+              <div className="list-block">
+                {recentSessions.map((entry) => (
+                  <article className="list-item" key={entry.id}>
+                    <div className="support-list-card__header">
+                      <div>
+                        <h3>{formatDateTime(entry.clockInAt)}</h3>
+                        <p className="supporting-copy">
+                          {entry.status === 'CLOCKED_IN'
+                            ? 'Open shift'
+                            : 'Completed shift'}
+                        </p>
+                      </div>
+                      <div className="tag-row">
+                        <span className={`status-pill ${statusTone(entry.status)}`}>
+                          {formatEnum(entry.status)}
+                        </span>
+                        <span
+                          className={`status-pill ${approvalTone(entry.approvalStatus)}`}
+                        >
+                          {formatEnum(entry.approvalStatus)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="support-inline-meta">
+                      <span>Worked {formatDuration(entry.workedMinutes)}</span>
+                      <span>
+                        Clock-out {formatDateTime(entry.clockOutAt) || 'Still on shift'}
+                      </span>
+                    </div>
+                    {entry.reviewReason ? (
+                      <div className="alert error">{entry.reviewReason}</div>
+                    ) : null}
+                    {entry.photos.length > 0 ? (
+                      <div className="tag-row">
+                        {entry.photos.map((photo) => (
+                          <a
+                            className="tag"
+                            href={photo.photoUrl}
+                            key={photo.id}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            {formatEnum(photo.type)} photo
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </section>
       ) : null}
     </OutletPageLayout>
@@ -471,6 +586,47 @@ function approvalTone(status: AttendanceSessionEntry['approvalStatus']) {
     return 'warning';
   }
   return 'neutral';
+}
+
+async function compressImageForAttendance(file: File) {
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImage(source);
+  const canvas = document.createElement('canvas');
+  const maxEdge = 960;
+  const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Could not prepare the photo for upload.');
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let quality = 0.82;
+  let output = canvas.toDataURL('image/jpeg', quality);
+  while (output.length > 95000 && quality > 0.38) {
+    quality -= 0.08;
+    output = canvas.toDataURL('image/jpeg', quality);
+  }
+
+  if (output.length > 95000) {
+    throw new Error(
+      'The captured photo is still too large. Move closer and retake a tighter shot.',
+    );
+  }
+
+  return output;
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Could not read the selected photo.'));
+    image.src = src;
+  });
 }
 
 function readFileAsDataUrl(file: File) {

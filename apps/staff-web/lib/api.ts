@@ -28,6 +28,8 @@ import type {
   StaffMenuDetail,
   StaffOrderStatus,
   StaffUserMutationResponse,
+  SetupDiningTablesInput,
+  SetupMenuInput,
   TableZone,
 } from './types';
 
@@ -149,6 +151,28 @@ export function getTables(token: string, outletId: string) {
   );
 }
 
+export function setupDiningTables(
+  token: string,
+  outletId: string,
+  input: SetupDiningTablesInput,
+) {
+  return request<{
+    zones: TableZone[];
+    qrCodes: Array<{
+      tableId: string;
+      tableCode: string;
+      publicCode: string;
+      qrUrl: string | null;
+      generated: boolean;
+    }>;
+    note: string;
+  }>(`/admin/outlets/${encodeURIComponent(outletId)}/tables/setup`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+}
+
 export function updateTableStatus(
   token: string,
   outletId: string,
@@ -212,6 +236,21 @@ export function getMenus(token: string, outletId: string) {
     `/admin/outlets/${encodeURIComponent(outletId)}/menus`,
     {
       headers: authHeaders(token),
+    },
+  );
+}
+
+export function setupMenu(
+  token: string,
+  outletId: string,
+  input: SetupMenuInput,
+) {
+  return request<StaffMenuDetail>(
+    `/admin/outlets/${encodeURIComponent(outletId)}/menus/setup`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
     },
   );
 }
@@ -648,9 +687,18 @@ export function enablePaymentScope(
   );
 }
 
-export function getAttendanceCurrent(token: string, outletId: string) {
+export function getAttendanceCurrent(
+  token: string,
+  outletId: string,
+  userId?: string,
+) {
+  const params = new URLSearchParams();
+  if (userId) {
+    params.set('userId', userId);
+  }
+  const query = params.size ? `?${params.toString()}` : '';
   return request<AttendanceCurrentResponse>(
-    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/current`,
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/current${query}`,
     {
       headers: authHeaders(token),
     },
@@ -806,6 +854,7 @@ export function clockInAttendance(
   token: string,
   outletId: string,
   input?: {
+    userId?: string;
     deviceLabel?: string;
     note?: string;
     photoDataUrl?: string;
@@ -825,6 +874,7 @@ export function clockOutAttendance(
   token: string,
   outletId: string,
   input?: {
+    userId?: string;
     deviceLabel?: string;
     note?: string;
     photoDataUrl?: string;
