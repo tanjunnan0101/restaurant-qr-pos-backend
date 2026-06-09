@@ -198,6 +198,7 @@ export function OutletTablesPage() {
   const canManageTables =
     outletAccess?.permissions.includes('table.manage') ?? false;
   const canManageQr = outletAccess?.permissions.includes('qr.manage') ?? false;
+  const canLoadDemoFloor = canManageTables && canManageQr;
 
   const filteredZones = useMemo(
     () =>
@@ -482,18 +483,26 @@ export function OutletTablesPage() {
               <span className={`status-pill ${realtimeStatus === 'connected' ? 'success' : realtimeStatus === 'error' ? 'danger' : 'warning'}`}>
                 {formatRealtimeStatus(realtimeStatus)}
               </span>
-              {canManageTables && canManageQr ? (
-                <button
-                  className="secondary-button"
-                  disabled={setupBusy}
-                  onClick={() => void handleLoadDemoFloor()}
-                  type="button"
-                >
-                  {setupBusy ? 'Loading floor...' : 'Load 10-table demo floor'}
-                </button>
-              ) : null}
+              <button
+                className="secondary-button"
+                disabled={setupBusy || !canLoadDemoFloor}
+                onClick={() => void handleLoadDemoFloor()}
+                type="button"
+              >
+                {setupBusy ? 'Loading tables...' : 'Load tables'}
+              </button>
             </div>
           </div>
+          {canLoadDemoFloor ? (
+            <p className="support-note">
+              Loads a ready-to-use 10-table sample floor across two zones so the
+              team can test seating, QR handoff, and POS actions immediately.
+            </p>
+          ) : (
+            <p className="support-note">
+              This floor setup action needs table and QR manage access.
+            </p>
+          )}
 
           <div className="form-grid floor-control-form">
             <div className="field">

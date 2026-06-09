@@ -19,6 +19,12 @@ import {
 const PHOTO_REQUIRED_MESSAGE =
   'A clock photo is required on this station before continuing.';
 
+type ShiftSlot = {
+  shiftLabel: string;
+  shiftWindow: string;
+  checkpoint: string;
+};
+
 export function OutletAttendancePage() {
   const {
     session,
@@ -40,10 +46,14 @@ export function OutletAttendancePage() {
   const [photoBusy, setPhotoBusy] = useState(false);
 
   async function refresh(authToken: string, nextUserId?: string | null) {
+    const requestedUserId = resolveRequestedAttendanceUserId(
+      nextUserId ?? selectedUserId ?? undefined,
+      session?.user.id,
+    );
     const current = await getAttendanceCurrent(
       authToken,
       outletId,
-      nextUserId ?? selectedUserId ?? undefined,
+      requestedUserId,
     );
     setPayload(current);
   }
@@ -71,7 +81,7 @@ export function OutletAttendancePage() {
         const current = await getAttendanceCurrent(
           authToken,
           outletId,
-          selectedUserId ?? undefined,
+          resolveRequestedAttendanceUserId(selectedUserId ?? undefined, session?.user.id),
         );
         if (!cancelled) {
           setPayload(current);
@@ -113,6 +123,17 @@ export function OutletAttendancePage() {
   const recentSessions = payload?.recentSessions ?? [];
   const staffRoster = payload?.staffRoster ?? [];
   const settings = payload?.settings;
+  const shiftBoard = useMemo(
+    () =>
+      staffRoster.map((entry, index) => ({
+        ...entry,
+        ...buildShiftSlot(entry.roleKey, index),
+      })),
+    [staffRoster],
+  );
+  const selectedShift =
+    shiftBoard.find((entry) => entry.id === selectedUser?.id) ?? null;
+  const activeStaffCount = staffRoster.filter((entry) => entry.activeSession).length;
 
   const currentDuration = useMemo(() => {
     if (!currentSession) {
@@ -141,9 +162,13 @@ export function OutletAttendancePage() {
     setError(null);
     setSuccess(null);
     try {
+      const requestedUserId = resolveRequestedAttendanceUserId(
+        selectedUser.id,
+        session.user.id,
+      );
       if (action === 'in') {
         await clockInAttendance(session.accessToken, outletId, {
-          userId: selectedUser.id,
+          userId: requestedUserId,
           deviceLabel: deviceLabel.trim() || undefined,
           note: note.trim() || undefined,
           photoDataUrl,
@@ -151,7 +176,7 @@ export function OutletAttendancePage() {
         setSuccess(`${selectedUser.fullName} clocked in.`);
       } else {
         await clockOutAttendance(session.accessToken, outletId, {
-          userId: selectedUser.id,
+          userId: requestedUserId,
           deviceLabel: deviceLabel.trim() || undefined,
           note: note.trim() || undefined,
           photoDataUrl,
@@ -165,7 +190,7 @@ export function OutletAttendancePage() {
     } catch (submitError) {
       setError(
         submitError instanceof Error
-          ? submitError.message
+          ? formatAttendanceError(submitError.message)
           : 'Attendance action failed.',
       );
     } finally {
@@ -232,13 +257,19 @@ export function OutletAttendancePage() {
           <section className="panel section-panel attendance-hero">
             <div className="attendance-hero__copy">
               <p className="eyebrow">Shared shift station</p>
-              <h2 className="section-title">Who is clocking?</h2>
+              <h2 className="section-title">Tap the shift, then clock in</h2>
               <p className="supporting-copy">
-                Staff tap their own name, take a photo on the iPad, and then
-                start or end the shift from this station.
+                Staff select themselves from today&apos;s roster, take a proof photo
+                on the iPad, and clock in or out from one shared station.
               </p>
             </div>
             <div className="attendance-hero__meta">
+              <span className="status-pill neutral">
+                {formatScheduleDate(new Date().toISOString())}
+              </span>
+              <span className="status-pill success">
+                {activeStaffCount} on shift
+              </span>
               <span className="status-pill warning">Photo required</span>
               <span className="status-pill neutral">{deviceLabel}</span>
             </div>
@@ -247,15 +278,19 @@ export function OutletAttendancePage() {
           <section className="panel section-panel">
             <div className="section-header">
               <div>
-                <p className="eyebrow">Staff roster</p>
-                <h2 className="section-title">Select employee</h2>
+                <p className="eyebrow">Shift board</p>
+                <h2 className="section-title">Tap your scheduled shift</h2>
+                <p className="supporting-copy">
+                  Operators pick themselves first, then the station opens the
+                  camera and clock controls for that shift.
+                </p>
               </div>
               <span className="supporting-copy">
                 {staffRoster.length} active staff linked to this outlet
               </span>
             </div>
             <div className="attendance-roster-grid">
-              {staffRoster.map((entry) => {
+              {shiftBoard.map((entry) => {
                 const active = entry.id === selectedUser.id;
                 return (
                   <button
@@ -275,9 +310,14 @@ export function OutletAttendancePage() {
                     type="button"
                   >
                     <div>
+                      <p className="eyebrow">{entry.shiftLabel}</p>
                       <strong>{entry.fullName}</strong>
                       <p>{entry.roleName}</p>
                       <small>{entry.email}</small>
+                      <div className="support-inline-meta">
+                        <span>{entry.shiftWindow}</span>
+                        <span>{entry.checkpoint}</span>
+                      </div>
                     </div>
                     <span
                       className={`status-pill ${
@@ -301,6 +341,12 @@ export function OutletAttendancePage() {
                   <p className="supporting-copy">
                     {selectedUser.roleName} | {selectedUser.email}
                   </p>
+                  {selectedShift ? (
+                    <div className="support-inline-meta">
+                      <span>{selectedShift.shiftLabel}</span>
+                      <span>{selectedShift.shiftWindow}</span>
+                    </div>
+                  ) : null}
                 </div>
                 <span
                   className={`status-pill ${
@@ -444,17 +490,19 @@ export function OutletAttendancePage() {
                   <strong className="scope-card-value">{selectedUser.roleName}</strong>
                 </article>
                 <article className="sub-panel surface-panel">
-                  <span className="metric-label">Recent sessions</span>
-                  <strong className="scope-card-value">{recentSessions.length}</strong>
+                  <span className="metric-label">Shift window</span>
+                  <strong className="scope-card-value">
+                    {selectedShift?.shiftWindow ?? 'Today'}
+                  </strong>
                 </article>
                 <article className="sub-panel surface-panel">
                   <span className="metric-label">Photo policy</span>
                   <strong className="scope-card-value">Required</strong>
                 </article>
                 <article className="sub-panel surface-panel">
-                  <span className="metric-label">Outlet policy</span>
+                  <span className="metric-label">Recent sessions</span>
                   <strong className="scope-card-value">
-                    {settings.allowManualClockIn ? 'Manual on' : 'Manual off'}
+                    {recentSessions.length}
                   </strong>
                 </article>
               </div>
@@ -543,6 +591,59 @@ export function OutletAttendancePage() {
   );
 }
 
+function resolveRequestedAttendanceUserId(
+  selectedUserId?: string | null,
+  sessionUserId?: string | null,
+) {
+  if (!selectedUserId) {
+    return undefined;
+  }
+  if (sessionUserId && selectedUserId === sessionUserId) {
+    return undefined;
+  }
+  return selectedUserId;
+}
+
+function buildShiftSlot(roleKey: string, index: number): ShiftSlot {
+  const templates: Record<string, ShiftSlot[]> = {
+    OWNER: [
+      { shiftLabel: 'Owner cover', shiftWindow: '10:00 - 19:00', checkpoint: 'Open + review' },
+    ],
+    MANAGER: [
+      { shiftLabel: 'Manager open', shiftWindow: '09:00 - 18:00', checkpoint: 'Open floor' },
+      { shiftLabel: 'Manager close', shiftWindow: '13:00 - 22:00', checkpoint: 'Close floor' },
+    ],
+    CASHIER: [
+      { shiftLabel: 'Counter AM', shiftWindow: '09:00 - 17:00', checkpoint: 'Cash drawer open' },
+      { shiftLabel: 'Counter PM', shiftWindow: '13:00 - 21:00', checkpoint: 'Settlement close' },
+    ],
+    WAITER: [
+      { shiftLabel: 'Floor lunch', shiftWindow: '10:30 - 18:30', checkpoint: 'Floor service' },
+      { shiftLabel: 'Floor dinner', shiftWindow: '12:00 - 20:00', checkpoint: 'Guest coverage' },
+    ],
+    KITCHEN: [
+      { shiftLabel: 'Prep line', shiftWindow: '08:00 - 16:00', checkpoint: 'Prep handoff' },
+      { shiftLabel: 'Hot line', shiftWindow: '11:00 - 19:00', checkpoint: 'Rush coverage' },
+    ],
+  };
+
+  const selectedGroup = templates[roleKey] ?? [
+    { shiftLabel: 'Service shift', shiftWindow: '11:00 - 19:00', checkpoint: 'Station ready' },
+  ];
+  return selectedGroup[index % selectedGroup.length]!;
+}
+
+function formatAttendanceError(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('property userid should not exist')) {
+    return 'This API deployment is still on the older attendance contract. Redeploy the API first, then retry shared-station clocking.';
+  }
+  if (normalized.includes('request entity too large')) {
+    return 'The captured photo is too large. Move closer, retake the photo, and try again.';
+  }
+  return message;
+}
+
 function formatEnum(value: string) {
   return value
     .toLowerCase()
@@ -572,6 +673,18 @@ function formatDuration(minutes: number | null) {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return `${hours}h ${remainder}m`;
+}
+
+function formatScheduleDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Today';
+  }
+  return new Intl.DateTimeFormat('en-SG', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(date);
 }
 
 function statusTone(status: AttendanceSessionEntry['status']) {

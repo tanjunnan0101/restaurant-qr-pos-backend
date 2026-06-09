@@ -746,6 +746,12 @@ export function OutletMenusPage() {
                         : 'Publish'}
                     </button>
                   ) : null}
+                  <a className="secondary-button" href="#menu-create-shell">
+                    Add menu
+                  </a>
+                  <a className="secondary-button" href="#menu-quick-add-item">
+                    Add item
+                  </a>
                 </div>
               </article>
 
@@ -827,72 +833,74 @@ export function OutletMenusPage() {
                 </p>
               </article>
 
-              {canManageMenus ? (
-                <article className="support-config-card">
-                  <div className="support-config-card__header">
-                    <div>
-                      <p className="eyebrow">Add menu</p>
-                      <h3>Create a new menu shell</h3>
-                    </div>
-                    <span className="status-pill neutral">Draft first</span>
+              <article className="support-config-card" id="menu-create-shell">
+                <div className="support-config-card__header">
+                  <div>
+                    <p className="eyebrow">Add menu</p>
+                    <h3>Create a new menu shell</h3>
                   </div>
-                  <div className="form-grid">
-                    <div className="field">
-                      <label htmlFor="new-menu-name">Menu name</label>
-                      <input
-                        id="new-menu-name"
-                        onChange={(event) => setNewMenuName(event.target.value)}
-                        placeholder="Dinner menu"
-                        value={newMenuName}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="new-menu-slug">Menu slug</label>
-                      <input
-                        id="new-menu-slug"
-                        onChange={(event) => setNewMenuSlug(event.target.value)}
-                        placeholder="dinner-menu"
-                        value={newMenuSlug}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="new-menu-channel">Channel</label>
-                      <select
-                        id="new-menu-channel"
-                        onChange={(event) =>
-                          setNewMenuChannel(
-                            event.target.value as 'QR' | 'POS' | 'BOTH',
-                          )
-                        }
-                        value={newMenuChannel}
-                      >
-                        <option value="BOTH">QR and POS</option>
-                        <option value="QR">QR only</option>
-                        <option value="POS">POS only</option>
-                      </select>
-                    </div>
+                  <span className="status-pill neutral">Draft first</span>
+                </div>
+                <div className="form-grid">
+                  <div className="field">
+                    <label htmlFor="new-menu-name">Menu name</label>
+                    <input
+                      id="new-menu-name"
+                      onChange={(event) => setNewMenuName(event.target.value)}
+                      placeholder="Dinner menu"
+                      value={newMenuName}
+                    />
                   </div>
-                  <p className="support-note">
-                    This creates a draft menu with one placeholder item so the
-                    team can immediately start editing from the staff workspace.
-                  </p>
-                  <div className="support-card__actions">
-                    <button
-                      className="primary-button"
-                      disabled={actionBusyId === 'create-menu'}
-                      onClick={() => void handleCreateMenu()}
-                      type="button"
+                  <div className="field">
+                    <label htmlFor="new-menu-slug">Menu slug</label>
+                    <input
+                      id="new-menu-slug"
+                      onChange={(event) => setNewMenuSlug(event.target.value)}
+                      placeholder="dinner-menu"
+                      value={newMenuSlug}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="new-menu-channel">Channel</label>
+                    <select
+                      id="new-menu-channel"
+                      onChange={(event) =>
+                        setNewMenuChannel(
+                          event.target.value as 'QR' | 'POS' | 'BOTH',
+                        )
+                      }
+                      value={newMenuChannel}
                     >
-                      {actionBusyId === 'create-menu'
-                        ? 'Creating...'
-                        : 'Create menu'}
-                    </button>
+                      <option value="BOTH">QR and POS</option>
+                      <option value="QR">QR only</option>
+                      <option value="POS">POS only</option>
+                    </select>
                   </div>
-                </article>
-              ) : null}
+                </div>
+                <p className="support-note">
+                  This creates a draft menu with one placeholder item so the
+                  team can immediately start editing from the staff workspace.
+                </p>
+                {!canManageMenus ? (
+                  <p className="support-note">
+                    This action needs menu manage access.
+                  </p>
+                ) : null}
+                <div className="support-card__actions">
+                  <button
+                    className="primary-button"
+                    disabled={actionBusyId === 'create-menu' || !canManageMenus}
+                    onClick={() => void handleCreateMenu()}
+                    type="button"
+                  >
+                    {actionBusyId === 'create-menu'
+                      ? 'Creating...'
+                      : 'Create menu'}
+                  </button>
+                </div>
+              </article>
 
-              {canManageMenus ? (
-                <article className="support-config-card">
+              <article className="support-config-card" id="menu-quick-add-item">
                   <div className="support-config-card__header">
                     <div>
                       <p className="eyebrow">Quick add</p>
@@ -1030,7 +1038,7 @@ export function OutletMenusPage() {
                   <div className="support-card__actions">
                     <button
                       className="primary-button"
-                      disabled={actionBusyId === 'quick-add-item'}
+                      disabled={actionBusyId === 'quick-add-item' || !canManageMenus}
                       onClick={() => void handleQuickAddItem()}
                       type="button"
                     >
@@ -1039,8 +1047,12 @@ export function OutletMenusPage() {
                         : 'Add to draft'}
                     </button>
                   </div>
+                  {!canManageMenus ? (
+                    <p className="support-note">
+                      This item add action needs menu manage access.
+                    </p>
+                  ) : null}
                 </article>
-              ) : null}
             </aside>
 
             <div className="support-board-panel">

@@ -1999,6 +1999,10 @@ body {
   color: var(--muted);
 }
 
+.attendance-roster-card .eyebrow {
+  margin-bottom: 6px;
+}
+
 .attendance-roster-card.active {
   border-color: rgba(30, 109, 115, 0.34);
   background: linear-gradient(180deg, rgba(242, 249, 247, 0.98), rgba(236, 245, 243, 0.98));
