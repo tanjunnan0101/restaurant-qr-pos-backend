@@ -91,37 +91,38 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
   ];
 
   return (
-    <section className="panel section-panel workspace-hero workspace-hero--staff">
-      <div className="workspace-hero__header">
-        <div className="workspace-hero__copy">
-          <p className="eyebrow">Outlet context</p>
+    <section className="panel section-panel outlet-command-bar">
+      <div className="outlet-command-bar__header">
+        <div className="outlet-command-bar__identity">
+          <p className="eyebrow">Outlet</p>
           <h2 className="section-title serif">{outlet.name}</h2>
           <p className="supporting-copy">
-            {outlet.slug} | {outlet.currency} | {outlet.timezone}
+            {outlet.slug} | {outlet.currency}
           </p>
         </div>
-
-        <div className="workspace-meta-grid">
-          <article className="sub-panel">
+        <div className="outlet-command-bar__meta">
+          <article className="sub-panel outlet-chip">
             <span className="metric-label">GST</span>
-            <strong className="metric-value">
+            <strong>
               {outlet.gstEnabled ? `${outlet.gstRateBps / 100}%` : 'Off'}
             </strong>
-            <p className="supporting-copy">Tax setting used by staff POS totals.</p>
           </article>
-          <article className="sub-panel">
-            <span className="metric-label">Service charge</span>
-            <strong className="metric-value">
+          <article className="sub-panel outlet-chip">
+            <span className="metric-label">Service</span>
+            <strong>
               {outlet.serviceChargeEnabled
                 ? `${outlet.serviceChargeBps / 100}%`
                 : 'Off'}
             </strong>
-            <p className="supporting-copy">Applies to dine-in service where enabled.</p>
+          </article>
+          <article className="sub-panel outlet-chip">
+            <span className="metric-label">Timezone</span>
+            <strong>{outlet.timezone}</strong>
           </article>
         </div>
       </div>
 
-      <div className="workspace-pill-grid">
+      <div className="outlet-command-bar__nav">
         {navItems.map((item) => {
           const current =
             pathname === item.href || pathname.startsWith(`${item.href}/`);

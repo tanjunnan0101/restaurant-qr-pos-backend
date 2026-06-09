@@ -107,7 +107,7 @@ button {
 }
 
 .staff-page-layout {
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 286px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -310,7 +310,7 @@ button {
   position: sticky;
   top: 18px;
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 
 .staff-sidebar--rich {
@@ -356,7 +356,7 @@ button {
 .sidebar-block__header,
 .workspace-nav {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .sidebar-subtitle {
@@ -385,7 +385,7 @@ button {
 .nav-link,
 .nav-link-current {
   border-radius: 16px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   font-weight: 700;
 }
 
@@ -417,11 +417,7 @@ button {
 
 .nav-link-rich__copy {
   display: grid;
-  gap: 4px;
-}
-
-.nav-link-rich__copy small {
-  color: var(--muted);
+  gap: 0;
 }
 
 .staff-content {
@@ -442,7 +438,7 @@ button {
 }
 
 .page-header--staff {
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 .page-title {
@@ -451,9 +447,56 @@ button {
 }
 
 .page-subtitle {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: rgba(246, 240, 229, 0.8);
-  max-width: 56ch;
+  max-width: 48ch;
+  line-height: 1.5;
+}
+
+.outlet-command-bar {
+  display: grid;
+  gap: 16px;
+  background:
+    linear-gradient(135deg, rgba(202, 90, 51, 0.08), transparent 30%),
+    linear-gradient(330deg, rgba(64, 107, 88, 0.12), transparent 28%),
+    rgba(255, 250, 241, 0.98);
+}
+
+.outlet-command-bar__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.outlet-command-bar__identity {
+  display: grid;
+  gap: 8px;
+}
+
+.outlet-command-bar__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.outlet-chip {
+  min-width: 0;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.outlet-chip strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.outlet-command-bar__nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .metric-board {
@@ -913,6 +956,100 @@ button {
   border-top: 1px solid rgba(29, 23, 18, 0.08);
 }
 
+.pos-live-rail,
+.pos-ticket-builder {
+  display: grid;
+  gap: 16px;
+}
+
+.pos-category-bar {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.pos-category-chip {
+  min-width: 160px;
+  border-radius: 18px;
+  border: 1px solid rgba(29, 23, 18, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+  padding: 14px 16px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.pos-category-chip strong {
+  font-size: 0.98rem;
+}
+
+.pos-category-chip span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.pos-category-chip.active {
+  border-color: rgba(202, 90, 51, 0.28);
+  background: rgba(202, 90, 51, 0.12);
+  box-shadow: 0 0 0 3px rgba(202, 90, 51, 0.1);
+}
+
+.product-grid--terminal {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.product-card--terminal {
+  gap: 16px;
+  min-height: 220px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(245, 237, 225, 0.98));
+}
+
+.product-card__topline,
+.product-card__body,
+.product-card__actions {
+  display: grid;
+  gap: 10px;
+}
+
+.product-card__topline {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.product-card__body h4 {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.product-card__price {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.product-card__actions {
+  margin-top: auto;
+}
+
+.pos-live-order-list {
+  display: grid;
+  gap: 10px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.pos-live-order-card {
+  border-radius: 18px;
+  border: 1px solid rgba(29, 23, 18, 0.08);
+  background: rgba(255, 253, 248, 0.9);
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+}
+
 .cart-card--dense {
   gap: 14px;
 }
@@ -1105,6 +1242,8 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .outlet-command-bar__header,
+  .outlet-command-bar__meta,
   .workspace-hero__header,
   .workspace-meta-grid,
   .operations-summary-grid,
@@ -1139,7 +1278,8 @@ button {
   .detail-grid,
   .table-grid,
   .product-grid,
-  .choice-grid {
+  .choice-grid,
+  .product-grid--terminal {
     grid-template-columns: 1fr;
   }
 
@@ -1160,5 +1300,11 @@ button {
 
   .inline-actions {
     flex-wrap: wrap;
+  }
+
+  .outlet-command-bar__nav,
+  .pos-category-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
 }

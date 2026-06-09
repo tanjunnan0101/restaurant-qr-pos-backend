@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
   amendStaffOrder,
   createAdminCheckout,
@@ -11,10 +12,12 @@ import {
   getOrder,
   getMenuDetail,
   getMenus,
+  getOrders,
   getPaymentSettings,
   getTables,
   printPrePaymentBill,
 } from '@/lib/api';
+import { createOperationsSocket, outletOperationsEvents } from '@/lib/realtime';
 import {
   buildPosCartLine,
   calculatePosTotals,
@@ -27,7 +30,9 @@ import type {
   CreateStaffOrderInput,
   MenuListEntry,
   OrderDetail,
+  OrderListEntry,
   PaymentSettingsResponse,
+  RealtimeStatus,
   StaffMenuDetail,
   StaffPaymentMethod,
   StaffServiceType,
@@ -102,11 +107,13 @@ export function OutletPosPage() {
   const [selectedMenuId, setSelectedMenuId] = useState<string>('');
   const [menuDetail, setMenuDetail] = useState<StaffMenuDetail | null>(null);
   const [zones, setZones] = useState<TableZone[]>([]);
+  const [liveOrders, setLiveOrders] = useState<OrderListEntry[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [serviceType, setServiceType] = useState<StaffServiceType>('DINE_IN');
   const [paymentMethod, setPaymentMethod] =
     useState<StaffPaymentMethod>('ONLINE_CARD');
   const [menuSearch, setMenuSearch] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [cashTendered, setCashTendered] = useState('');
   const [discountType, setDiscountType] = useState<'NONE' | 'PERCENT' | 'AMOUNT'>(
     'NONE',
@@ -131,9 +138,12 @@ export function OutletPosPage() {
   const [editOrder, setEditOrder] = useState<OrderDetail | null>(null);
   const [paymentSettings, setPaymentSettings] =
     useState<PaymentSettingsResponse | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('idle');
+  const [refreshTick, setRefreshTick] = useState(0);
   const [resolvedEditMenuForOrderId, setResolvedEditMenuForOrderId] = useState<
     string | null
   >(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [success, setSuccess] = useState<{
     amended: boolean;
     savedAsDraft: boolean;
@@ -158,6 +168,15 @@ export function OutletPosPage() {
     outletAccess?.permissions.includes('payment.settings.read') ?? false;
   const canManagePaymentSettings =
     outletAccess?.permissions.includes('payment.settings.manage') ?? false;
+  const queueRefresh = useEffectEvent(() => {
+    if (refreshTimerRef.current) {
+      return;
+    }
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      setRefreshTick((current) => current + 1);
+    }, 250);
+  });
 
   useEffect(() => {
     if (!session?.accessToken || !outletId) {
@@ -170,9 +189,10 @@ export function OutletPosPage() {
       setLoading(true);
       setError(null);
       try {
-        const [menuList, tableZones] = await Promise.all([
+        const [menuList, tableZones, orders] = await Promise.all([
           getMenus(authToken, outletId),
           getTables(authToken, outletId),
+          getOrders(authToken, outletId, 'ALL'),
         ]);
         const posMenus = menuList.filter(
           (menu) =>
@@ -183,6 +203,7 @@ export function OutletPosPage() {
           setMenus(posMenus);
           setSelectedMenuId((current) => current || posMenus[0]?.id || '');
           setZones(tableZones);
+          setLiveOrders(orders);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -203,7 +224,70 @@ export function OutletPosPage() {
     return () => {
       cancelled = true;
     };
-  }, [outletId, session]);
+  }, [outletId, refreshTick, session]);
+
+  useEffect(() => {
+    if (!session?.accessToken || !outletId) {
+      setRealtimeStatus('idle');
+      return;
+    }
+
+    setRealtimeStatus('connecting');
+    const socket = createOperationsSocket(session.accessToken);
+
+    const subscribeToOutlet = () => {
+      socket.emit(
+        'subscribe.outlet',
+        { outletId },
+        (response?: { ok?: boolean; message?: string }) => {
+          if (response?.ok) {
+            setRealtimeStatus('connected');
+            setError(null);
+            queueRefresh();
+            return;
+          }
+          setRealtimeStatus('error');
+          if (response?.message) {
+            setError(response.message);
+          }
+        },
+      );
+    };
+
+    const handleConnect = () => {
+      setRealtimeStatus('connecting');
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', () => {
+      setRealtimeStatus('offline');
+    });
+    socket.on('connect_error', (connectError) => {
+      setRealtimeStatus('error');
+      setError(connectError.message || 'Realtime connection failed.');
+    });
+    socket.on('realtime.error', (payload?: { message?: string }) => {
+      setRealtimeStatus('error');
+      setError(payload?.message ?? 'Realtime connection failed.');
+    });
+    socket.on('operations.connected', subscribeToOutlet);
+    for (const eventName of outletOperationsEvents) {
+      socket.on(eventName, () => {
+        setError(null);
+        queueRefresh();
+      });
+    }
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      socket.off('connect', handleConnect);
+      socket.off('operations.connected', subscribeToOutlet);
+      socket.disconnect();
+    };
+  }, [outletId, queueRefresh, session]);
 
   useEffect(() => {
     if (!session?.accessToken || !outletId || !canReadPaymentSettings) {
@@ -503,6 +587,23 @@ export function OutletPosPage() {
       })
       .filter((category) => category.items.length > 0);
   }, [menuSearch, publishedVersion]);
+  useEffect(() => {
+    if (filteredCategories.length === 0) {
+      setSelectedCategoryId('');
+      return;
+    }
+    if (
+      selectedCategoryId &&
+      filteredCategories.some((category) => category.id === selectedCategoryId)
+    ) {
+      return;
+    }
+    setSelectedCategoryId(filteredCategories[0]?.id ?? '');
+  }, [filteredCategories, selectedCategoryId]);
+  const activeCategory =
+    filteredCategories.find((category) => category.id === selectedCategoryId) ??
+    filteredCategories[0] ??
+    null;
   const filteredItemCount = useMemo(
     () =>
       filteredCategories.reduce(
@@ -542,6 +643,20 @@ export function OutletPosPage() {
   const paymentMethodLabel =
     paymentMethodOptions.find((option) => option.value === paymentMethod)?.label ??
     paymentMethod;
+  const liveOrdersVisible = liveOrders
+    .filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED')
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+    )
+    .slice(0, 8);
+  const qrAndCounterCount = liveOrdersVisible.length;
+  const unpaidCount = liveOrdersVisible.filter((order) =>
+    ['DRAFT', 'PENDING_PAYMENT', 'PAYMENT_PROCESSING'].includes(order.status),
+  ).length;
+  const kitchenCount = liveOrdersVisible.filter((order) =>
+    ['SENT_TO_KITCHEN', 'PREPARING', 'READY', 'SERVED'].includes(order.status),
+  ).length;
 
   useEffect(() => {
     if (paymentMethod !== 'CASH') {
@@ -734,6 +849,7 @@ export function OutletPosPage() {
       if (editOrderId) {
         router.replace(`/outlets/${outletId}/pos`);
       }
+      queueRefresh();
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -774,6 +890,7 @@ export function OutletPosPage() {
               checkout: null,
             },
       );
+      queueRefresh();
     } catch (printError) {
       setError(
         printError instanceof Error
@@ -1107,57 +1224,47 @@ export function OutletPosPage() {
         <div className="workspace-hero__header">
           <div className="workspace-hero__copy">
             <p className="eyebrow">Cashier cockpit</p>
-            <h2 className="section-title serif">Move faster with fewer taps</h2>
+            <h2 className="section-title serif">Run counter, QR, and floor tickets from one terminal</h2>
             <p className="supporting-copy">
-              Keep the order flow calm at the counter with a live menu on the
-              left and a tightly structured ticket on the right.
+              This screen is tuned for service speed: category-first ordering,
+              a compact ticket rail, and live order visibility that stays in
+              sync with QR guests.
             </p>
           </div>
           <div className="workspace-pill-grid">
             <div className="workspace-pill current">
-              <span>Menu</span>
-              <strong>{activeMenuName}</strong>
+              <span>{activeMenuName}</span>
             </div>
             <div className="workspace-pill">
-              <span>Payment</span>
-              <strong>{paymentMethodLabel}</strong>
+              <span>{paymentMethodLabel}</span>
+            </div>
+            <div className="workspace-pill">
+              <span>{formatRealtimeStatus(realtimeStatus)}</span>
             </div>
           </div>
         </div>
         <div className="pos-summary-grid">
           <article className="pos-summary-card">
-            <span className="metric-label">Ticket lines</span>
+            <span className="metric-label">Ticket</span>
             <strong>{cart.length}</strong>
+            <p className="supporting-copy">Open cart lines at the counter.</p>
+          </article>
+          <article className="pos-summary-card">
+            <span className="metric-label">Live orders</span>
+            <strong>{qrAndCounterCount}</strong>
+            <p className="supporting-copy">QR and cashier tickets still in play.</p>
+          </article>
+          <article className="pos-summary-card">
+            <span className="metric-label">Awaiting payment</span>
+            <strong>{unpaidCount}</strong>
             <p className="supporting-copy">
-              Distinct items currently on this cashier ticket.
+              Tickets still waiting to be paid or finalized.
             </p>
           </article>
           <article className="pos-summary-card">
-            <span className="metric-label">Items</span>
-            <strong>{itemCount}</strong>
-            <p className="supporting-copy">
-              Total quantity across the current order.
-            </p>
-          </article>
-          <article className="pos-summary-card">
-            <span className="metric-label">Service</span>
-            <strong>{formatEnum(serviceType)}</strong>
-            <p className="supporting-copy">
-              {selectedTable
-                ? `${selectedTable.zoneName} | ${selectedTable.displayName}`
-                : serviceType === 'DINE_IN'
-                  ? 'Select a table before checkout.'
-                  : 'Counter-friendly order flow is active.'}
-            </p>
-          </article>
-          <article className="pos-summary-card">
-            <span className="metric-label">Running total</span>
-            <strong>
-              {formatMoney(outlet?.currency ?? 'SGD', summary.grandTotalCents)}
-            </strong>
-            <p className="supporting-copy">
-              Includes service charge, GST, and any current discount.
-            </p>
+            <span className="metric-label">Kitchen flow</span>
+            <strong>{kitchenCount}</strong>
+            <p className="supporting-copy">Orders already moving through service.</p>
           </article>
         </div>
       </section>
@@ -1166,11 +1273,11 @@ export function OutletPosPage() {
         <section className="panel section-panel pos-shell-card">
           <div className="section-header">
             <div>
-              <p className="eyebrow">Menu source</p>
-              <h2 className="section-title serif">Build a walk-in order</h2>
+              <p className="eyebrow">Menu station</p>
+              <h2 className="section-title serif">Build a ticket fast</h2>
               <p className="supporting-copy">
-                Use published POS or BOTH menus. All totals are finally
-                confirmed by the backend on submit.
+                Choose the sales menu, jump into a category, and add items with
+                minimal clicks.
               </p>
             </div>
             <div className="menu-toolbar">
@@ -1208,11 +1315,29 @@ export function OutletPosPage() {
             </div>
           ) : (
             <div className="menu-sections">
+              <div className="pos-category-bar">
+                {(filteredCategories ?? []).map((category) => (
+                  <button
+                    className={
+                      category.id === activeCategory?.id
+                        ? 'pos-category-chip active'
+                        : 'pos-category-chip'
+                    }
+                    key={category.id}
+                    onClick={() => setSelectedCategoryId(category.id)}
+                    type="button"
+                  >
+                    <strong>{category.name}</strong>
+                    <span>{category.items.length}</span>
+                  </button>
+                ))}
+              </div>
+
               <div className="section-header">
                 <p className="supporting-copy">
-                  Showing {filteredItemCount} item
-                  {filteredItemCount === 1 ? '' : 's'}
-                  {menuSearch.trim() ? ` for "${menuSearch.trim()}"` : ''}.
+                  {activeCategory
+                    ? `${activeCategory.items.length} items in ${activeCategory.name}`
+                    : `Showing ${filteredItemCount} item${filteredItemCount === 1 ? '' : 's'}`}
                 </p>
                 {menuSearch.trim() ? (
                   <button
@@ -1235,85 +1360,127 @@ export function OutletPosPage() {
                 </div>
               ) : null}
 
-              {filteredCategories.map((category) => (
-                  <section className="category-panel" key={category.id}>
-                    <div className="section-header">
-                      <div>
-                        <h3>{category.name}</h3>
-                        <p className="supporting-copy">
-                          {category.items.filter((item) => item.active).length}{' '}
-                          items
-                        </p>
-                      </div>
-                    </div>
-                    <div className="product-grid">
-                      {category.items
-                        .filter((item) => item.active)
-                        .map((item) => {
-                          const hasCustomization = itemNeedsCustomization(item);
-                          return (
-                            <article className="product-card" key={item.id}>
-                              <div className="section-header">
-                                <div>
-                                  <h4>{item.name}</h4>
-                                  <p className="supporting-copy">
-                                    {item.description || 'No description'}
-                                  </p>
-                                </div>
-                                <span
-                                  className={`status-pill ${
-                                    item.soldOut ? 'danger' : 'success'
-                                  }`}
-                                >
-                                  {item.soldOut ? 'Sold out' : 'Ready'}
-                                </span>
-                              </div>
-                              <div className="queue-metrics">
-                                <div className="metric-inline">
-                                  <span>Base price</span>
-                                  <strong>
-                                    {formatMoney(
-                                      outlet?.currency ?? 'SGD',
-                                      item.basePriceCents,
-                                    )}
-                                  </strong>
-                                </div>
-                                <div className="metric-inline">
-                                  <span>Prep station</span>
-                                  <strong>
-                                    {formatEnum(item.preparationStationKey)}
-                                  </strong>
-                                </div>
-                              </div>
-                              <div className="inline-actions">
-                                <button
-                                  className="primary-button"
-                                  disabled={item.soldOut}
-                                  onClick={() =>
-                                    hasCustomization
-                                      ? openCustomization(item)
-                                      : addDirectItem(item)
-                                  }
-                                  type="button"
-                                >
-                                  {hasCustomization ? 'Customize' : 'Add'}
-                                </button>
-                              </div>
-                            </article>
-                          );
-                        })}
-                    </div>
-                  </section>
-                ))}
+              {activeCategory ? (
+                <section className="category-panel" key={activeCategory.id}>
+                  <div className="product-grid product-grid--terminal">
+                    {activeCategory.items
+                      .filter((item) => item.active)
+                      .map((item) => {
+                        const hasCustomization = itemNeedsCustomization(item);
+                        return (
+                          <article className="product-card product-card--terminal" key={item.id}>
+                            <div className="product-card__topline">
+                              <span className="metric-label">
+                                {formatEnum(item.preparationStationKey)}
+                              </span>
+                              <span
+                                className={`status-pill ${
+                                  item.soldOut ? 'danger' : 'success'
+                                }`}
+                              >
+                                {item.soldOut ? 'Sold out' : 'Ready'}
+                              </span>
+                            </div>
+                            <div className="product-card__body">
+                              <h4>{item.name}</h4>
+                              <strong className="product-card__price">
+                                {formatMoney(
+                                  outlet?.currency ?? 'SGD',
+                                  item.basePriceCents,
+                                )}
+                              </strong>
+                              <p className="supporting-copy">
+                                {item.description || ' '}
+                              </p>
+                            </div>
+                            <div className="product-card__actions">
+                              <button
+                                className="primary-button"
+                                disabled={item.soldOut}
+                                onClick={() =>
+                                  hasCustomization
+                                    ? openCustomization(item)
+                                    : addDirectItem(item)
+                                }
+                                type="button"
+                              >
+                                {hasCustomization ? 'Customize' : 'Add'}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                  </div>
+                </section>
+              ) : null}
             </div>
           )}
         </section>
 
         <aside className="panel section-panel pos-sidebar pos-ticket-card">
-          <p className="eyebrow">Order builder</p>
-          <h2 className="section-title serif">Current ticket</h2>
+          <div className="pos-live-rail">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Live order feed</p>
+                <h2 className="section-title serif">Counter and QR in one queue</h2>
+              </div>
+              <span
+                className={`status-pill ${
+                  realtimeStatus === 'connected'
+                    ? 'success'
+                    : realtimeStatus === 'error'
+                      ? 'danger'
+                      : 'warning'
+                }`}
+              >
+                {formatRealtimeStatus(realtimeStatus)}
+              </span>
+            </div>
+            <div className="pos-live-order-list">
+              {liveOrdersVisible.length === 0 ? (
+                <div className="empty-state">
+                  <h3>No active orders</h3>
+                  <p className="supporting-copy">
+                    New QR and cashier orders will appear here automatically.
+                  </p>
+                </div>
+              ) : (
+                liveOrdersVisible.map((order) => (
+                  <article className="pos-live-order-card" key={order.id}>
+                    <div className="section-header">
+                      <div>
+                        <strong>#{order.orderNumber}</strong>
+                        <p className="supporting-copy">
+                          {order.table?.displayName ?? 'Counter'} |{' '}
+                          {formatMoney(order.currency, order.grandTotalCents)}
+                        </p>
+                      </div>
+                      <span className={`status-pill ${toneForOrderStatus(order.status)}`}>
+                        {formatEnum(order.status)}
+                      </span>
+                    </div>
+                    <div className="inline-actions">
+                      <span className={`status-pill ${toneForPaymentStatus(order.paymentStatus)}`}>
+                        {formatEnum(order.paymentStatus)}
+                      </span>
+                      <Link
+                        className="ghost-button"
+                        href={`/outlets/${outletId}/orders?orderId=${encodeURIComponent(order.id)}`}
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </div>
 
-          <div className="form-grid pos-ticket-section">
+          <div className="pos-ticket-builder">
+            <p className="eyebrow">Order builder</p>
+            <h2 className="section-title serif">Current ticket</h2>
+
+            <div className="form-grid pos-ticket-section">
             <div className="field">
               <label htmlFor="source">Source</label>
               <select
@@ -1569,9 +1736,9 @@ export function OutletPosPage() {
                 </p>
               </div>
             ) : null}
-          </div>
+            </div>
 
-          <div className="cart-list pos-ticket-section">
+            <div className="cart-list pos-ticket-section">
             {cart.length === 0 ? (
               <div className="empty-state">
                 <h3>Cart is empty</h3>
@@ -1634,9 +1801,9 @@ export function OutletPosPage() {
                 </article>
               ))
             )}
-          </div>
+            </div>
 
-          <article className="sub-panel bill-card totals-hero">
+            <article className="sub-panel bill-card totals-hero">
             <h3>Estimated totals</h3>
             <div className="stack-list">
               <div className="stack-row">
@@ -1691,46 +1858,47 @@ export function OutletPosPage() {
             <p className="supporting-copy">
               Final totals are confirmed by the backend when the order is saved.
             </p>
-          </article>
+            </article>
 
-          <button
-            className="primary-button full-width"
-            disabled={submitDisabled}
-            onClick={() => void submitOrder('submit')}
-            type="button"
-          >
-            {submitting
-              ? editOrder
-                ? 'Saving changes...'
-                : 'Creating order...'
-              : editOrder
-                ? 'Save order changes'
-                : 'Create staff order'}
-          </button>
-          <button
-            className="secondary-button full-width"
-            disabled={submitting || cart.length === 0}
-            onClick={() => void submitOrder('draft')}
-            type="button"
-          >
-            {submitting
-              ? editOrder
-                ? 'Saving draft...'
-                : 'Holding draft...'
-              : editOrder?.status === 'DRAFT'
-                ? 'Update held draft'
-                : 'Hold as draft'}
-          </button>
-          {editOrder ? (
             <button
-              className="ghost-button full-width"
-              disabled={printingBill}
-              onClick={() => void handlePrintBill()}
+              className="primary-button full-width"
+              disabled={submitDisabled}
+              onClick={() => void submitOrder('submit')}
               type="button"
             >
-              {printingBill ? 'Queueing bill...' : 'Print pre-payment bill'}
+              {submitting
+                ? editOrder
+                  ? 'Saving changes...'
+                  : 'Creating order...'
+                : editOrder
+                  ? 'Save order changes'
+                  : 'Create staff order'}
             </button>
-          ) : null}
+            <button
+              className="secondary-button full-width"
+              disabled={submitting || cart.length === 0}
+              onClick={() => void submitOrder('draft')}
+              type="button"
+            >
+              {submitting
+                ? editOrder
+                  ? 'Saving draft...'
+                  : 'Holding draft...'
+                : editOrder?.status === 'DRAFT'
+                  ? 'Update held draft'
+                  : 'Hold as draft'}
+            </button>
+            {editOrder ? (
+              <button
+                className="ghost-button full-width"
+                disabled={printingBill}
+                onClick={() => void handlePrintBill()}
+                type="button"
+              >
+                {printingBill ? 'Queueing bill...' : 'Print pre-payment bill'}
+              </button>
+            ) : null}
+          </div>
         </aside>
       </section>
 
@@ -1989,6 +2157,55 @@ function formatEnum(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function formatRealtimeStatus(status: RealtimeStatus) {
+  switch (status) {
+    case 'connected':
+      return 'Live';
+    case 'connecting':
+      return 'Syncing';
+    case 'error':
+      return 'Attention';
+    case 'offline':
+      return 'Offline';
+    default:
+      return 'Idle';
+  }
+}
+
+function toneForOrderStatus(status: string) {
+  if (status === 'READY' || status === 'SERVED' || status === 'COMPLETED') {
+    return 'success';
+  }
+  if (status === 'PENDING_PAYMENT' || status === 'PAYMENT_PROCESSING') {
+    return 'warning';
+  }
+  if (status === 'CANCELLED') {
+    return 'danger';
+  }
+  return 'neutral';
+}
+
+function toneForPaymentStatus(status: string) {
+  if (
+    status === 'PAID' ||
+    status === 'SUCCEEDED' ||
+    status === 'VERIFIED'
+  ) {
+    return 'success';
+  }
+  if (
+    status === 'PENDING' ||
+    status === 'PROCESSING' ||
+    status === 'MANUAL_VERIFICATION_REQUIRED'
+  ) {
+    return 'warning';
+  }
+  if (status === 'FAILED' || status === 'CANCELLED') {
+    return 'danger';
+  }
+  return 'neutral';
 }
 
 function createIdempotencyKey() {

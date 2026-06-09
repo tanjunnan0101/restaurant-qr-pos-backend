@@ -21,7 +21,6 @@ const primaryLinks = [
   {
     href: '/dashboard',
     label: 'Dashboard',
-    helper: 'Live outlet overview',
     icon: LayoutDashboard,
   },
 ];
@@ -30,43 +29,36 @@ const outletLinks = [
   {
     slug: 'orders',
     label: 'Orders',
-    helper: 'Queue and service tracking',
     icon: ClipboardList,
   },
   {
     slug: 'kds',
     label: 'Kitchen',
-    helper: 'Preparation and pass board',
     icon: ScanLine,
   },
   {
     slug: 'tables',
     label: 'Tables',
-    helper: 'Floor state and QR coverage',
     icon: Store,
   },
   {
     slug: 'pos',
     label: 'POS',
-    helper: 'Walk-in and cashier flow',
     icon: SquareTerminal,
   },
   {
     slug: 'inventory',
     label: 'Inventory',
-    helper: 'Stock, recipes, movement log',
     icon: Package,
   },
   {
     slug: 'printing',
     label: 'Printing',
-    helper: 'Receipts, jobs, and routes',
     icon: Printer,
   },
   {
     slug: 'staff',
     label: 'Team',
-    helper: 'Attendance and role operations',
     icon: Users,
   },
 ];
@@ -122,17 +114,17 @@ export function StaffPageFrame({
 
           <div className="sidebar-block sidebar-profile">
             <div>
-              <p className="eyebrow">Signed in</p>
+              <p className="eyebrow">Operator</p>
               <h2 className="sidebar-title serif">{session.user.fullName}</h2>
               <p className="supporting-copy">{session.user.email}</p>
             </div>
             <div className="profile-metrics">
-              <article className="sub-panel">
-                <span className="metric-label">Outlets</span>
+              <article className="sub-panel sub-panel--soft">
+                <span className="metric-label">Shift scope</span>
                 <strong className="metric-value">
                   {session.user.outlets.length}
                 </strong>
-                <p className="supporting-copy">Live in this shift scope.</p>
+                <p className="supporting-copy">Outlets linked to this login.</p>
               </article>
             </div>
           </div>
@@ -141,7 +133,6 @@ export function StaffPageFrame({
             {primaryLinks.map((item) => (
               <NavLink
                 currentPath={pathname}
-                helper={item.helper}
                 href={item.href}
                 icon={item.icon}
                 key={item.href}
@@ -152,11 +143,7 @@ export function StaffPageFrame({
 
           <div className="sidebar-block">
             <div className="sidebar-block__header">
-              <p className="eyebrow">Accessible outlets</p>
-              <p className="sidebar-helper sidebar-helper--light">
-                Jump straight into the station board that matches the current
-                shift.
-              </p>
+              <p className="eyebrow">Outlets</p>
             </div>
             <div className="pill-list">
               {session.user.outlets.map((outlet) => (
@@ -181,12 +168,8 @@ export function StaffPageFrame({
           {currentOutlet ? (
             <div className="sidebar-block">
               <div className="sidebar-block__header">
-                <p className="eyebrow">Current outlet</p>
+                <p className="eyebrow">Current station</p>
                 <h3 className="sidebar-subtitle">{currentOutlet.name}</h3>
-                <p className="sidebar-helper sidebar-helper--light">
-                  Keep queue, POS, tables, and printing within one compact
-                  workspace.
-                </p>
               </div>
               <nav
                 className="workspace-nav workspace-nav--dark"
@@ -195,7 +178,6 @@ export function StaffPageFrame({
                 {outletLinks.map((item) => (
                   <NavLink
                     currentPath={pathname}
-                    helper={item.helper}
                     href={`/outlets/${currentOutlet.id}/${item.slug}`}
                     icon={item.icon}
                     key={item.slug}
@@ -231,13 +213,11 @@ function NavLink({
   currentPath,
   href,
   label,
-  helper,
   icon: Icon,
 }: {
   currentPath: string;
   href: string;
   label: string;
-  helper: string;
   icon: LucideIcon;
 }) {
   const current = currentPath === href || currentPath.startsWith(`${href}/`);
@@ -251,7 +231,6 @@ function NavLink({
       </span>
       <span className="nav-link-rich__copy">
         <strong>{label}</strong>
-        <small>{helper}</small>
       </span>
     </Link>
   );
