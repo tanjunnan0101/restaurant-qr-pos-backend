@@ -18,8 +18,11 @@ import { AttendanceService } from './attendance.service';
 import type {
   AdjustAttendanceSessionDto,
   ApproveAttendanceSessionDto,
+  CancelAttendanceShiftDto,
   ClockAttendanceDto,
+  CreateAttendanceShiftDto,
   GetAttendanceCurrentQueryDto,
+  ListAttendanceShiftsQueryDto,
   ListAttendanceSessionsQueryDto,
   UpdateAttendanceSettingsDto,
 } from './dto/attendance.dto';
@@ -72,6 +75,54 @@ export class AttendanceController {
     @Query() query: ListAttendanceSessionsQueryDto,
   ) {
     return this.attendance.listSessions(user, outletId, query);
+  }
+
+  @Get('schedules')
+  @Permissions('outlet.read')
+  listSchedules(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Query() query: ListAttendanceShiftsQueryDto,
+  ) {
+    return this.attendance.listSchedules(user, outletId, query);
+  }
+
+  @Post('schedules')
+  @Permissions('user.manage')
+  createSchedule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Body() dto: CreateAttendanceShiftDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.attendance.createSchedule(
+      user,
+      outletId,
+      dto,
+      request.id,
+      ipAddress,
+    );
+  }
+
+  @Post('schedules/:shiftId/cancel')
+  @Permissions('user.manage')
+  cancelSchedule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('outletId') outletId: string,
+    @Param('shiftId') shiftId: string,
+    @Body() dto: CancelAttendanceShiftDto,
+    @Req() request: Request & { id?: string },
+    @Ip() ipAddress: string,
+  ) {
+    return this.attendance.cancelSchedule(
+      user,
+      outletId,
+      shiftId,
+      dto,
+      request.id,
+      ipAddress,
+    );
   }
 
   @Get('settings')

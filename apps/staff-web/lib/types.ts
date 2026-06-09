@@ -804,6 +804,7 @@ export interface AttendanceAdjustmentSummary {
 
 export interface AttendanceSessionEntry {
   id: string;
+  scheduledShiftId: string | null;
   status: 'CLOCKED_IN' | 'CLOCKED_OUT';
   approvalStatus: 'PENDING' | 'APPROVED' | 'ADJUSTED' | 'FLAGGED';
   clockInAt: string;
@@ -855,4 +856,34 @@ export interface AttendanceCurrentResponse {
   }>;
   currentSession: AttendanceSessionEntry | null;
   recentSessions: AttendanceSessionEntry[];
+  scheduleWindow: {
+    from: string;
+    to: string;
+  };
+  scheduledShifts: AttendanceShiftEntry[];
+}
+
+export interface AttendanceShiftEntry {
+  id: string;
+  status: 'SCHEDULED' | 'CANCELLED' | 'COMPLETED';
+  title: string;
+  stationLabel: string | null;
+  note: string | null;
+  startsAt: string;
+  endsAt: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  latestSession: {
+    id: string;
+    status: 'CLOCKED_IN' | 'CLOCKED_OUT';
+    approvalStatus: 'PENDING' | 'APPROVED' | 'ADJUSTED' | 'FLAGGED';
+    clockInAt: string;
+    clockOutAt: string | null;
+    workedMinutes: number | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
 }

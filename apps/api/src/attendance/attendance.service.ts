@@ -10,7 +10,10 @@ import { TenantService } from '../tenant/tenant.service';
 import type {
   AdjustAttendanceSessionDto,
   ApproveAttendanceSessionDto,
+  CancelAttendanceShiftDto,
   ClockAttendanceDto,
+  CreateAttendanceShiftDto,
+  ListAttendanceShiftsQueryDto,
   ListAttendanceSessionsQueryDto,
   UpdateAttendanceSettingsDto,
 } from './dto/attendance.dto';
@@ -71,6 +74,28 @@ const attendanceSessionInclude = {
   },
 };
 
+const attendanceShiftInclude = {
+  user: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+    },
+  },
+  sessions: {
+    orderBy: { clockInAt: 'desc' },
+    take: 1,
+    select: {
+      id: true,
+      status: true,
+      approvalStatus: true,
+      clockInAt: true,
+      clockOutAt: true,
+      workedMinutes: true,
+    },
+  },
+};
+
 @Injectable()
 export class AttendanceService {
   constructor(
@@ -92,7 +117,9 @@ export class AttendanceService {
       targetUserId ?? user.userId,
     );
 
-    const [settings, currentSession, recentSessions, staffRoster] =
+    const scheduleWindow = getDefaultScheduleWindow();
+
+    const [settings, currentSession, recentSessions, staffRoster, scheduledShifts] =
       await Promise.all([
         this.getOrCreateSettings(
           this.prisma,
@@ -121,12 +148,20 @@ export class AttendanceService {
           include: attendanceSessionInclude,
         }),
         this.listAttendanceRoster(this.prisma, user.companyId, outletId),
+        this.listScheduledShifts(this.prisma, user.companyId, outletId, {
+          from: scheduleWindow.from,
+          to: scheduleWindow.to,
+        }),
       ]);
 
     return {
       settings: this.toSettingResponse(settings),
       selectedUser: subject,
       staffRoster,
+      scheduleWindow,
+      scheduledShifts: (scheduledShifts as any[]).map((shift) =>
+        this.toShiftResponse(shift),
+      ),
       currentSession: currentSession
         ? this.toSessionResponse(currentSession)
         : null,
@@ -179,6 +214,16 @@ export class AttendanceService {
         );
       }
 
+      const scheduledShift = dto.scheduledShiftId
+        ? await this.resolveScheduledShift(
+            tx,
+            user.companyId,
+            outletId,
+            subject.id,
+            dto.scheduledShiftId,
+          )
+        : null;
+
       const photoPayload = normalizePhotoPayload(dto.photoDataUrl);
       if (settings.requirePhoto && !photoPayload) {
         throw new BadRequestException(
@@ -191,6 +236,7 @@ export class AttendanceService {
           companyId: user.companyId,
           outletId,
           userId: subject.id,
+          scheduledShiftId: scheduledShift?.id ?? null,
           status: 'CLOCKED_IN',
           approvalStatus: 'PENDING',
           clockInDeviceLabel: normalizeText(dto.deviceLabel),
@@ -225,6 +271,7 @@ export class AttendanceService {
             sessionId: session.id,
             attendanceUserId: subject.id,
             attendanceUserName: subject.fullName,
+            scheduledShiftId: scheduledShift?.id ?? null,
             clockInAt: session.clockInAt,
             deviceLabel: normalizeText(dto.deviceLabel),
             photoProvided: Boolean(photoPayload),
@@ -319,6 +366,16 @@ export class AttendanceService {
         },
       });
 
+      if (session.scheduledShiftId) {
+        await attendanceShifts(tx).update({
+          where: { id: session.scheduledShiftId },
+          data: {
+            status: 'COMPLETED',
+            updatedByUserId: user.userId,
+          },
+        });
+      }
+
       if (photoPayload) {
         await attendancePhotos(tx).create({
           data: {
@@ -405,6 +462,190 @@ export class AttendanceService {
         this.toSessionResponse(session),
       ),
     };
+  }
+
+  async listSchedules(
+    user: AuthenticatedUser,
+    outletId: string,
+    query: ListAttendanceShiftsQueryDto,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+    const window = {
+      from: query.from ?? getDefaultScheduleWindow().from,
+      to: query.to ?? getDefaultScheduleWindow().to,
+    };
+    const shifts = await this.listScheduledShifts(
+      this.prisma,
+      user.companyId,
+      outletId,
+      {
+        from: window.from,
+        to: window.to,
+        userId: query.userId,
+        status: query.status,
+      },
+    );
+
+    return {
+      window,
+      shifts: (shifts as any[]).map((shift) => this.toShiftResponse(shift)),
+    };
+  }
+
+  async createSchedule(
+    user: AuthenticatedUser,
+    outletId: string,
+    dto: CreateAttendanceShiftDto,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const subject = await this.resolveAttendanceSubject(
+        tx,
+        user.companyId,
+        outletId,
+        dto.userId,
+      );
+      const startsAt = new Date(dto.startsAt);
+      const endsAt = new Date(dto.endsAt);
+      if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+        throw new BadRequestException('Shift start and end time are required.');
+      }
+      if (endsAt.getTime() <= startsAt.getTime()) {
+        throw new BadRequestException(
+          'Shift end time must be later than the shift start time.',
+        );
+      }
+      const overlap = await attendanceShifts(tx).findFirst({
+        where: {
+          companyId: user.companyId,
+          outletId,
+          userId: subject.id,
+          status: {
+            in: ['SCHEDULED', 'COMPLETED'],
+          },
+          startsAt: {
+            lt: endsAt,
+          },
+          endsAt: {
+            gt: startsAt,
+          },
+        },
+        select: { id: true },
+      });
+      if (overlap) {
+        throw new BadRequestException(
+          'This staff member already has a shift overlapping that time range.',
+        );
+      }
+
+      const created = await attendanceShifts(tx).create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          userId: subject.id,
+          title: dto.title.trim(),
+          stationLabel: normalizeText(dto.stationLabel),
+          note: normalizeText(dto.note),
+          startsAt,
+          endsAt,
+          createdByUserId: user.userId,
+          updatedByUserId: user.userId,
+        },
+        include: attendanceShiftInclude,
+      });
+
+      await tx.auditLog.create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          actorUserId: user.userId,
+          actionType: 'ATTENDANCE_SHIFT_CREATED',
+          entityType: 'attendance_shift',
+          entityId: created.id,
+          afterJson: {
+            shiftId: created.id,
+            attendanceUserId: subject.id,
+            attendanceUserName: subject.fullName,
+            startsAt,
+            endsAt,
+            title: created.title,
+            stationLabel: created.stationLabel,
+          } as Prisma.InputJsonValue,
+          reason:
+            normalizeText(dto.note) ??
+            `Scheduled ${subject.fullName} for ${created.title}.`,
+          requestId,
+          ipAddress,
+        },
+      });
+
+      return this.toShiftResponse(created);
+    });
+  }
+
+  async cancelSchedule(
+    user: AuthenticatedUser,
+    outletId: string,
+    shiftId: string,
+    dto: CancelAttendanceShiftDto,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    await this.tenant.assertOutlet(user.companyId, outletId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await attendanceShifts(tx).findFirst({
+        where: {
+          id: shiftId,
+          companyId: user.companyId,
+          outletId,
+        },
+        include: attendanceShiftInclude,
+      });
+      if (!existing) {
+        throw new NotFoundException('Attendance shift not found.');
+      }
+      if (existing.status === 'CANCELLED') {
+        throw new BadRequestException('This shift is already cancelled.');
+      }
+
+      const updated = await attendanceShifts(tx).update({
+        where: { id: existing.id },
+        data: {
+          status: 'CANCELLED',
+          note: normalizeText(dto.reason) ?? existing.note,
+          updatedByUserId: user.userId,
+        },
+        include: attendanceShiftInclude,
+      });
+
+      await tx.auditLog.create({
+        data: {
+          companyId: user.companyId,
+          outletId,
+          actorUserId: user.userId,
+          actionType: 'ATTENDANCE_SHIFT_CANCELLED',
+          entityType: 'attendance_shift',
+          entityId: updated.id,
+          beforeJson: {
+            status: existing.status,
+            startsAt: existing.startsAt,
+            endsAt: existing.endsAt,
+          } as Prisma.InputJsonValue,
+          afterJson: {
+            status: updated.status,
+          } as Prisma.InputJsonValue,
+          reason: dto.reason,
+          requestId,
+          ipAddress,
+        },
+      });
+
+      return this.toShiftResponse(updated);
+    });
   }
 
   async getSettings(user: AuthenticatedUser, outletId: string) {
@@ -787,6 +1028,59 @@ export class AttendanceService {
     });
   }
 
+  private async listScheduledShifts(
+    client: Prisma.TransactionClient | PrismaService,
+    companyId: string,
+    outletId: string,
+    input: {
+      from: string;
+      to: string;
+      userId?: string;
+      status?: string;
+    },
+  ) {
+    const from = new Date(input.from);
+    const to = new Date(input.to);
+    return attendanceShifts(client).findMany({
+      where: {
+        companyId,
+        outletId,
+        ...(input.userId ? { userId: input.userId } : {}),
+        ...(input.status ? { status: input.status as any } : {}),
+        startsAt: {
+          gte: from,
+          lte: to,
+        },
+      },
+      orderBy: [{ startsAt: 'asc' }, { createdAt: 'asc' }],
+      include: attendanceShiftInclude,
+    });
+  }
+
+  private async resolveScheduledShift(
+    client: Prisma.TransactionClient | PrismaService,
+    companyId: string,
+    outletId: string,
+    userId: string,
+    shiftId: string,
+  ) {
+    const shift = await attendanceShifts(client).findFirst({
+      where: {
+        id: shiftId,
+        companyId,
+        outletId,
+        userId,
+      },
+    });
+    if (!shift) {
+      throw new NotFoundException('Scheduled shift not found for this user.');
+    }
+    if (shift.status === 'CANCELLED') {
+      throw new BadRequestException('This scheduled shift has been cancelled.');
+    }
+    return shift;
+  }
+
   private async getOrCreateSettings(
     client: Prisma.TransactionClient | PrismaService,
     companyId: string,
@@ -835,6 +1129,7 @@ export class AttendanceService {
   private toSessionResponse(session: any) {
     return {
       id: session.id,
+      scheduledShiftId: session.scheduledShiftId ?? null,
       status: session.status,
       approvalStatus: session.approvalStatus,
       clockInAt: session.clockInAt,
@@ -856,6 +1151,32 @@ export class AttendanceService {
       updatedAt: session.updatedAt,
     };
   }
+
+  private toShiftResponse(shift: any) {
+    const latestSession = shift.sessions?.[0] ?? null;
+    return {
+      id: shift.id,
+      status: shift.status,
+      title: shift.title,
+      stationLabel: shift.stationLabel,
+      note: shift.note,
+      startsAt: shift.startsAt,
+      endsAt: shift.endsAt,
+      user: shift.user,
+      latestSession: latestSession
+        ? {
+            id: latestSession.id,
+            status: latestSession.status,
+            approvalStatus: latestSession.approvalStatus,
+            clockInAt: latestSession.clockInAt,
+            clockOutAt: latestSession.clockOutAt,
+            workedMinutes: latestSession.workedMinutes,
+          }
+        : null,
+      createdAt: shift.createdAt,
+      updatedAt: shift.updatedAt,
+    };
+  }
 }
 
 function attendanceSettings(client: unknown) {
@@ -872,6 +1193,10 @@ function attendancePhotos(client: unknown) {
 
 function attendanceAdjustments(client: unknown) {
   return (client as { attendanceAdjustment: any }).attendanceAdjustment;
+}
+
+function attendanceShifts(client: unknown) {
+  return (client as { attendanceShift: any }).attendanceShift;
 }
 
 function normalizeText(value?: string | null): string | null {
@@ -903,4 +1228,18 @@ function normalizePhotoPayload(value?: string): string | null {
 
 function diffMinutes(start: Date, end: Date): number {
   return Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+}
+
+function getDefaultScheduleWindow() {
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+
+  const to = new Date(from);
+  to.setDate(to.getDate() + 6);
+  to.setHours(23, 59, 59, 999);
+
+  return {
+    from: from.toISOString(),
+    to: to.toISOString(),
+  };
 }

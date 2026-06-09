@@ -113,6 +113,12 @@ enum AttendancePhotoType {
   CLOCK_OUT
 }
 
+enum AttendanceShiftStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
 enum StockMovementType {
   PURCHASE
   SALE_DEDUCTION
@@ -281,6 +287,7 @@ model Company {
   tableSessions        TableSession[]
   serviceRequests      ServiceRequest[]
   attendanceSettings   AttendanceSetting[]
+  attendanceShifts     AttendanceShift[]
   attendanceSessions   AttendanceSession[]
   attendancePhotos     AttendancePhoto[]
   attendanceAdjustments AttendanceAdjustment[]
@@ -331,6 +338,7 @@ model Outlet {
   tableSessions         TableSession[]
   serviceRequests       ServiceRequest[]
   attendanceSetting     AttendanceSetting?
+  attendanceShifts      AttendanceShift[]
   attendanceSessions    AttendanceSession[]
   attendancePhotos      AttendancePhoto[]
   attendanceAdjustments AttendanceAdjustment[]
@@ -375,6 +383,9 @@ model User {
   paymentsVerified       Payment[]              @relation("PaymentVerifiedBy")
   resolvedServiceRequests ServiceRequest[]      @relation("ServiceRequestResolvedBy")
   attendanceSettingsUpdated AttendanceSetting[] @relation("AttendanceSettingUpdatedBy")
+  attendanceShiftsAssigned AttendanceShift[]    @relation("AttendanceShiftAssignedUser")
+  attendanceShiftsCreated  AttendanceShift[]    @relation("AttendanceShiftCreatedBy")
+  attendanceShiftsUpdated  AttendanceShift[]    @relation("AttendanceShiftUpdatedBy")
   attendanceSessions      AttendanceSession[]   @relation("AttendanceSessionUser")
   attendanceSessionsApproved AttendanceSession[] @relation("AttendanceSessionApprovedBy")
   attendancePhotosUploaded AttendancePhoto[]    @relation("AttendancePhotoUploadedBy")
@@ -507,6 +518,7 @@ model AttendanceSession {
   companyId          String                   @map("company_id") @db.Uuid
   outletId           String                   @map("outlet_id") @db.Uuid
   userId             String                   @map("user_id") @db.Uuid
+  scheduledShiftId   String?                  @map("scheduled_shift_id") @db.Uuid
   status             AttendanceSessionStatus  @default(CLOCKED_IN)
   approvalStatus     AttendanceApprovalStatus @default(PENDING) @map("approval_status")
   clockInAt          DateTime                 @default(now()) @map("clock_in_at") @db.Timestamptz(6)
@@ -526,14 +538,44 @@ model AttendanceSession {
   company            Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   outlet             Outlet                   @relation(fields: [outletId], references: [id], onDelete: Cascade)
   user               User                     @relation("AttendanceSessionUser", fields: [userId], references: [id], onDelete: Cascade)
+  scheduledShift     AttendanceShift?         @relation(fields: [scheduledShiftId], references: [id], onDelete: SetNull)
   approvedBy         User?                    @relation("AttendanceSessionApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
   photos             AttendancePhoto[]
   adjustments        AttendanceAdjustment[]
 
   @@index([companyId, outletId, createdAt(sort: Desc)])
+  @@index([scheduledShiftId])
   @@index([outletId, userId, status, clockInAt(sort: Desc)])
   @@index([outletId, approvalStatus, clockInAt(sort: Desc)])
   @@map("attendance_sessions")
+}
+
+model AttendanceShift {
+  id               String                @id @default(uuid()) @db.Uuid
+  companyId        String                @map("company_id") @db.Uuid
+  outletId         String                @map("outlet_id") @db.Uuid
+  userId           String                @map("user_id") @db.Uuid
+  status           AttendanceShiftStatus @default(SCHEDULED)
+  title            String                @db.VarChar(120)
+  stationLabel     String?               @map("station_label") @db.VarChar(160)
+  note             String?               @db.VarChar(500)
+  startsAt         DateTime              @map("starts_at") @db.Timestamptz(6)
+  endsAt           DateTime              @map("ends_at") @db.Timestamptz(6)
+  createdByUserId  String?               @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?               @map("updated_by_user_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company          Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  outlet           Outlet                @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  user             User                  @relation("AttendanceShiftAssignedUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy        User?                 @relation("AttendanceShiftCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy        User?                 @relation("AttendanceShiftUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  sessions         AttendanceSession[]
+
+  @@index([companyId, outletId, startsAt(sort: Asc)])
+  @@index([outletId, userId, startsAt(sort: Asc)])
+  @@index([outletId, status, startsAt(sort: Asc)])
+  @@map("attendance_shifts")
 }
 
 model AttendancePhoto {

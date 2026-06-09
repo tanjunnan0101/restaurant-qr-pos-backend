@@ -855,6 +855,7 @@ export function clockInAttendance(
   outletId: string,
   input?: {
     userId?: string;
+    scheduledShiftId?: string;
     deviceLabel?: string;
     note?: string;
     photoDataUrl?: string;
@@ -875,6 +876,7 @@ export function clockOutAttendance(
   outletId: string,
   input?: {
     userId?: string;
+    scheduledShiftId?: string;
     deviceLabel?: string;
     note?: string;
     photoDataUrl?: string;
@@ -886,6 +888,46 @@ export function clockOutAttendance(
       method: 'POST',
       headers: authHeaders(token),
       body: JSON.stringify(input ?? {}),
+    },
+  );
+}
+
+export function createAttendanceSchedule(
+  token: string,
+  outletId: string,
+  input: {
+    userId: string;
+    title: string;
+    stationLabel?: string;
+    note?: string;
+    startsAt: string;
+    endsAt: string;
+  },
+) {
+  return request(
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/schedules`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function cancelAttendanceSchedule(
+  token: string,
+  outletId: string,
+  shiftId: string,
+  input: {
+    reason: string;
+  },
+) {
+  return request(
+    `/admin/outlets/${encodeURIComponent(outletId)}/attendance/schedules/${encodeURIComponent(shiftId)}/cancel`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
     },
   );
 }

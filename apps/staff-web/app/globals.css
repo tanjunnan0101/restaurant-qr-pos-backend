@@ -1951,9 +1951,19 @@ body {
 .attendance-roster-grid,
 .attendance-kiosk-grid,
 .attendance-action-row,
-.attendance-photo-proof {
+.attendance-photo-proof,
+.attendance-day-stack {
   display: grid;
   gap: 18px;
+}
+
+.attendance-day-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 253, 248, 0.92);
 }
 
 .attendance-hero {
@@ -2011,6 +2021,10 @@ body {
 
 .attendance-kiosk-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field--full {
+  grid-column: 1 / -1;
 }
 
 .attendance-photo-proof {

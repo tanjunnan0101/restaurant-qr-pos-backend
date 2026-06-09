@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  cancelAttendanceSchedule,
   clockInAttendance,
   clockOutAttendance,
+  createAttendanceSchedule,
   getAttendanceCurrent,
 } from '@/lib/api';
 import type {
   AttendanceCurrentResponse,
+  AttendanceShiftEntry,
   AttendanceSessionEntry,
 } from '@/lib/types';
 import {
@@ -18,12 +21,6 @@ import {
 
 const PHOTO_REQUIRED_MESSAGE =
   'A clock photo is required on this station before continuing.';
-
-type ShiftSlot = {
-  shiftLabel: string;
-  shiftWindow: string;
-  checkpoint: string;
-};
 
 export function OutletAttendancePage() {
   const {
@@ -44,6 +41,15 @@ export function OutletAttendancePage() {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(undefined);
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
+  const [scheduleUserId, setScheduleUserId] = useState<string | null>(null);
+  const [scheduleDate, setScheduleDate] = useState(getDefaultScheduleDate());
+  const [scheduleStartTime, setScheduleStartTime] = useState('09:00');
+  const [scheduleEndTime, setScheduleEndTime] = useState('17:00');
+  const [scheduleTitle, setScheduleTitle] = useState('Counter shift');
+  const [scheduleStationLabel, setScheduleStationLabel] = useState('Front counter iPad');
+  const [scheduleNote, setScheduleNote] = useState('');
+  const [scheduleBusy, setScheduleBusy] = useState(false);
 
   async function refresh(authToken: string, nextUserId?: string | null) {
     const requestedUserId = resolveRequestedAttendanceUserId(
@@ -122,18 +128,37 @@ export function OutletAttendancePage() {
   const currentSession = payload?.currentSession ?? null;
   const recentSessions = payload?.recentSessions ?? [];
   const staffRoster = payload?.staffRoster ?? [];
+  const scheduledShifts = payload?.scheduledShifts ?? [];
   const settings = payload?.settings;
-  const shiftBoard = useMemo(
-    () =>
-      staffRoster.map((entry, index) => ({
-        ...entry,
-        ...buildShiftSlot(entry.roleKey, index),
-      })),
-    [staffRoster],
+  const outletAccess = useMemo(
+    () => session?.user.outlets.find((entry) => entry.id === outletId) ?? null,
+    [outletId, session],
   );
+  const canManageSchedule =
+    outletAccess?.permissions.includes('user.manage') ?? false;
+  const shiftBoard = useMemo(() => scheduledShifts, [scheduledShifts]);
   const selectedShift =
-    shiftBoard.find((entry) => entry.id === selectedUser?.id) ?? null;
+    shiftBoard.find((entry) => entry.id === selectedShiftId) ??
+    shiftBoard.find((entry) => entry.user.id === selectedUser?.id) ??
+    null;
   const activeStaffCount = staffRoster.filter((entry) => entry.activeSession).length;
+  const groupedShifts = useMemo(
+    () => groupShiftsByDay(shiftBoard),
+    [shiftBoard],
+  );
+  const manualSelection =
+    selectedUserId && !selectedShift ? staffRoster.find((entry) => entry.id === selectedUserId) : null;
+
+  useEffect(() => {
+    if (staffRoster.length === 0) {
+      setScheduleUserId(null);
+      return;
+    }
+    if (scheduleUserId && staffRoster.some((entry) => entry.id === scheduleUserId)) {
+      return;
+    }
+    setScheduleUserId(staffRoster[0]?.id ?? null);
+  }, [scheduleUserId, staffRoster]);
 
   const currentDuration = useMemo(() => {
     if (!currentSession) {
@@ -169,6 +194,8 @@ export function OutletAttendancePage() {
       if (action === 'in') {
         await clockInAttendance(session.accessToken, outletId, {
           userId: requestedUserId,
+          scheduledShiftId:
+            selectedShift?.user.id === selectedUser.id ? selectedShift.id : undefined,
           deviceLabel: deviceLabel.trim() || undefined,
           note: note.trim() || undefined,
           photoDataUrl,
@@ -177,6 +204,8 @@ export function OutletAttendancePage() {
       } else {
         await clockOutAttendance(session.accessToken, outletId, {
           userId: requestedUserId,
+          scheduledShiftId:
+            selectedShift?.user.id === selectedUser.id ? selectedShift.id : undefined,
           deviceLabel: deviceLabel.trim() || undefined,
           note: note.trim() || undefined,
           photoDataUrl,
@@ -226,6 +255,76 @@ export function OutletAttendancePage() {
 
   const selectedRosterEntry =
     staffRoster.find((entry) => entry.id === selectedUser?.id) ?? null;
+
+  async function handleCreateShift() {
+    if (!session?.accessToken) {
+      return;
+    }
+    const targetUserId = scheduleUserId ?? '';
+    if (!targetUserId) {
+      setError('Select a staff member before creating a shift.');
+      return;
+    }
+    const startsAt = combineLocalDateTime(scheduleDate, scheduleStartTime);
+    const endsAt = combineLocalDateTime(scheduleDate, scheduleEndTime);
+    if (!startsAt || !endsAt) {
+      setError('Choose a valid shift date and time range.');
+      return;
+    }
+    setScheduleBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const created = (await createAttendanceSchedule(session.accessToken, outletId, {
+        userId: targetUserId,
+        title: scheduleTitle.trim() || 'Service shift',
+        stationLabel: scheduleStationLabel.trim() || undefined,
+        note: scheduleNote.trim() || undefined,
+        startsAt,
+        endsAt,
+      })) as AttendanceShiftEntry;
+      setSelectedShiftId(created.id);
+      setSelectedUserId(created.user.id);
+      setScheduleNote('');
+      await refresh(session.accessToken, created.user.id);
+      setSuccess(`Scheduled ${created.user.fullName} for ${formatShiftRange(created.startsAt, created.endsAt)}.`);
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : 'Could not create the attendance shift.',
+      );
+    } finally {
+      setScheduleBusy(false);
+    }
+  }
+
+  async function handleCancelShift(shiftId: string) {
+    if (!session?.accessToken) {
+      return;
+    }
+    setScheduleBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await cancelAttendanceSchedule(session.accessToken, outletId, shiftId, {
+        reason: 'Shift removed from the schedule board.',
+      });
+      await refresh(session.accessToken, selectedUser?.id);
+      if (selectedShiftId === shiftId) {
+        setSelectedShiftId(null);
+      }
+      setSuccess('Shift removed from the schedule board.');
+    } catch (cancelError) {
+      setError(
+        cancelError instanceof Error
+          ? cancelError.message
+          : 'Could not cancel the attendance shift.',
+      );
+    } finally {
+      setScheduleBusy(false);
+    }
+  }
 
   return (
     <OutletPageLayout
@@ -281,17 +380,221 @@ export function OutletAttendancePage() {
                 <p className="eyebrow">Shift board</p>
                 <h2 className="section-title">Tap your scheduled shift</h2>
                 <p className="supporting-copy">
-                  Operators pick themselves first, then the station opens the
-                  camera and clock controls for that shift.
+                  The team clocks from scheduled tiles first. If someone is not
+                  scheduled yet, use the roster fallback below.
                 </p>
+              </div>
+              <span className="supporting-copy">
+                {shiftBoard.length} scheduled shift{shiftBoard.length === 1 ? '' : 's'} in view
+              </span>
+            </div>
+            {shiftBoard.length === 0 ? (
+              <div className="empty-state">
+                <strong>No scheduled shifts yet.</strong>
+                <p className="supporting-copy">
+                  Create today&apos;s timetable below, then staff can tap their own
+                  shift tile to clock in.
+                </p>
+              </div>
+            ) : (
+              <div className="attendance-day-stack">
+                {groupedShifts.map(([dayLabel, dayShifts]) => (
+                  <section className="attendance-day-panel" key={dayLabel}>
+                    <div className="section-header">
+                      <div>
+                        <p className="eyebrow">Timetable</p>
+                        <h3 className="section-title">{dayLabel}</h3>
+                      </div>
+                      <span className="supporting-copy">
+                        {dayShifts.length} shift{dayShifts.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <div className="attendance-roster-grid">
+                      {dayShifts.map((entry) => {
+                        const active = entry.id === selectedShift?.id;
+                        const roleName =
+                          staffRoster.find((staff) => staff.id === entry.user.id)?.roleName ??
+                          'Staff';
+                        return (
+                          <button
+                            className={
+                              active
+                                ? 'attendance-roster-card active'
+                                : 'attendance-roster-card'
+                            }
+                            key={entry.id}
+                            onClick={() => {
+                              setSelectedShiftId(entry.id);
+                              setSelectedUserId(entry.user.id);
+                              setScheduleUserId(entry.user.id);
+                              setPhotoDataUrl(undefined);
+                              setPhotoName(null);
+                              setSuccess(null);
+                              setError(null);
+                            }}
+                            type="button"
+                          >
+                            <div>
+                              <p className="eyebrow">{entry.title}</p>
+                              <strong>{entry.user.fullName}</strong>
+                              <p>{roleName}</p>
+                              <small>{formatShiftRange(entry.startsAt, entry.endsAt)}</small>
+                              <div className="support-inline-meta">
+                                <span>{entry.stationLabel ?? 'Shared station'}</span>
+                                <span>{entry.note ?? 'Scheduled shift'}</span>
+                              </div>
+                            </div>
+                            <span
+                              className={`status-pill ${
+                                entry.status === 'CANCELLED'
+                                  ? 'danger'
+                                  : entry.latestSession?.status === 'CLOCKED_IN'
+                                    ? 'warning'
+                                    : entry.status === 'COMPLETED'
+                                      ? 'success'
+                                      : 'neutral'
+                              }`}
+                            >
+                              {entry.status === 'CANCELLED'
+                                ? 'Cancelled'
+                                : entry.latestSession?.status === 'CLOCKED_IN'
+                                  ? 'On shift'
+                                  : entry.status === 'COMPLETED'
+                                    ? 'Completed'
+                                    : 'Scheduled'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {canManageSchedule ? (
+            <section className="panel section-panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">Schedule planner</p>
+                  <h2 className="section-title">Add a shift to the timetable</h2>
+                  <p className="supporting-copy">
+                    Manager sets the employee, date, station, and hours here.
+                    Staff then tap that shift tile to clock in from the shared device.
+                  </p>
+                </div>
+                <span className="status-pill neutral">Manager only</span>
+              </div>
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="schedule-user">Employee</label>
+                  <select
+                    id="schedule-user"
+                    onChange={(event) => setScheduleUserId(event.target.value)}
+                    value={scheduleUserId ?? ''}
+                  >
+                    {staffRoster.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.fullName} | {entry.roleName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="schedule-title">Shift title</label>
+                  <input
+                    id="schedule-title"
+                    onChange={(event) => setScheduleTitle(event.target.value)}
+                    value={scheduleTitle}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="schedule-date">Shift date</label>
+                  <input
+                    id="schedule-date"
+                    onChange={(event) => setScheduleDate(event.target.value)}
+                    type="date"
+                    value={scheduleDate}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="schedule-start">Start</label>
+                  <input
+                    id="schedule-start"
+                    onChange={(event) => setScheduleStartTime(event.target.value)}
+                    type="time"
+                    value={scheduleStartTime}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="schedule-end">End</label>
+                  <input
+                    id="schedule-end"
+                    onChange={(event) => setScheduleEndTime(event.target.value)}
+                    type="time"
+                    value={scheduleEndTime}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="schedule-station">Station label</label>
+                  <input
+                    id="schedule-station"
+                    onChange={(event) => setScheduleStationLabel(event.target.value)}
+                    placeholder="Front counter iPad"
+                    value={scheduleStationLabel}
+                  />
+                </div>
+                <div className="field field--full">
+                  <label htmlFor="schedule-note">Manager note</label>
+                  <input
+                    id="schedule-note"
+                    onChange={(event) => setScheduleNote(event.target.value)}
+                    placeholder="Lunch cover, cashier open, closing handoff..."
+                    value={scheduleNote}
+                  />
+                </div>
+              </div>
+              <div className="attendance-action-row">
+                <button
+                  className="primary-button"
+                  disabled={scheduleBusy}
+                  onClick={() => void handleCreateShift()}
+                  type="button"
+                >
+                  {scheduleBusy ? 'Saving shift...' : 'Add shift'}
+                </button>
+                {selectedShift ? (
+                  <button
+                    className="secondary-button"
+                    disabled={scheduleBusy || selectedShift.status === 'CANCELLED'}
+                    onClick={() => void handleCancelShift(selectedShift.id)}
+                    type="button"
+                  >
+                    {scheduleBusy ? 'Working...' : 'Cancel selected shift'}
+                  </button>
+                ) : (
+                  <div className="soft-note">
+                    Select a shift tile above to cancel or review it.
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="panel section-panel">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Manual fallback</p>
+                <h2 className="section-title">Select employee without a schedule</h2>
               </div>
               <span className="supporting-copy">
                 {staffRoster.length} active staff linked to this outlet
               </span>
             </div>
             <div className="attendance-roster-grid">
-              {shiftBoard.map((entry) => {
-                const active = entry.id === selectedUser.id;
+              {staffRoster.map((entry) => {
+                const active = entry.id === selectedUser.id && !selectedShift;
                 return (
                   <button
                     className={
@@ -301,7 +604,9 @@ export function OutletAttendancePage() {
                     }
                     key={entry.id}
                     onClick={() => {
+                      setSelectedShiftId(null);
                       setSelectedUserId(entry.id);
+                      setScheduleUserId(entry.id);
                       setPhotoDataUrl(undefined);
                       setPhotoName(null);
                       setSuccess(null);
@@ -310,14 +615,9 @@ export function OutletAttendancePage() {
                     type="button"
                   >
                     <div>
-                      <p className="eyebrow">{entry.shiftLabel}</p>
                       <strong>{entry.fullName}</strong>
                       <p>{entry.roleName}</p>
                       <small>{entry.email}</small>
-                      <div className="support-inline-meta">
-                        <span>{entry.shiftWindow}</span>
-                        <span>{entry.checkpoint}</span>
-                      </div>
                     </div>
                     <span
                       className={`status-pill ${
@@ -343,8 +643,14 @@ export function OutletAttendancePage() {
                   </p>
                   {selectedShift ? (
                     <div className="support-inline-meta">
-                      <span>{selectedShift.shiftLabel}</span>
-                      <span>{selectedShift.shiftWindow}</span>
+                      <span>{selectedShift.title}</span>
+                      <span>{formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}</span>
+                      <span>{selectedShift.stationLabel ?? 'Shared station'}</span>
+                    </div>
+                  ) : manualSelection ? (
+                    <div className="support-inline-meta">
+                      <span>Manual selection</span>
+                      <span>No scheduled shift selected</span>
                     </div>
                   ) : null}
                 </div>
@@ -492,7 +798,9 @@ export function OutletAttendancePage() {
                 <article className="sub-panel surface-panel">
                   <span className="metric-label">Shift window</span>
                   <strong className="scope-card-value">
-                    {selectedShift?.shiftWindow ?? 'Today'}
+                    {selectedShift
+                      ? formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)
+                      : 'Manual'}
                   </strong>
                 </article>
                 <article className="sub-panel surface-panel">
@@ -604,35 +912,6 @@ function resolveRequestedAttendanceUserId(
   return selectedUserId;
 }
 
-function buildShiftSlot(roleKey: string, index: number): ShiftSlot {
-  const templates: Record<string, ShiftSlot[]> = {
-    OWNER: [
-      { shiftLabel: 'Owner cover', shiftWindow: '10:00 - 19:00', checkpoint: 'Open + review' },
-    ],
-    MANAGER: [
-      { shiftLabel: 'Manager open', shiftWindow: '09:00 - 18:00', checkpoint: 'Open floor' },
-      { shiftLabel: 'Manager close', shiftWindow: '13:00 - 22:00', checkpoint: 'Close floor' },
-    ],
-    CASHIER: [
-      { shiftLabel: 'Counter AM', shiftWindow: '09:00 - 17:00', checkpoint: 'Cash drawer open' },
-      { shiftLabel: 'Counter PM', shiftWindow: '13:00 - 21:00', checkpoint: 'Settlement close' },
-    ],
-    WAITER: [
-      { shiftLabel: 'Floor lunch', shiftWindow: '10:30 - 18:30', checkpoint: 'Floor service' },
-      { shiftLabel: 'Floor dinner', shiftWindow: '12:00 - 20:00', checkpoint: 'Guest coverage' },
-    ],
-    KITCHEN: [
-      { shiftLabel: 'Prep line', shiftWindow: '08:00 - 16:00', checkpoint: 'Prep handoff' },
-      { shiftLabel: 'Hot line', shiftWindow: '11:00 - 19:00', checkpoint: 'Rush coverage' },
-    ],
-  };
-
-  const selectedGroup = templates[roleKey] ?? [
-    { shiftLabel: 'Service shift', shiftWindow: '11:00 - 19:00', checkpoint: 'Station ready' },
-  ];
-  return selectedGroup[index % selectedGroup.length]!;
-}
-
 function formatAttendanceError(message: string) {
   const normalized = message.toLowerCase();
   if (normalized.includes('property userid should not exist')) {
@@ -685,6 +964,54 @@ function formatScheduleDate(value: string) {
     day: 'numeric',
     month: 'short',
   }).format(date);
+}
+
+function formatShiftRange(startsAt: string, endsAt: string) {
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return 'Unscheduled';
+  }
+  return `${new Intl.DateTimeFormat('en-SG', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(start)} - ${new Intl.DateTimeFormat('en-SG', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(end)}`;
+}
+
+function groupShiftsByDay(shifts: AttendanceShiftEntry[]) {
+  const groups = new Map<string, AttendanceShiftEntry[]>();
+  for (const shift of shifts) {
+    const label = new Intl.DateTimeFormat('en-SG', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    }).format(new Date(shift.startsAt));
+    const existing = groups.get(label) ?? [];
+    existing.push(shift);
+    groups.set(label, existing);
+  }
+  return Array.from(groups.entries());
+}
+
+function combineLocalDateTime(dateValue: string, timeValue: string) {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+  const combined = new Date(`${dateValue}T${timeValue}:00`);
+  if (Number.isNaN(combined.getTime())) {
+    return null;
+  }
+  return combined.toISOString();
+}
+
+function getDefaultScheduleDate() {
+  const now = new Date();
+  const month = `${now.getMonth() + 1}`.padStart(2, '0');
+  const day = `${now.getDate()}`.padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 function statusTone(status: AttendanceSessionEntry['status']) {

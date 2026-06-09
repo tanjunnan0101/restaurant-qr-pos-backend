@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Max,
   MaxLength,
@@ -19,6 +20,7 @@ const attendanceApprovalStatuses = [
   'ADJUSTED',
   'FLAGGED',
 ] as const;
+const attendanceShiftStatuses = ['SCHEDULED', 'CANCELLED', 'COMPLETED'] as const;
 
 export class ClockAttendanceDto {
   @ApiPropertyOptional({
@@ -41,6 +43,14 @@ export class ClockAttendanceDto {
   @IsString()
   @Length(0, 500)
   note?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional scheduled shift linked to this clock event when using the shared timetable.',
+  })
+  @IsOptional()
+  @IsUUID()
+  scheduledShiftId?: string;
 
   @ApiPropertyOptional({
     description:
@@ -132,6 +142,76 @@ export class UpdateAttendanceSettingsDto {
   timezone?: string;
 
   @ApiProperty({ example: 'Updated attendance policy for launch week.' })
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
+}
+
+export class ListAttendanceShiftsQueryDto {
+  @ApiPropertyOptional({
+    description: 'Inclusive UTC ISO timestamp.',
+  })
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive UTC ISO timestamp.',
+  })
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+
+  @ApiPropertyOptional({ enum: attendanceShiftStatuses })
+  @IsOptional()
+  @IsIn(attendanceShiftStatuses)
+  status?: (typeof attendanceShiftStatuses)[number];
+}
+
+export class CreateAttendanceShiftDto {
+  @ApiProperty({
+    description: 'Assigned staff member for the shift.',
+  })
+  @IsUUID()
+  userId!: string;
+
+  @ApiProperty({ example: 'Lunch counter' })
+  @IsString()
+  @Length(2, 120)
+  title!: string;
+
+  @ApiPropertyOptional({ example: 'Front counter iPad' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 160)
+  stationLabel?: string;
+
+  @ApiPropertyOptional({ example: 'Cover lunch handoff and cashier open.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  note?: string;
+
+  @ApiProperty({
+    description: 'UTC ISO shift start timestamp.',
+  })
+  @IsDateString()
+  startsAt!: string;
+
+  @ApiProperty({
+    description: 'UTC ISO shift end timestamp.',
+  })
+  @IsDateString()
+  endsAt!: string;
+}
+
+export class CancelAttendanceShiftDto {
+  @ApiProperty({ example: 'Roster changed for today.' })
   @IsString()
   @Length(3, 500)
   reason!: string;
