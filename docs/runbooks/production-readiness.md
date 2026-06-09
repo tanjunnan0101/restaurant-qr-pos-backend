@@ -49,7 +49,8 @@ Use this after staging is stable and before accepting real restaurant payments.
 
 ## Known remaining gaps
 
-- KDS frontend not built yet
+- KDS frontend exists in first-pass form, but fuller kitchen and expo polish is
+  still pending
 - Physical printer validation still pending
 - Authenticated Socket.IO rooms still pending
 - Error tracking, centralized log shipping, and alerting still pending

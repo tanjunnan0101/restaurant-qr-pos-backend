@@ -6,6 +6,7 @@ staff web surfaces, HitPay checkout, and local printer-agent support.
 Start with [HANDOFF.md](HANDOFF.md) for the current continuation baseline. For
 deployment and rollout, use:
 
+- [docs/design/staff-sakorio-ui-ux-redesign-brief.md](docs/design/staff-sakorio-ui-ux-redesign-brief.md)
 - [docs/deployment.md](docs/deployment.md)
 - [docs/runbooks/staging-rollout.md](docs/runbooks/staging-rollout.md)
 - [docs/runbooks/production-readiness.md](docs/runbooks/production-readiness.md)
@@ -38,7 +39,7 @@ Implemented now:
 
 Not implemented yet:
 
-- KDS frontend.
+- Full KDS and expo product polish beyond the current first staff-web KDS pass.
 - Physical printer acceptance on a real outlet network.
 - Error tracking hooks, centralized log shipping, proven restore drills, and
   horizontally scaled Socket.IO.

@@ -1062,7 +1062,7 @@ export function OutletPosPage() {
   return (
     <OutletPageLayout
       title="Staff POS"
-      subtitle="Create walk-in orders, assign tables, and start checkout from the service floor."
+      subtitle="Run counter, waiter, and QR-linked tickets from one terminal."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -1220,26 +1220,36 @@ export function OutletPosPage() {
         </section>
       ) : null}
 
-      <section className="workspace-hero workspace-hero--staff">
+      <section className="workspace-hero workspace-hero--staff pos-command-deck">
         <div className="workspace-hero__header">
           <div className="workspace-hero__copy">
-            <p className="eyebrow">Cashier cockpit</p>
-            <h2 className="section-title serif">Run counter, QR, and floor tickets from one terminal</h2>
+            <p className="eyebrow">Cashier terminal</p>
+            <h2 className="section-title">
+              Close sales fast without losing the floor view
+            </h2>
             <p className="supporting-copy">
-              This screen is tuned for service speed: category-first ordering,
-              a compact ticket rail, and live order visibility that stays in
-              sync with QR guests.
+              Build the ticket, settle it, and keep QR orders visible from the same station.
             </p>
           </div>
           <div className="workspace-pill-grid">
             <div className="workspace-pill current">
-              <span>{activeMenuName}</span>
+              <span>Menu</span>
+              <strong>{activeMenuName}</strong>
             </div>
             <div className="workspace-pill">
-              <span>{paymentMethodLabel}</span>
+              <span>Service</span>
+              <strong>
+                {serviceTypeOptions.find((option) => option.value === serviceType)
+                  ?.label ?? serviceType}
+              </strong>
             </div>
             <div className="workspace-pill">
-              <span>{formatRealtimeStatus(realtimeStatus)}</span>
+              <span>Table</span>
+              <strong>{selectedTable?.displayName ?? 'Counter / no table'}</strong>
+            </div>
+            <div className="workspace-pill">
+              <span>Sync</span>
+              <strong>{formatRealtimeStatus(realtimeStatus)}</strong>
             </div>
           </div>
         </div>
@@ -1274,7 +1284,7 @@ export function OutletPosPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Menu station</p>
-              <h2 className="section-title serif">Build a ticket fast</h2>
+                <h2 className="section-title">Build a ticket fast</h2>
               <p className="supporting-copy">
                 Choose the sales menu, jump into a category, and add items with
                 minimal clicks.
@@ -1418,193 +1428,177 @@ export function OutletPosPage() {
         </section>
 
         <aside className="panel section-panel pos-sidebar pos-ticket-card">
-          <div className="pos-live-rail">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Live order feed</p>
-                <h2 className="section-title serif">Counter and QR in one queue</h2>
-              </div>
-              <span
-                className={`status-pill ${
-                  realtimeStatus === 'connected'
-                    ? 'success'
-                    : realtimeStatus === 'error'
-                      ? 'danger'
-                      : 'warning'
-                }`}
-              >
-                {formatRealtimeStatus(realtimeStatus)}
-              </span>
-            </div>
-            <div className="pos-live-order-list">
-              {liveOrdersVisible.length === 0 ? (
-                <div className="empty-state">
-                  <h3>No active orders</h3>
-                  <p className="supporting-copy">
-                    New QR and cashier orders will appear here automatically.
-                  </p>
-                </div>
-              ) : (
-                liveOrdersVisible.map((order) => (
-                  <article className="pos-live-order-card" key={order.id}>
-                    <div className="section-header">
-                      <div>
-                        <strong>#{order.orderNumber}</strong>
-                        <p className="supporting-copy">
-                          {order.table?.displayName ?? 'Counter'} |{' '}
-                          {formatMoney(order.currency, order.grandTotalCents)}
-                        </p>
-                      </div>
-                      <span className={`status-pill ${toneForOrderStatus(order.status)}`}>
-                        {formatEnum(order.status)}
-                      </span>
-                    </div>
-                    <div className="inline-actions">
-                      <span className={`status-pill ${toneForPaymentStatus(order.paymentStatus)}`}>
-                        {formatEnum(order.paymentStatus)}
-                      </span>
-                      <Link
-                        className="ghost-button"
-                        href={`/outlets/${outletId}/orders?orderId=${encodeURIComponent(order.id)}`}
-                      >
-                        Open
-                      </Link>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
-
           <div className="pos-ticket-builder">
             <p className="eyebrow">Order builder</p>
-            <h2 className="section-title serif">Current ticket</h2>
+            <h2 className="section-title">Current ticket</h2>
 
-            <div className="form-grid pos-ticket-section">
-            <div className="field">
-              <label htmlFor="source">Source</label>
-              <select
-                id="source"
-                onChange={(event) =>
-                  setSource(event.target.value as 'POS' | 'WAITER')
-                }
-                value={source}
-              >
-                <option value="POS">POS</option>
-                <option value="WAITER">Waiter</option>
-              </select>
+            <div className="detail-overview-grid detail-overview-grid--ticket">
+              <article className="sub-panel surface-panel">
+                <span className="metric-label">Lines</span>
+                <strong className="scope-card-value">{cart.length}</strong>
+                <p className="supporting-copy">
+                  {itemCount} item{itemCount === 1 ? '' : 's'} in this ticket.
+                </p>
+              </article>
+              <article className="sub-panel surface-panel">
+                <span className="metric-label">Service</span>
+                <strong className="scope-card-value">
+                  {serviceTypeOptions.find((option) => option.value === serviceType)
+                    ?.label ?? serviceType}
+                </strong>
+                <p className="supporting-copy">
+                  {selectedTable
+                    ? `${selectedTable.zoneName} · ${selectedTable.displayName}`
+                    : 'No table linked yet.'}
+                </p>
+              </article>
+              <article className="sub-panel surface-panel">
+                <span className="metric-label">Payment</span>
+                <strong className="scope-card-value">{paymentMethodLabel}</strong>
+                <p className="supporting-copy">
+                  {source === 'WAITER'
+                    ? 'Waiter-assisted order source.'
+                    : 'Counter-created order source.'}
+                </p>
+              </article>
+              <article className="sub-panel surface-panel">
+                <span className="metric-label">Total</span>
+                <strong className="scope-card-value">
+                  {formatMoney(outlet?.currency ?? 'SGD', summary.grandTotalCents)}
+                </strong>
+                <p className="supporting-copy">Running estimated amount.</p>
+              </article>
             </div>
 
-            <div className="field">
-              <label htmlFor="serviceType">Service type</label>
-              <select
-                id="serviceType"
-                onChange={(event) =>
-                  setServiceType(event.target.value as StaffServiceType)
-                }
-                value={serviceType}
-              >
-                {serviceTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {serviceType === 'DINE_IN' ? (
-              <div className="field">
-                <label htmlFor="tableId">Table</label>
-                <select
-                  id="tableId"
-                  onChange={(event) => setTableId(event.target.value)}
-                  value={tableId}
-                >
-                  <option value="">Select table</option>
-                  {availableTables.map((table) => (
-                    <option key={table.id} value={table.id}>
-                      {table.zoneName} | {table.displayName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-
-            <div className="field">
-              <label htmlFor="customerName">Customer name</label>
-              <input
-                id="customerName"
-                onChange={(event) => setCustomerName(event.target.value)}
-                placeholder="Optional guest name"
-                value={customerName}
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="customerPhone">Customer phone</label>
-              <input
-                id="customerPhone"
-                onChange={(event) => setCustomerPhone(event.target.value)}
-                placeholder="Optional contact number"
-                value={customerPhone}
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="discountType">Order discount</label>
-              <select
-                id="discountType"
-                value={discountType}
-                onChange={(event) => {
-                  const nextType = event.target.value as
-                    | 'NONE'
-                    | 'PERCENT'
-                    | 'AMOUNT';
-                  setDiscountType(nextType);
-                  if (nextType === 'NONE') {
-                    setDiscountValue('');
-                    setDiscountReason('');
-                  }
-                }}
-              >
-                <option value="NONE">No discount</option>
-                <option value="PERCENT">Percentage</option>
-                <option value="AMOUNT">Fixed amount</option>
-              </select>
-            </div>
-
-            {discountType !== 'NONE' ? (
-              <>
+            <div className="pos-ticket-setup pos-ticket-section">
+              <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="discountValue">
-                    {discountType === 'PERCENT'
-                      ? 'Discount percent'
-                      : 'Discount amount'}
-                  </label>
-                  <input
-                    id="discountValue"
-                    inputMode={discountType === 'PERCENT' ? 'decimal' : 'decimal'}
-                    onChange={(event) => setDiscountValue(event.target.value)}
-                    placeholder={
-                      discountType === 'PERCENT' ? '10' : formatCurrencyInput(500)
+                  <label htmlFor="source">Source</label>
+                  <select
+                    id="source"
+                    onChange={(event) =>
+                      setSource(event.target.value as 'POS' | 'WAITER')
                     }
-                    value={discountValue}
-                  />
+                    value={source}
+                  >
+                    <option value="POS">POS</option>
+                    <option value="WAITER">Waiter</option>
+                  </select>
                 </div>
-                <div className="field">
-                  <label htmlFor="discountReason">Discount reason</label>
-                  <input
-                    id="discountReason"
-                    onChange={(event) => setDiscountReason(event.target.value)}
-                    placeholder="Loyalty perk, service recovery, staff meal"
-                    value={discountReason}
-                  />
-                </div>
-              </>
-            ) : null}
 
-            <div className="field">
-              <label>Payment method</label>
+                <div className="field">
+                  <label htmlFor="serviceType">Service type</label>
+                  <select
+                    id="serviceType"
+                    onChange={(event) =>
+                      setServiceType(event.target.value as StaffServiceType)
+                    }
+                    value={serviceType}
+                  >
+                    {serviceTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {serviceType === 'DINE_IN' ? (
+                  <div className="field">
+                    <label htmlFor="tableId">Table</label>
+                    <select
+                      id="tableId"
+                      onChange={(event) => setTableId(event.target.value)}
+                      value={tableId}
+                    >
+                      <option value="">Select table</option>
+                      {availableTables.map((table) => (
+                        <option key={table.id} value={table.id}>
+                          {table.zoneName} | {table.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                <div className="field">
+                  <label htmlFor="customerName">Customer name</label>
+                  <input
+                    id="customerName"
+                    onChange={(event) => setCustomerName(event.target.value)}
+                    placeholder="Optional guest name"
+                    value={customerName}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="customerPhone">Customer phone</label>
+                  <input
+                    id="customerPhone"
+                    onChange={(event) => setCustomerPhone(event.target.value)}
+                    placeholder="Optional contact number"
+                    value={customerPhone}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="discountType">Order discount</label>
+                  <select
+                    id="discountType"
+                    value={discountType}
+                    onChange={(event) => {
+                      const nextType = event.target.value as
+                        | 'NONE'
+                        | 'PERCENT'
+                        | 'AMOUNT';
+                      setDiscountType(nextType);
+                      if (nextType === 'NONE') {
+                        setDiscountValue('');
+                        setDiscountReason('');
+                      }
+                    }}
+                  >
+                    <option value="NONE">No discount</option>
+                    <option value="PERCENT">Percentage</option>
+                    <option value="AMOUNT">Fixed amount</option>
+                  </select>
+                </div>
+
+                {discountType !== 'NONE' ? (
+                  <>
+                    <div className="field">
+                      <label htmlFor="discountValue">
+                        {discountType === 'PERCENT'
+                          ? 'Discount percent'
+                          : 'Discount amount'}
+                      </label>
+                      <input
+                        id="discountValue"
+                        inputMode={discountType === 'PERCENT' ? 'decimal' : 'decimal'}
+                        onChange={(event) => setDiscountValue(event.target.value)}
+                        placeholder={
+                          discountType === 'PERCENT' ? '10' : formatCurrencyInput(500)
+                        }
+                        value={discountValue}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="discountReason">Discount reason</label>
+                      <input
+                        id="discountReason"
+                        onChange={(event) => setDiscountReason(event.target.value)}
+                        placeholder="Loyalty perk, service recovery, staff meal"
+                        value={discountReason}
+                      />
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="pos-payment-controls pos-ticket-section">
+              <div className="field">
+                <label>Payment method</label>
               {canReadPaymentSettings ? (
                 <div className="sub-panel">
                   <div className="section-header">
@@ -1679,63 +1673,63 @@ export function OutletPosPage() {
                   ))
                 )}
               </div>
-            </div>
-
-            {paymentMethod === 'CASH' ? (
-              <div className="field">
-                <label htmlFor="cashTendered">Cash received</label>
-                <div className="cash-entry-grid">
-                  <input
-                    id="cashTendered"
-                    inputMode="decimal"
-                    onChange={(event) => setCashTendered(event.target.value)}
-                    placeholder={formatCurrencyInput(summary.grandTotalCents)}
-                    value={cashTendered}
-                  />
-                  <button
-                    className="secondary-button"
-                    onClick={() =>
-                      setCashTendered(formatCurrencyInput(summary.grandTotalCents))
-                    }
-                    type="button"
-                  >
-                    Exact cash
-                  </button>
-                </div>
-                <div className="cash-summary-grid">
-                  <div className="sub-panel">
-                    <span className="metric-label">Tendered</span>
-                    <strong>
-                      {cashTenderedCents === null
-                        ? '--'
-                        : formatMoney(
-                            outlet?.currency ?? 'SGD',
-                            cashTenderedCents,
-                          )}
-                    </strong>
-                  </div>
-                  <div className="sub-panel">
-                    <span className="metric-label">
-                      {cashChangeDueCents !== null && cashChangeDueCents < 0
-                        ? 'Still due'
-                        : 'Change due'}
-                    </span>
-                    <strong>
-                      {cashChangeDueCents === null
-                        ? '--'
-                        : formatMoney(
-                            outlet?.currency ?? 'SGD',
-                            Math.abs(cashChangeDueCents),
-                          )}
-                    </strong>
-                  </div>
-                </div>
-                <p className="supporting-copy">
-                  Enter the amount collected at the counter before finalizing
-                  this cash sale.
-                </p>
               </div>
-            ) : null}
+
+              {paymentMethod === 'CASH' ? (
+                <div className="field">
+                  <label htmlFor="cashTendered">Cash received</label>
+                  <div className="cash-entry-grid">
+                    <input
+                      id="cashTendered"
+                      inputMode="decimal"
+                      onChange={(event) => setCashTendered(event.target.value)}
+                      placeholder={formatCurrencyInput(summary.grandTotalCents)}
+                      value={cashTendered}
+                    />
+                    <button
+                      className="secondary-button"
+                      onClick={() =>
+                        setCashTendered(formatCurrencyInput(summary.grandTotalCents))
+                      }
+                      type="button"
+                    >
+                      Exact cash
+                    </button>
+                  </div>
+                  <div className="cash-summary-grid">
+                    <div className="sub-panel">
+                      <span className="metric-label">Tendered</span>
+                      <strong>
+                        {cashTenderedCents === null
+                          ? '--'
+                          : formatMoney(
+                              outlet?.currency ?? 'SGD',
+                              cashTenderedCents,
+                            )}
+                      </strong>
+                    </div>
+                    <div className="sub-panel">
+                      <span className="metric-label">
+                        {cashChangeDueCents !== null && cashChangeDueCents < 0
+                          ? 'Still due'
+                          : 'Change due'}
+                      </span>
+                      <strong>
+                        {cashChangeDueCents === null
+                          ? '--'
+                          : formatMoney(
+                              outlet?.currency ?? 'SGD',
+                              Math.abs(cashChangeDueCents),
+                            )}
+                      </strong>
+                    </div>
+                  </div>
+                  <p className="supporting-copy">
+                    Enter the amount collected at the counter before finalizing
+                    this cash sale.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <div className="cart-list pos-ticket-section">
@@ -1860,44 +1854,108 @@ export function OutletPosPage() {
             </p>
             </article>
 
-            <button
-              className="primary-button full-width"
-              disabled={submitDisabled}
-              onClick={() => void submitOrder('submit')}
-              type="button"
-            >
-              {submitting
-                ? editOrder
-                  ? 'Saving changes...'
-                  : 'Creating order...'
-                : editOrder
-                  ? 'Save order changes'
-                  : 'Create staff order'}
-            </button>
-            <button
-              className="secondary-button full-width"
-              disabled={submitting || cart.length === 0}
-              onClick={() => void submitOrder('draft')}
-              type="button"
-            >
-              {submitting
-                ? editOrder
-                  ? 'Saving draft...'
-                  : 'Holding draft...'
-                : editOrder?.status === 'DRAFT'
-                  ? 'Update held draft'
-                  : 'Hold as draft'}
-            </button>
-            {editOrder ? (
+            <div className="pos-action-stack">
               <button
-                className="ghost-button full-width"
-                disabled={printingBill}
-                onClick={() => void handlePrintBill()}
+                className="primary-button full-width"
+                disabled={submitDisabled}
+                onClick={() => void submitOrder('submit')}
                 type="button"
               >
-                {printingBill ? 'Queueing bill...' : 'Print pre-payment bill'}
+                {submitting
+                  ? editOrder
+                    ? 'Saving changes...'
+                    : 'Creating order...'
+                  : editOrder
+                    ? 'Save order changes'
+                    : 'Create staff order'}
               </button>
-            ) : null}
+              <button
+                className="secondary-button full-width"
+                disabled={submitting || cart.length === 0}
+                onClick={() => void submitOrder('draft')}
+                type="button"
+              >
+                {submitting
+                  ? editOrder
+                    ? 'Saving draft...'
+                    : 'Holding draft...'
+                  : editOrder?.status === 'DRAFT'
+                    ? 'Update held draft'
+                    : 'Hold as draft'}
+              </button>
+              {editOrder ? (
+                <button
+                  className="ghost-button full-width"
+                  disabled={printingBill}
+                  onClick={() => void handlePrintBill()}
+                  type="button"
+                >
+                  {printingBill ? 'Queueing bill...' : 'Print pre-payment bill'}
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="pos-live-rail">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Live outlet feed</p>
+                <h2 className="section-title">QR and counter orders in play</h2>
+                <p className="supporting-copy">
+                  {qrAndCounterCount} live ticket
+                  {qrAndCounterCount === 1 ? '' : 's'} visible across cashier and QR flow.
+                </p>
+              </div>
+              <span
+                className={`status-pill ${
+                  realtimeStatus === 'connected'
+                    ? 'success'
+                    : realtimeStatus === 'error'
+                      ? 'danger'
+                      : 'warning'
+                }`}
+              >
+                {formatRealtimeStatus(realtimeStatus)}
+              </span>
+            </div>
+            <div className="pos-live-order-list">
+              {liveOrdersVisible.length === 0 ? (
+                <div className="empty-state">
+                  <h3>No active orders</h3>
+                  <p className="supporting-copy">
+                    New QR and cashier orders will appear here automatically.
+                  </p>
+                </div>
+              ) : (
+                liveOrdersVisible.map((order) => (
+                  <article className="pos-live-order-card" key={order.id}>
+                    <div className="section-header">
+                      <div>
+                        <strong>#{order.orderNumber}</strong>
+                        <p className="supporting-copy">
+                          {order.table?.displayName ?? 'Counter'} |{' '}
+                          {formatMoney(order.currency, order.grandTotalCents)}
+                        </p>
+                      </div>
+                      <span className={`status-pill ${toneForOrderStatus(order.status)}`}>
+                        {formatEnum(order.status)}
+                      </span>
+                    </div>
+                    <div className="inline-actions">
+                      <span className={`status-pill ${toneForPaymentStatus(order.paymentStatus)}`}>
+                        {formatEnum(order.paymentStatus)}
+                      </span>
+                      <Link
+                        className="ghost-button"
+                        href={`/outlets/${outletId}/orders?orderId=${encodeURIComponent(order.id)}`}
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
           </div>
         </aside>
       </section>
@@ -1909,7 +1967,7 @@ export function OutletPosPage() {
               <p className="eyebrow">
                 {customizing.editingCartItemId ? 'Edit cart line' : 'Customize item'}
               </p>
-              <h2 className="section-title serif">{customizing.item.name}</h2>
+              <h2 className="section-title">{customizing.item.name}</h2>
               <p className="supporting-copy">
                 {customizing.editingCartItemId
                   ? 'Update the quantity, remarks, variants, or modifiers for this line.'

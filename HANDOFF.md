@@ -5,6 +5,10 @@ Status date: 2026-06-09
 Repository:
 `https://github.com/tanjunnan0101/restaurant-qr-pos-backend`
 
+Key design handoff:
+
+- `docs/design/staff-sakorio-ui-ux-redesign-brief.md`
+
 ## Current state
 
 This repository is continuation-ready for the backend, the customer QR web app,
@@ -350,6 +354,9 @@ payment when an active printer with role `RECEIPT` is configured for the outlet.
 ### Frontend work still open
 
 - Expand the initial KDS frontend into a fuller kitchen and expo product.
+- Execute the staff terminal redesign brief in
+  `docs/design/staff-sakorio-ui-ux-redesign-brief.md`, starting with compact
+  shell, POS, live feed unification, and tables.
 - Richer menu editing UX in owner-web for modifier groups, item variants, and
   easier structured editing.
 - Finer-grained table/floor editing UX in owner-web if visual table management

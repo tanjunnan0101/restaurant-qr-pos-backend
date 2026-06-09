@@ -152,7 +152,7 @@ export function OutletAttendancePage() {
   return (
     <OutletPageLayout
       title="Attendance"
-      subtitle="Clock in and out with server-recorded timestamps, optional photo proof, and a quick view of your recent shift history."
+      subtitle="Run clock-in, proof capture, and shift history from one outlet screen."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -175,75 +175,62 @@ export function OutletAttendancePage() {
       ) : null}
 
       {!outletBusy && !busy && payload && settings ? (
-        <>
-          <section className="metric-board">
-            <article className="panel metric-card">
-              <span className="metric-label">Manual clock-in</span>
-              <strong className="metric-value">
-                {settings.allowManualClockIn ? 'Enabled' : 'Disabled'}
-              </strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Photo proof</span>
-              <strong className="metric-value">
-                {settings.requirePhoto ? 'Required' : 'Optional'}
-              </strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Max shift hours</span>
-              <strong className="metric-value">{settings.maxShiftHours}</strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Current status</span>
-              <strong className="metric-value">
-                {currentSession ? 'Clocked in' : 'Off shift'}
-              </strong>
-            </article>
-          </section>
-
-          <section className="panel section-panel">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Shift control</p>
-                <h2 className="section-title serif">Clock in or out</h2>
-                <p className="supporting-copy">
-                  Attendance is recorded with server timestamps. Add an optional
-                  note or photo to support exception review later.
-                </p>
+        <section className="operations-layout support-station-layout">
+          <aside className="panel section-panel support-control-rail">
+            <article className="support-config-card">
+              <div className="support-config-card__header">
+                <div>
+                  <p className="eyebrow">Shift station</p>
+                  <h2 className="section-title">Clock control</h2>
+                </div>
+                <span
+                  className={`status-pill ${
+                    currentSession ? 'success' : 'neutral'
+                  }`}
+                >
+                  {currentSession ? 'On shift' : 'Off shift'}
+                </span>
               </div>
-            </div>
-
-            {currentSession ? (
-              <div className="sub-panel">
-                <strong>Current session</strong>
-                <p className="supporting-copy">
-                  Started {formatDateTime(currentSession.clockInAt)}.
-                </p>
-                <p className="supporting-copy">
-                  Time on shift: {currentDuration ?? 'Calculating...'}
-                </p>
-                {currentSession.clockInDeviceLabel ? (
-                  <p className="supporting-copy">
-                    Device: {currentSession.clockInDeviceLabel}
-                  </p>
-                ) : null}
+              <p className="supporting-copy">
+                Attendance uses server time. Add a note or proof image when the
+                shift needs a traceable handoff.
+              </p>
+              <div className="support-inline-meta">
+                <span>{settings.allowManualClockIn ? 'Manual on' : 'Manual off'}</span>
+                <span>
+                  {settings.requirePhoto ? 'Photo required' : 'Photo optional'}
+                </span>
+                <span>{settings.maxShiftHours}h max shift</span>
               </div>
-            ) : (
-              <div className="sub-panel">
-                <strong>No active session</strong>
-                <p className="supporting-copy">
+            </article>
+
+            <article className="support-config-card">
+              <div className="support-config-card__header">
+                <div>
+                  <p className="eyebrow">Current shift</p>
+                  <h3>{currentSession ? 'Active session' : 'Ready to clock in'}</h3>
+                </div>
+              </div>
+              {currentSession ? (
+                <div className="support-note">
+                  <strong>Started {formatDateTime(currentSession.clockInAt)}</strong>
+                  <span>Live duration: {currentDuration ?? 'Calculating...'}</span>
+                  {currentSession.clockInDeviceLabel ? (
+                    <span>Device: {currentSession.clockInDeviceLabel}</span>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="support-note">
                   Start your shift here when you are ready to work this outlet.
-                </p>
-              </div>
-            )}
+                </div>
+              )}
 
-            {!settings.allowManualClockIn && !currentSession ? (
-              <div className="alert error">
-                Manual clock-in is disabled. Please ask a manager for help.
-              </div>
-            ) : null}
+              {!settings.allowManualClockIn && !currentSession ? (
+                <div className="alert error">
+                  Manual clock-in is disabled. Please ask a manager for help.
+                </div>
+              ) : null}
 
-            <div className="form-grid">
               <div className="field">
                 <label htmlFor="attendance-device">Device label</label>
                 <input
@@ -278,119 +265,164 @@ export function OutletAttendancePage() {
                   {photoName ? `Selected: ${photoName}` : 'No photo selected yet.'}
                 </p>
               </div>
-            </div>
-
-            {photoDataUrl ? (
-              <img
-                alt="Attendance proof preview"
-                src={photoDataUrl}
-                style={{
-                  maxWidth: 240,
-                  borderRadius: 16,
-                  border: '1px solid rgba(120, 87, 52, 0.18)',
-                }}
-              />
-            ) : null}
-
-            <div className="action-row">
-              {!currentSession ? (
-                <button
-                  className="primary-button"
-                  disabled={
-                    actionBusy ||
-                    !settings.allowManualClockIn ||
-                    (settings.requirePhoto && !photoDataUrl)
-                  }
-                  onClick={() => void handleSubmitClock('in')}
-                  type="button"
-                >
-                  {actionBusy ? 'Saving...' : 'Clock in'}
-                </button>
-              ) : (
-                <button
-                  className="primary-button"
-                  disabled={actionBusy || (settings.requirePhoto && !photoDataUrl)}
-                  onClick={() => void handleSubmitClock('out')}
-                  type="button"
-                >
-                  {actionBusy ? 'Saving...' : 'Clock out'}
-                </button>
-              )}
-            </div>
-          </section>
-
-          <section className="panel section-panel">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">History</p>
-                <h2 className="section-title serif">Recent sessions</h2>
-                <p className="supporting-copy">
-                  Your latest attendance records stay visible here so you can
-                  confirm manager approvals and any flagged shifts.
-                </p>
+              {photoDataUrl ? (
+                <img
+                  alt="Attendance proof preview"
+                  src={photoDataUrl}
+                  style={{
+                    maxWidth: '100%',
+                    borderRadius: 18,
+                    border: '1px solid rgba(120, 87, 52, 0.18)',
+                  }}
+                />
+              ) : null}
+              <div className="support-card__actions">
+                {!currentSession ? (
+                  <button
+                    className="primary-button"
+                    disabled={
+                      actionBusy ||
+                      !settings.allowManualClockIn ||
+                      (settings.requirePhoto && !photoDataUrl)
+                    }
+                    onClick={() => void handleSubmitClock('in')}
+                    type="button"
+                  >
+                    {actionBusy ? 'Saving...' : 'Clock in'}
+                  </button>
+                ) : (
+                  <button
+                    className="primary-button"
+                    disabled={actionBusy || (settings.requirePhoto && !photoDataUrl)}
+                    onClick={() => void handleSubmitClock('out')}
+                    type="button"
+                  >
+                    {actionBusy ? 'Saving...' : 'Clock out'}
+                  </button>
+                )}
               </div>
-            </div>
+            </article>
+          </aside>
 
-            <div className="list-block">
+          <div className="support-board-panel">
+            <section className="support-summary-grid">
+              <article className="support-card">
+                <div className="support-card__header">
+                  <div>
+                    <p className="eyebrow">Status</p>
+                    <h3>{currentSession ? 'Clocked in' : 'Off shift'}</h3>
+                  </div>
+                  <span className="status-pill neutral">Live</span>
+                </div>
+                <p className="supporting-copy">
+                  Current attendance state for this outlet session.
+                </p>
+              </article>
+              <article className="support-card">
+                <div className="support-card__header">
+                  <div>
+                    <p className="eyebrow">Proof</p>
+                    <h3>{settings.requirePhoto ? 'Required' : 'Optional'}</h3>
+                  </div>
+                  <span className="status-pill neutral">Policy</span>
+                </div>
+                <p className="supporting-copy">
+                  Whether photo capture is needed for this outlet.
+                </p>
+              </article>
+              <article className="support-card">
+                <div className="support-card__header">
+                  <div>
+                    <p className="eyebrow">Max shift</p>
+                    <h3>{settings.maxShiftHours} hours</h3>
+                  </div>
+                  <span className="status-pill warning">Review limit</span>
+                </div>
+                <p className="supporting-copy">
+                  Threshold before a shift should be reviewed.
+                </p>
+              </article>
+              <article className="support-card">
+                <div className="support-card__header">
+                  <div>
+                    <p className="eyebrow">Recent sessions</p>
+                    <h3>{recentSessions.length}</h3>
+                  </div>
+                  <span className="status-pill neutral">History</span>
+                </div>
+                <p className="supporting-copy">
+                  Recent clock-in and clock-out records in view.
+                </p>
+              </article>
+            </section>
+
+            <article className="panel section-panel support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Shift timeline</p>
+                  <h2 className="section-title">Recent sessions</h2>
+                </div>
+                <span className="status-pill neutral">{recentSessions.length} entries</span>
+              </div>
               {recentSessions.length === 0 ? (
                 <div className="empty-state">
                   <strong>No attendance records yet.</strong>
                 </div>
               ) : (
-                recentSessions.map((entry) => (
-                  <article className="list-item" key={entry.id}>
-                    <div className="section-header">
-                      <div>
-                        <h3>{formatDateTime(entry.clockInAt)}</h3>
-                        <p>{entry.status === 'CLOCKED_IN' ? 'Open shift' : 'Completed shift'}</p>
-                      </div>
-                      <div className="badge-row">
-                        <span className={`badge ${statusTone(entry.status)}`}>
-                          {formatEnum(entry.status)}
-                        </span>
-                        <span className={`badge ${approvalTone(entry.approvalStatus)}`}>
-                          {formatEnum(entry.approvalStatus)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="detail-grid">
-                      <article className="info-card">
-                        <span className="metric-label">Worked</span>
-                        <span className="metric-value scope-card-value">
-                          {formatDuration(entry.workedMinutes)}
-                        </span>
-                      </article>
-                      <article className="info-card">
-                        <span className="metric-label">Clock-out</span>
-                        <span className="metric-value scope-card-value">
-                          {formatDateTime(entry.clockOutAt) || 'Still on shift'}
-                        </span>
-                      </article>
-                    </div>
-                    {entry.reviewReason ? (
-                      <div className="alert error">{entry.reviewReason}</div>
-                    ) : null}
-                    {entry.photos.length > 0 ? (
-                      <div className="tag-row">
-                        {entry.photos.map((photo) => (
-                          <a
-                            className="tag"
-                            href={photo.photoUrl}
-                            key={photo.id}
-                            rel="noreferrer"
-                            target="_blank"
+                <div className="list-block">
+                  {recentSessions.map((entry) => (
+                    <article className="list-item" key={entry.id}>
+                      <div className="support-list-card__header">
+                        <div>
+                          <h3>{formatDateTime(entry.clockInAt)}</h3>
+                          <p className="supporting-copy">
+                            {entry.status === 'CLOCKED_IN'
+                              ? 'Open shift'
+                              : 'Completed shift'}
+                          </p>
+                        </div>
+                        <div className="tag-row">
+                          <span className={`status-pill ${statusTone(entry.status)}`}>
+                            {formatEnum(entry.status)}
+                          </span>
+                          <span
+                            className={`status-pill ${approvalTone(entry.approvalStatus)}`}
                           >
-                            {formatEnum(photo.type)} photo
-                          </a>
-                        ))}
+                            {formatEnum(entry.approvalStatus)}
+                          </span>
+                        </div>
                       </div>
-                    ) : null}
-                  </article>
-                ))
+                      <div className="support-inline-meta">
+                        <span>Worked {formatDuration(entry.workedMinutes)}</span>
+                        <span>
+                          Clock-out {formatDateTime(entry.clockOutAt) || 'Still on shift'}
+                        </span>
+                      </div>
+                      {entry.reviewReason ? (
+                        <div className="alert error">{entry.reviewReason}</div>
+                      ) : null}
+                      {entry.photos.length > 0 ? (
+                        <div className="tag-row">
+                          {entry.photos.map((photo) => (
+                            <a
+                              className="tag"
+                              href={photo.photoUrl}
+                              key={photo.id}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              {formatEnum(photo.type)} photo
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
               )}
-            </div>
-          </section>
-        </>
+            </article>
+          </div>
+        </section>
       ) : null}
     </OutletPageLayout>
   );
@@ -428,7 +460,7 @@ function formatDuration(minutes: number | null) {
 }
 
 function statusTone(status: AttendanceSessionEntry['status']) {
-  return status === 'CLOCKED_OUT' ? 'success' : 'warn';
+  return status === 'CLOCKED_OUT' ? 'success' : 'warning';
 }
 
 function approvalTone(status: AttendanceSessionEntry['approvalStatus']) {
@@ -436,9 +468,9 @@ function approvalTone(status: AttendanceSessionEntry['approvalStatus']) {
     return 'success';
   }
   if (status === 'FLAGGED') {
-    return 'warn';
+    return 'warning';
   }
-  return 'info';
+  return 'neutral';
 }
 
 function readFileAsDataUrl(file: File) {
@@ -451,7 +483,8 @@ function readFileAsDataUrl(file: File) {
       }
       reject(new Error('Could not read the selected photo.'));
     };
-    reader.onerror = () => reject(new Error('Could not read the selected photo.'));
+    reader.onerror = () =>
+      reject(new Error('Could not read the selected photo.'));
     reader.readAsDataURL(file);
   });
 }

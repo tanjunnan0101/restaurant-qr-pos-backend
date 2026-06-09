@@ -3,8 +3,11 @@
 import {
   BellRing,
   ChefHat,
+  CreditCard,
   Radio,
   ScanLine,
+  SquareTerminal,
+  Store,
   TimerReset,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -264,19 +267,16 @@ export function DashboardPage() {
 
   return (
     <StaffPageFrame
-      title="Operations dashboard"
-      subtitle="Live outlet snapshot for front-of-house and pass coordination."
+      title="Service board"
+      subtitle="See what needs action now, then jump straight into POS, tables, kitchen, or payment recovery."
     >
       {loading || busy ? (
         <section className="panel section-panel">
           <p className="eyebrow">Hydrating</p>
-          <h2 className="section-title serif">
+          <h2 className="section-title">
             Loading outlet service data...
           </h2>
-          <p className="supporting-copy">
-            The staff dashboard is pulling live outlet, order, and table data
-            from the current backend APIs.
-          </p>
+          <p className="supporting-copy">Pulling live outlet, order, and table data.</p>
         </section>
       ) : error ? (
         <section className="panel section-panel">
@@ -288,13 +288,12 @@ export function DashboardPage() {
             <div className="hero-panel__header">
               <div className="hero-panel__copy">
                 <p className="eyebrow">Shift snapshot</p>
-                <h2 className="section-title serif hero-panel__title">
-                  Keep the active queue visible and the next action obvious.
+                <h2 className="section-title hero-panel__title">
+                  The next action should be obvious in under three seconds.
                 </h2>
                 <p className="hero-panel__lede hero-panel__lede--dark">
-                  The staff board is tuned for live service pressure: queue
-                  visibility, floor attention, and fast movement into orders,
-                  KDS, tables, and POS.
+                  Use this board as the live control surface for queue, guest
+                  help, table pressure, and outlet handoff.
                 </p>
                 <div className="badge-row">
                   <span
@@ -322,9 +321,7 @@ export function DashboardPage() {
                         0,
                       )}
                     </strong>
-                    <p className="metric-note">
-                      Live help requests currently waiting on the floor team.
-                    </p>
+                    <p className="metric-note">Help requests waiting on floor staff.</p>
                   </div>
                 </article>
                 <article className="spotlight-card spotlight-card--success">
@@ -336,9 +333,7 @@ export function DashboardPage() {
                     <strong className="spotlight-card__value">
                       {outlets.reduce((sum, outlet) => sum + outlet.readyToRun, 0)}
                     </strong>
-                    <p className="metric-note">
-                      Orders nearest to a kitchen, pass, or service status change.
-                    </p>
+                    <p className="metric-note">Orders closest to the next service move.</p>
                   </div>
                 </article>
               </div>
@@ -352,9 +347,7 @@ export function DashboardPage() {
                 <ScanLine aria-hidden="true" size={18} />
               </span>
               <strong className="metric-value">{outlets.length}</strong>
-              <p className="supporting-copy">
-                Accessible in this staff session.
-              </p>
+              <p className="supporting-copy">Accessible in this staff session.</p>
             </article>
             <article className="panel metric-card metric-card--accent">
               <span className="metric-label">Live queue</span>
@@ -364,9 +357,7 @@ export function DashboardPage() {
               <strong className="metric-value">
                 {outlets.reduce((sum, outlet) => sum + outlet.liveQueue, 0)}
               </strong>
-              <p className="supporting-copy">
-                Orders in kitchen, ready, or currently being served.
-              </p>
+              <p className="supporting-copy">Orders already in active service flow.</p>
             </article>
             <article className="panel metric-card metric-card--warning">
               <span className="metric-label">Action now</span>
@@ -376,9 +367,7 @@ export function DashboardPage() {
               <strong className="metric-value">
                 {outlets.reduce((sum, outlet) => sum + outlet.readyToRun, 0)}
               </strong>
-              <p className="supporting-copy">
-                Orders closest to the next staff status change.
-              </p>
+              <p className="supporting-copy">Tickets closest to the next state change.</p>
             </article>
             <article className="panel metric-card metric-card--success">
               <span className="metric-label">Occupied tables</span>
@@ -388,18 +377,14 @@ export function DashboardPage() {
                   0,
                 )}
               </strong>
-              <p className="supporting-copy">
-                Current table pressure across your accessible outlets.
-              </p>
+              <p className="supporting-copy">Current floor pressure across your outlets.</p>
             </article>
             <article className="panel metric-card metric-card--danger">
               <span className="metric-label">Help requests</span>
               <strong className="metric-value">
                 {outlets.reduce((sum, outlet) => sum + outlet.openServiceRequests, 0)}
               </strong>
-              <p className="supporting-copy">
-                Guests currently waiting for staff attention from QR.
-              </p>
+              <p className="supporting-copy">Guests waiting for direct staff attention.</p>
             </article>
             <article className="panel metric-card metric-card--warning">
               <span className="metric-label">Floor issues</span>
@@ -410,79 +395,63 @@ export function DashboardPage() {
                   0,
                 )}
               </strong>
-              <p className="supporting-copy">
-                Out-of-service tables plus live QR coverage gaps.
-              </p>
+              <p className="supporting-copy">Out-of-service tables and QR gaps.</p>
             </article>
             <article className="panel metric-card metric-card--neutral">
               <span className="metric-label">Live sync</span>
               <strong className="metric-value">
                 {formatRealtimeStatus(realtimeStatus)}
               </strong>
-              <p className="supporting-copy">
-                Multi-outlet service updates are streaming into this dashboard.
-              </p>
+              <p className="supporting-copy">Realtime outlet updates are streaming in.</p>
             </article>
           </section>
 
           <section className="panel section-panel">
             <div className="section-header">
               <div>
-                <p className="eyebrow">Service priorities</p>
-                <h2 className="section-title serif">What the next ten minutes need</h2>
-                <p className="supporting-copy">
-                  Use this strip as the shift lead view before drilling into a
-                  specific outlet board.
-                </p>
+                <p className="eyebrow">Action row</p>
+                <h2 className="section-title">Open the task, not another report</h2>
+                <p className="supporting-copy">These are the four fastest paths back into live service.</p>
               </div>
             </div>
 
             <div className="operations-grid">
-              {outlets.slice(0, 4).map((entry) => (
-                <article className="sub-panel sub-panel--soft" key={entry.outlet.id}>
-                  <div className="section-header">
-                    <div>
-                      <h3>{entry.outlet.name}</h3>
-                      <p className="supporting-copy">{attentionSummary(entry)}</p>
-                    </div>
-                    <span className={`status-pill ${attentionTone(entry)}`}>
-                      {attentionLabel(entry)}
-                    </span>
+              <Link className="sub-panel sub-panel--soft" href={outlets[0] ? `/outlets/${outlets[0].outlet.id}/pos` : '/dashboard'}>
+                <div className="section-header">
+                  <div>
+                    <h3>Open POS</h3>
+                    <p className="supporting-copy">Jump into the live cashier terminal.</p>
                   </div>
-                  <div className="queue-metrics">
-                    <div className="metric-inline">
-                      <span>Live</span>
-                      <strong>{entry.liveQueue}</strong>
-                    </div>
-                    <div className="metric-inline">
-                      <span>Ready next</span>
-                      <strong>{entry.readyToRun}</strong>
-                    </div>
-                    <div className="metric-inline">
-                      <span>Help</span>
-                      <strong>{entry.openServiceRequests}</strong>
-                    </div>
-                    <div className="metric-inline">
-                      <span>Tables busy</span>
-                      <strong>{entry.occupiedTables}</strong>
-                    </div>
+                  <SquareTerminal aria-hidden="true" size={18} />
+                </div>
+              </Link>
+              <Link className="sub-panel sub-panel--soft" href={outlets[0] ? `/outlets/${outlets[0].outlet.id}/orders` : '/dashboard'}>
+                <div className="section-header">
+                  <div>
+                    <h3>Recover payments</h3>
+                    <p className="supporting-copy">Handle unpaid and blocked orders fast.</p>
                   </div>
-                  <div className="inline-actions">
-                    <Link
-                      className="secondary-button"
-                      href={`/outlets/${entry.outlet.id}/orders`}
-                    >
-                      Open queue
-                    </Link>
-                    <Link
-                      className="secondary-button"
-                      href={`/outlets/${entry.outlet.id}/pos`}
-                    >
-                      Open POS
-                    </Link>
+                  <CreditCard aria-hidden="true" size={18} />
+                </div>
+              </Link>
+              <Link className="sub-panel sub-panel--soft" href={outlets[0] ? `/outlets/${outlets[0].outlet.id}/tables` : '/dashboard'}>
+                <div className="section-header">
+                  <div>
+                    <h3>View tables</h3>
+                    <p className="supporting-copy">Resolve help calls and seating pressure.</p>
                   </div>
-                </article>
-              ))}
+                  <Store aria-hidden="true" size={18} />
+                </div>
+              </Link>
+              <Link className="sub-panel sub-panel--soft" href={outlets[0] ? `/outlets/${outlets[0].outlet.id}/kds` : '/dashboard'}>
+                <div className="section-header">
+                  <div>
+                    <h3>Kitchen board</h3>
+                    <p className="supporting-copy">Check prep load and ready tickets.</p>
+                  </div>
+                  <ChefHat aria-hidden="true" size={18} />
+                </div>
+              </Link>
             </div>
           </section>
 
@@ -490,13 +459,8 @@ export function DashboardPage() {
             <div className="section-header">
               <div>
                 <p className="eyebrow">Outlet boards</p>
-                <h2 className="section-title serif">
-                  Where the shift needs attention
-                </h2>
-                <p className="supporting-copy">
-                  Start with orders if service is active, or tables if floor
-                  resets and seating state are the priority.
-                </p>
+                <h2 className="section-title">Where the shift needs attention</h2>
+                <p className="supporting-copy">Start with the outlet carrying the highest attention score.</p>
               </div>
             </div>
 
@@ -569,19 +533,19 @@ export function DashboardPage() {
                       className="secondary-button"
                       href={`/outlets/${entry.outlet.id}/kds`}
                     >
-                      KDS view
+                      Kitchen
                     </Link>
                     <Link
                       className="secondary-button"
                       href={`/outlets/${entry.outlet.id}/tables`}
                     >
-                      View tables
+                      Tables
                     </Link>
                     <Link
                       className="secondary-button"
                       href={`/outlets/${entry.outlet.id}/pos`}
                     >
-                      POS next
+                      POS
                     </Link>
                   </div>
                 </article>

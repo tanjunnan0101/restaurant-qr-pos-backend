@@ -3,10 +3,35 @@
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import {
+  ClipboardList,
+  Package,
+  Printer,
+  ScanLine,
+  SquareTerminal,
+  Store,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { getOutlets } from '@/lib/api';
 import type { OutletSummary } from '@/lib/types';
 import { StaffPageFrame } from './staff-page-frame';
 import { useStaffSession } from './staff-session-guard';
+
+const primaryNavItems = [
+  { href: 'pos', label: 'POS', icon: SquareTerminal },
+  { href: 'orders', label: 'Orders', icon: ClipboardList },
+  { href: 'tables', label: 'Tables', icon: Store },
+  { href: 'kds', label: 'Kitchen', icon: ScanLine },
+];
+
+const supportNavItems = [
+  { href: 'menus', label: 'Menus', icon: ClipboardList },
+  { href: 'inventory', label: 'Inventory', icon: Package },
+  { href: 'attendance', label: 'Attendance', icon: Users },
+  { href: 'staff', label: 'Team', icon: Users },
+  { href: 'printing', label: 'Printing', icon: Printer },
+];
 
 export function useOutletContext() {
   const params = useParams<{ outletId: string }>();
@@ -78,65 +103,100 @@ export function OutletPageLayout({
 
 export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
   const pathname = usePathname();
-  const navItems = [
-    { href: `/outlets/${outlet.id}/orders`, label: 'Orders' },
-    { href: `/outlets/${outlet.id}/kds`, label: 'KDS' },
-    { href: `/outlets/${outlet.id}/tables`, label: 'Tables' },
-    { href: `/outlets/${outlet.id}/menus`, label: 'Menus' },
-    { href: `/outlets/${outlet.id}/inventory`, label: 'Inventory' },
-    { href: `/outlets/${outlet.id}/staff`, label: 'Staff' },
-    { href: `/outlets/${outlet.id}/attendance`, label: 'Attendance' },
-    { href: `/outlets/${outlet.id}/printing`, label: 'Printing' },
-    { href: `/outlets/${outlet.id}/pos`, label: 'POS' },
-  ];
 
   return (
-    <section className="panel section-panel outlet-command-bar">
-      <div className="outlet-command-bar__header">
-        <div className="outlet-command-bar__identity">
-          <p className="eyebrow">Outlet</p>
-          <h2 className="section-title serif">{outlet.name}</h2>
+    <section className="outlet-terminal-bar">
+      <div className="outlet-terminal-bar__identity">
+        <div>
+          <p className="eyebrow">Outlet command strip</p>
+          <h2 className="outlet-terminal-bar__title">{outlet.name}</h2>
           <p className="supporting-copy">
-            {outlet.slug} | {outlet.currency}
+            {outlet.slug} | {outlet.currency} | {outlet.timezone}
           </p>
         </div>
-        <div className="outlet-command-bar__meta">
-          <article className="sub-panel outlet-chip">
-            <span className="metric-label">GST</span>
+        <div className="outlet-terminal-bar__stats">
+          <article className="command-pill">
+            <span>GST</span>
             <strong>
               {outlet.gstEnabled ? `${outlet.gstRateBps / 100}%` : 'Off'}
             </strong>
           </article>
-          <article className="sub-panel outlet-chip">
-            <span className="metric-label">Service</span>
+          <article className="command-pill">
+            <span>Service</span>
             <strong>
               {outlet.serviceChargeEnabled
                 ? `${outlet.serviceChargeBps / 100}%`
                 : 'Off'}
             </strong>
           </article>
-          <article className="sub-panel outlet-chip">
-            <span className="metric-label">Timezone</span>
-            <strong>{outlet.timezone}</strong>
-          </article>
         </div>
       </div>
 
-      <div className="outlet-command-bar__nav">
-        {navItems.map((item) => {
-          const current =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return (
-            <Link
-              className={current ? 'workspace-pill current' : 'workspace-pill'}
-              href={item.href}
-              key={item.href}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+      <div className="outlet-terminal-bar__nav">
+        <div className="outlet-terminal-bar__group">
+          <span className="terminal-mini-label">Core flow</span>
+          <nav className="workspace-pill-list" aria-label="Primary outlet pages">
+            {primaryNavItems.map((item) => (
+              <OutletNavLink
+                currentPath={pathname}
+                href={`/outlets/${outlet.id}/${item.href}`}
+                icon={item.icon}
+                key={item.href}
+                label={item.label}
+              />
+            ))}
+          </nav>
+        </div>
+
+        <div className="outlet-terminal-bar__group">
+          <span className="terminal-mini-label">Support</span>
+          <nav className="workspace-pill-list" aria-label="Support outlet pages">
+            {supportNavItems.map((item) => (
+              <OutletNavLink
+                compact
+                currentPath={pathname}
+                href={`/outlets/${outlet.id}/${item.href}`}
+                icon={item.icon}
+                key={item.href}
+                label={item.label}
+              />
+            ))}
+          </nav>
+        </div>
       </div>
     </section>
+  );
+}
+
+function OutletNavLink({
+  currentPath,
+  href,
+  label,
+  icon: Icon,
+  compact = false,
+}: {
+  currentPath: string;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  compact?: boolean;
+}) {
+  const current = currentPath === href || currentPath.startsWith(`${href}/`);
+  return (
+    <Link
+      className={
+        current
+          ? compact
+            ? 'workspace-pill workspace-pill--terminal current compact'
+            : 'workspace-pill workspace-pill--terminal current'
+          : compact
+            ? 'workspace-pill workspace-pill--terminal compact'
+            : 'workspace-pill workspace-pill--terminal'
+      }
+      href={href}
+    >
+      <Icon aria-hidden="true" size={16} />
+      <span>{label}</span>
+    </Link>
   );
 }

@@ -42,22 +42,19 @@ export function LoginPage() {
       <div className="auth-layout">
         <section className="hero-card">
           <div className="hero-copy">
-            <p className="eyebrow">Shift Sign In</p>
-            <h1 className="display-title serif">
-              Step into the outlet operations board.
-            </h1>
+            <p className="eyebrow">Shift sign in</p>
+            <h1 className="display-title serif">Open the service terminal.</h1>
             <p className="supporting-copy">
-              Use a staff account that already has outlet permissions such as
-              order read or order manage. This login calls the live
-              <code> /auth/login </code>
-              endpoint.
+              Use a staff account with outlet permissions. This login uses the
+              live `/auth/login` backend flow and opens the service board after
+              authentication.
             </p>
           </div>
 
           <div className="feature-grid">
             <article className="feature-card">
               <h3>Live queue</h3>
-              <p>Move directly from sign-in to orders, KDS, and table pressure.</p>
+              <p>Move straight into orders, kitchen, tables, and cashier flow.</p>
             </article>
             <article className="feature-card">
               <h3>Outlet scoped</h3>
@@ -65,14 +62,14 @@ export function LoginPage() {
             </article>
             <article className="feature-card">
               <h3>Cashier ready</h3>
-              <p>POS, manual workflows, and service coordination stay in one app.</p>
+              <p>POS, payment recovery, and service coordination stay in one app.</p>
             </article>
           </div>
         </section>
 
         <section className="panel compact-card">
           <p className="eyebrow">Authentication</p>
-          <h2 className="section-title serif">Staff login</h2>
+          <h2 className="section-title">Staff login</h2>
 
           <form className="form-grid" onSubmit={onSubmit}>
             <div className="field">

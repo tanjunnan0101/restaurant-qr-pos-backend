@@ -174,6 +174,9 @@ export function OutletStaffPage() {
     );
   }, [searchTerm, users]);
 
+  const pendingUsers = users.filter((user) => user.activation.pending);
+  const activeUsers = users.filter((user) => user.status === 'ACTIVE');
+
   async function handleCreateStaffUser() {
     if (!session?.accessToken || !outletId) {
       return;
@@ -294,7 +297,8 @@ export function OutletStaffPage() {
                 ...entry,
                 activation: {
                   pending: true,
-                  expiresAt: result.activation?.expiresAt ?? entry.activation.expiresAt,
+                  expiresAt:
+                    result.activation?.expiresAt ?? entry.activation.expiresAt,
                 },
               }
             : entry,
@@ -357,8 +361,8 @@ export function OutletStaffPage() {
 
   return (
     <OutletPageLayout
-      title="Staff roster"
-      subtitle="Manage outlet staff access, assign roles, and reissue pending activation links from the live service console."
+      title="Team"
+      subtitle="Manage outlet access, roles, and activation links from the floor console."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -398,51 +402,47 @@ export function OutletStaffPage() {
         </section>
       ) : (
         <>
-          <section className="metric-board">
-            <article className="panel metric-card">
-              <span className="metric-label">Roster size</span>
-              <strong className="metric-value">{users.length}</strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Pending activation</span>
-              <strong className="metric-value">
-                {users.filter((user) => user.activation.pending).length}
-              </strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Active users</span>
-              <strong className="metric-value">
-                {users.filter((user) => user.status === 'ACTIVE').length}
-              </strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Roster state</span>
-              <strong className="metric-value">{formatRealtimeStatus(status)}</strong>
-            </article>
-          </section>
-
-          <section className="detail-grid">
-            <article className="panel section-panel">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Add staff</p>
-                  <h2 className="section-title serif">Create outlet access</h2>
-                  <p className="supporting-copy">
-                    Assign a staff member to this outlet and generate an activation
-                    link when the account is still pending.
-                  </p>
+          <section className="operations-layout support-station-layout">
+            <aside className="panel section-panel support-control-rail">
+              <article className="support-config-card">
+                <div className="support-config-card__header">
+                  <div>
+                    <p className="eyebrow">Team station</p>
+                    <h2 className="section-title">Roster control</h2>
+                  </div>
+                  <span className="status-pill success">
+                    {formatRealtimeStatus(status)}
+                  </span>
                 </div>
-                <button
-                  className="secondary-button"
-                  disabled={busy}
-                  onClick={() => setRefreshTick((current) => current + 1)}
-                  type="button"
-                >
-                  {busy ? 'Refreshing...' : 'Refresh roster'}
-                </button>
-              </div>
+                <p className="supporting-copy">
+                  Add staff to the outlet, assign the correct role, and keep
+                  activation links moving so the shift never stalls at sign-in.
+                </p>
+                <div className="support-inline-meta">
+                  <span>{users.length} rostered</span>
+                  <span>{activeUsers.length} active</span>
+                  <span>{pendingUsers.length} pending</span>
+                  <span>{roles.length} roles</span>
+                </div>
+                <div className="support-card__actions">
+                  <button
+                    className="secondary-button"
+                    disabled={busy}
+                    onClick={() => setRefreshTick((current) => current + 1)}
+                    type="button"
+                  >
+                    {busy ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
+              </article>
 
-              <div className="form-grid">
+              <article className="support-config-card">
+                <div className="support-config-card__header">
+                  <div>
+                    <p className="eyebrow">Add staff</p>
+                    <h3>Create outlet access</h3>
+                  </div>
+                </div>
                 <div className="field">
                   <label htmlFor="staff-full-name">Full name</label>
                   <input
@@ -491,138 +491,231 @@ export function OutletStaffPage() {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              {newStaff.roleKey ? (
-                <div className="sub-panel">
-                  <strong>
-                    {roles.find((role) => role.systemKey === newStaff.roleKey)?.name}
-                  </strong>
-                  <p className="supporting-copy">
-                    {roles.find((role) => role.systemKey === newStaff.roleKey)
-                      ?.description ?? 'No description provided.'}
-                  </p>
+                {newStaff.roleKey ? (
+                  <div className="support-note">
+                    {
+                      roles.find((role) => role.systemKey === newStaff.roleKey)
+                        ?.description
+                    }
+                  </div>
+                ) : null}
+                <div className="support-card__actions">
+                  <button
+                    className="primary-button"
+                    disabled={
+                      actionBusyId === 'create-staff-user' ||
+                      newStaff.fullName.trim().length < 2 ||
+                      newStaff.email.trim().length < 5 ||
+                      newStaff.roleKey.trim().length === 0
+                    }
+                    onClick={() => void handleCreateStaffUser()}
+                    type="button"
+                  >
+                    {actionBusyId === 'create-staff-user'
+                      ? 'Creating...'
+                      : 'Create access'}
+                  </button>
                 </div>
-              ) : null}
+              </article>
 
-              <div className="inline-actions">
-                <button
-                  className="primary-button"
-                  disabled={
-                    actionBusyId === 'create-staff-user' ||
-                    newStaff.fullName.trim().length < 2 ||
-                    newStaff.email.trim().length < 5 ||
-                    newStaff.roleKey.trim().length === 0
-                  }
-                  onClick={() => void handleCreateStaffUser()}
-                  type="button"
-                >
-                  {actionBusyId === 'create-staff-user'
-                    ? 'Creating...'
-                    : 'Create staff access'}
-                </button>
-              </div>
-            </article>
-
-            <article className="panel section-panel">
-              <h2 className="section-title serif">Assignable roles</h2>
-              {roles.length === 0 ? (
-                <p className="supporting-copy">No assignable outlet roles found.</p>
-              ) : (
-                <div className="stack-list">
-                  {roles.map((role) => (
-                    <div className="stack-row" key={role.id}>
-                      <div>
-                        <strong>{role.name}</strong>
-                        <p className="supporting-copy">
-                          {role.description ?? 'No description provided.'}
-                        </p>
-                        <p className="supporting-copy">
-                          Permissions: {role.permissions.join(', ')}
-                        </p>
-                      </div>
-                      <span className="status-pill neutral">{role.systemKey}</span>
-                    </div>
-                  ))}
+              <article className="support-config-card">
+                <div className="support-config-card__header">
+                  <div>
+                    <p className="eyebrow">Role library</p>
+                    <h3>Assignable roles</h3>
+                  </div>
                 </div>
-              )}
-            </article>
-          </section>
-
-          <section className="panel section-panel">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Outlet roster</p>
-                <h2 className="section-title serif">Current staff access</h2>
-                <p className="supporting-copy">
-                  Search by person, email, role, or account state.
-                </p>
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="staff-search">Search roster</label>
-              <input
-                id="staff-search"
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by name, email, role, or status"
-                value={searchTerm}
-              />
-            </div>
-
-            {busy ? (
-              <p className="supporting-copy">Loading staff roster...</p>
-            ) : filteredUsers.length === 0 ? (
-              <div className="empty-state">
-                <h3>No matching staff users</h3>
-                <p className="supporting-copy">
-                  Clear the search or create the first outlet staff access.
-                </p>
-              </div>
-            ) : (
-              <div className="stack-list">
-                {filteredUsers.map((user) => (
-                  <div className="stack-row" key={user.id}>
-                    <div>
-                      <strong>{user.fullName}</strong>
-                      <p className="supporting-copy">{user.email}</p>
-                      <p className="supporting-copy">
-                        Status: {formatEnum(user.status)} | Last login:{' '}
-                        {user.lastLoginAt
-                          ? new Date(user.lastLoginAt).toLocaleString()
-                          : 'Never'}
-                      </p>
-                      <p className="supporting-copy">
-                        Role permissions: {user.role.permissions.join(', ')}
-                      </p>
-                      {user.activation.pending ? (
-                        <p className="supporting-copy">
-                          Activation pending
-                          {user.activation.expiresAt
-                            ? ` until ${new Date(user.activation.expiresAt).toLocaleString()}`
-                            : ''}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="form-grid">
-                      <div className="field">
-                        <label htmlFor={`role-${user.id}`}>Role</label>
-                        <select
-                          disabled={actionBusyId === user.id}
-                          id={`role-${user.id}`}
-                          onChange={(event) =>
-                            void handleRoleChange(user.id, event.target.value)
-                          }
-                          value={user.role.systemKey}
-                        >
-                          {roles.map((role) => (
-                            <option key={role.id} value={role.systemKey}>
-                              {role.name}
-                            </option>
+                {roles.length === 0 ? (
+                  <p className="supporting-copy">No assignable roles found.</p>
+                ) : (
+                  <div className="list-block">
+                    {roles.map((role) => (
+                      <article className="list-item" key={role.id}>
+                        <div className="support-list-card__header">
+                          <div>
+                            <h3>{role.name}</h3>
+                            <p className="supporting-copy">
+                              {role.description ?? 'No description provided.'}
+                            </p>
+                          </div>
+                          <span className="status-pill neutral">
+                            {role.systemKey}
+                          </span>
+                        </div>
+                        <div className="tag-row">
+                          {role.permissions.slice(0, 6).map((permission) => (
+                            <span className="tag" key={`${role.id}-${permission}`}>
+                              {permission}
+                            </span>
                           ))}
-                        </select>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </article>
+            </aside>
+
+            <div className="support-board-panel">
+              <section className="support-summary-grid">
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Roster</p>
+                      <h3>{users.length}</h3>
+                    </div>
+                    <span className="status-pill neutral">People</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Staff accounts with access to this outlet.
+                  </p>
+                </article>
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Pending</p>
+                      <h3>{pendingUsers.length}</h3>
+                    </div>
+                    <span className="status-pill warning">Activation</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Accounts still waiting to finish setup.
+                  </p>
+                </article>
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Active</p>
+                      <h3>{activeUsers.length}</h3>
+                    </div>
+                    <span className="status-pill success">Ready</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Staff who can sign in immediately.
+                  </p>
+                </article>
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Sync</p>
+                      <h3>{formatRealtimeStatus(status)}</h3>
+                    </div>
+                    <span className="status-pill neutral">Live</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Roster refresh state for this outlet.
+                  </p>
+                </article>
+              </section>
+
+              <article className="panel section-panel support-card">
+                <div className="support-card__header">
+                  <div>
+                    <p className="eyebrow">Roster view</p>
+                    <h2 className="section-title">Current team</h2>
+                  </div>
+                  <span className="status-pill neutral">
+                    {filteredUsers.length} shown
+                  </span>
+                </div>
+                <div className="field">
+                  <label htmlFor="staff-search">Search roster</label>
+                  <input
+                    id="staff-search"
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Search by name, email, role, or status"
+                    value={searchTerm}
+                  />
+                </div>
+              </article>
+
+              {busy ? (
+                <section className="panel section-panel">
+                  <p className="supporting-copy">Loading staff roster...</p>
+                </section>
+              ) : filteredUsers.length === 0 ? (
+                <section className="panel section-panel">
+                  <div className="empty-state">
+                    <h3>No matching staff users</h3>
+                    <p className="supporting-copy">
+                      Clear the search or create the first outlet access.
+                    </p>
+                  </div>
+                </section>
+              ) : (
+                <section className="support-list-grid">
+                  {filteredUsers.map((user) => (
+                    <article
+                      className="panel section-panel support-list-card"
+                      key={user.id}
+                    >
+                      <div className="support-list-card__header">
+                        <div>
+                          <p className="eyebrow">Team member</p>
+                          <h3>{user.fullName}</h3>
+                          <p className="supporting-copy">{user.email}</p>
+                        </div>
+                        <div className="tag-row">
+                          <span
+                            className={`status-pill ${
+                              user.status === 'ACTIVE' ? 'success' : 'warning'
+                            }`}
+                          >
+                            {formatEnum(user.status)}
+                          </span>
+                          <span className="status-pill neutral">
+                            {user.role.name}
+                          </span>
+                        </div>
                       </div>
-                      <div className="inline-actions">
+
+                      <div className="support-inline-meta">
+                        <span>Role key: {user.role.systemKey}</span>
+                        <span>
+                          Last login:{' '}
+                          {user.lastLoginAt
+                            ? new Date(user.lastLoginAt).toLocaleString()
+                            : 'Never'}
+                        </span>
+                        {user.activation.pending ? (
+                          <span>
+                            Pending until{' '}
+                            {user.activation.expiresAt
+                              ? new Date(user.activation.expiresAt).toLocaleString()
+                              : 'unknown'}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="tag-row">
+                        {user.role.permissions.slice(0, 8).map((permission) => (
+                          <span className="tag" key={`${user.id}-${permission}`}>
+                            {permission}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="form-grid">
+                        <div className="field">
+                          <label htmlFor={`role-${user.id}`}>Role</label>
+                          <select
+                            disabled={actionBusyId === user.id}
+                            id={`role-${user.id}`}
+                            onChange={(event) =>
+                              void handleRoleChange(user.id, event.target.value)
+                            }
+                            value={user.role.systemKey}
+                          >
+                            {roles.map((role) => (
+                              <option key={role.id} value={role.systemKey}>
+                                {role.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="support-list-card__actions">
                         {user.activation.pending ? (
                           <button
                             className="secondary-button"
@@ -646,11 +739,11 @@ export function OutletStaffPage() {
                             : 'Remove access'}
                         </button>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    </article>
+                  ))}
+                </section>
+              )}
+            </div>
           </section>
           <OutletAuditFeed
             entries={auditEntries}

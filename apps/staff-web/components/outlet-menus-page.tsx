@@ -304,7 +304,9 @@ export function OutletMenusPage() {
   }, [searchTerm, selectedVersion, visibilityFilter]);
 
   const itemSummary = {
-    total: selectedVersion?.categories.flatMap((category) => category.items).length ?? 0,
+    total:
+      selectedVersion?.categories.flatMap((category) => category.items).length ??
+      0,
     soldOut:
       selectedVersion?.categories
         .flatMap((category) => category.items)
@@ -434,12 +436,17 @@ export function OutletMenusPage() {
     setActionBusyId(itemId);
     setError(null);
     try {
-      const result = await setMenuItemSoldOut(session.accessToken, outletId, itemId, {
-        soldOut: !currentSoldOut,
-        reason: currentSoldOut
-          ? `Staff returned ${itemName} to sale from menu operations.`
-          : `Staff marked ${itemName} sold out from menu operations.`,
-      });
+      const result = await setMenuItemSoldOut(
+        session.accessToken,
+        outletId,
+        itemId,
+        {
+          soldOut: !currentSoldOut,
+          reason: currentSoldOut
+            ? `Staff returned ${itemName} to sale from menu operations.`
+            : `Staff marked ${itemName} sold out from menu operations.`,
+        },
+      );
       setMenuDetail((current) =>
         current
           ? {
@@ -575,8 +582,8 @@ export function OutletMenusPage() {
 
   return (
     <OutletPageLayout
-      title="Menu operations"
-      subtitle="Review live outlet menus, monitor sold-out coverage, and control service availability without leaving the staff console."
+      title="Menus"
+      subtitle="Control sold-out state, drafts, and quick menu edits without leaving service."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -610,464 +617,514 @@ export function OutletMenusPage() {
         </section>
       ) : (
         <>
-          <section className="workspace-hero workspace-hero--staff">
-            <div className="workspace-hero__header">
-              <div className="workspace-hero__copy">
-                <p className="eyebrow">Menu quick edit</p>
-                <h2 className="section-title serif">Keep service-ready items current</h2>
-                <p className="supporting-copy">
-                  This menu board now supports fast staff-side menu operations:
-                  spot sold-out items, clone a draft, add a missing item, and
-                  publish when your role allows it.
-                </p>
-              </div>
-              <div className="workspace-pill-grid">
-                <div className="workspace-pill current">
-                  <span>Realtime</span>
-                  <strong>{formatRealtimeStatus(status)}</strong>
+          <section className="operations-layout support-station-layout">
+            <aside className="panel section-panel support-control-rail">
+              <article className="support-config-card">
+                <div className="support-config-card__header">
+                  <div>
+                    <p className="eyebrow">Menu station</p>
+                    <h2 className="section-title">Control deck</h2>
+                  </div>
+                  <span className="status-pill success">
+                    {formatRealtimeStatus(status)}
+                  </span>
                 </div>
-                <div className="workspace-pill">
-                  <span>Edit mode</span>
-                  <strong>
-                    {hasDraft ? 'Draft available' : hasPublished ? 'Published only' : 'First setup'}
-                  </strong>
+                <p className="supporting-copy">
+                  Run live menu control from one rail: select the selling
+                  version, open a draft, publish updates, and react to item
+                  availability without losing floor pace.
+                </p>
+                <div className="support-inline-meta">
+                  <span>{menus.length} menus</span>
+                  <span>{categoryCount} categories</span>
+                  <span>{readyItems} ready</span>
+                  <span>{itemSummary.soldOut} sold out</span>
                 </div>
-              </div>
-            </div>
-            <div className="operations-summary-grid">
-              <article className="operations-summary-card">
-                <span className="metric-label">Menus</span>
-                <strong>{menus.length}</strong>
-                <p className="supporting-copy">
-                  Menu records currently available for this outlet.
-                </p>
-              </article>
-              <article className="operations-summary-card">
-                <span className="metric-label">Categories</span>
-                <strong>{categoryCount}</strong>
-                <p className="supporting-copy">
-                  Visible categories in the selected menu version.
-                </p>
-              </article>
-              <article className="operations-summary-card">
-                <span className="metric-label">Ready to sell</span>
-                <strong>{readyItems}</strong>
-                <p className="supporting-copy">
-                  Available items after sold-out filtering is applied.
-                </p>
-              </article>
-              <article className="operations-summary-card">
-                <span className="metric-label">Sold out</span>
-                <strong>{itemSummary.soldOut}</strong>
-                <p className="supporting-copy">
-                  Items currently hidden from customer and staff ordering.
-                </p>
-              </article>
-            </div>
-          </section>
-
-          <section className="metric-board">
-            <article className="panel metric-card">
-              <span className="metric-label">Menus</span>
-              <strong className="metric-value">{menus.length}</strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Items in view</span>
-              <strong className="metric-value">{itemSummary.total}</strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Sold out</span>
-              <strong className="metric-value">{itemSummary.soldOut}</strong>
-            </article>
-            <article className="panel metric-card">
-              <span className="metric-label">Menu state</span>
-              <strong className="metric-value">{formatRealtimeStatus(status)}</strong>
-            </article>
-          </section>
-
-          <section className="panel section-panel">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Live menu board</p>
-                <h2 className="section-title serif">Outlet menu controls</h2>
-                <p className="supporting-copy">
-                  Choose a menu, review the current draft or published version,
-                  and adjust sold-out state at item level. Staff with menu
-                  permissions can also use the quick editor below.
-                </p>
-              </div>
-              <div className="inline-actions">
-                <button
-                  className="secondary-button"
-                  disabled={busy || detailBusy}
-                  onClick={() => setRefreshTick((current) => current + 1)}
-                  type="button"
-                >
-                  {busy || detailBusy ? 'Refreshing...' : 'Refresh menu state'}
-                </button>
-                {canManageMenus && hasPublished && !hasDraft ? (
+                <div className="support-card__actions">
                   <button
                     className="secondary-button"
-                    disabled={actionBusyId === 'clone-draft'}
-                    onClick={() => void handleCloneDraft()}
+                    disabled={busy || detailBusy}
+                    onClick={() => setRefreshTick((current) => current + 1)}
                     type="button"
                   >
-                    {actionBusyId === 'clone-draft'
-                      ? 'Cloning draft...'
-                      : 'Clone published into draft'}
+                    {busy || detailBusy ? 'Refreshing...' : 'Refresh'}
                   </button>
-                ) : null}
-                {canPublishMenus && hasDraft ? (
-                  <button
-                    className="primary-button"
-                    disabled={actionBusyId === 'publish-menu'}
-                    onClick={() => void handlePublish()}
-                    type="button"
-                  >
-                    {actionBusyId === 'publish-menu'
-                      ? 'Publishing...'
-                      : 'Publish draft'}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="form-grid">
-              <div className="field">
-                <label htmlFor="menu-select">Menu</label>
-                <select
-                  id="menu-select"
-                  onChange={(event) => setSelectedMenuId(event.target.value)}
-                  value={selectedMenuId}
-                >
-                  <option value="">Select menu</option>
-                  {menus.map((menu) => (
-                    <option key={menu.id} value={menu.id}>
-                      {menu.name}
-                      {menu.isDefault ? ' (Default)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="version-select">Version</label>
-                <select
-                  disabled={!menuDetail}
-                  id="version-select"
-                  onChange={(event) => setSelectedVersionId(event.target.value)}
-                  value={selectedVersionId}
-                >
-                  {menuDetail?.versions.map((version) => (
-                    <option key={version.id} value={version.id}>
-                      V{version.versionNumber} • {formatEnum(version.status)}
-                    </option>
-                  )) ?? <option value="">Select version</option>}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="menu-search">Search items</label>
-                <input
-                  id="menu-search"
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search by category, item, SKU, station, or description"
-                  value={searchTerm}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="sold-out-filter">Item visibility</label>
-                <select
-                  id="sold-out-filter"
-                  onChange={(event) =>
-                    setVisibilityFilter(event.target.value as ItemVisibilityFilter)
-                  }
-                  value={visibilityFilter}
-                >
-                  <option value="ALL">All items</option>
-                  <option value="AVAILABLE">Available only</option>
-                  <option value="SOLD_OUT">Sold out only</option>
-                </select>
-              </div>
-            </div>
-          </section>
-
-          {canManageMenus ? (
-            <section className="panel section-panel queue-card--upgraded">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Quick edit</p>
-                  <h2 className="section-title serif">Add an item without leaving service</h2>
-                  <p className="supporting-copy">
-                    Inspired by the fastest restaurant POS edit flows: make a
-                    draft, add a category or item, save, then publish when
-                    ready.
-                  </p>
+                  {canManageMenus && hasPublished && !hasDraft ? (
+                    <button
+                      className="secondary-button"
+                      disabled={actionBusyId === 'clone-draft'}
+                      onClick={() => void handleCloneDraft()}
+                      type="button"
+                    >
+                      {actionBusyId === 'clone-draft'
+                        ? 'Cloning...'
+                        : 'Create draft'}
+                    </button>
+                  ) : null}
+                  {canPublishMenus && hasDraft ? (
+                    <button
+                      className="primary-button"
+                      disabled={actionBusyId === 'publish-menu'}
+                      onClick={() => void handlePublish()}
+                      type="button"
+                    >
+                      {actionBusyId === 'publish-menu'
+                        ? 'Publishing...'
+                        : 'Publish'}
+                    </button>
+                  ) : null}
                 </div>
-                <span
-                  className={`status-pill ${
-                    editableVersion?.status === 'DRAFT' ? 'success' : 'warning'
-                  }`}
-                >
-                  {editableVersion?.status === 'DRAFT'
-                    ? 'Draft editing live'
-                    : 'Draft required'}
-                </span>
-              </div>
+              </article>
 
-              <div className="form-grid">
-                <div className="field">
-                  <label htmlFor="quick-category-mode">Target category</label>
-                  <select
-                    id="quick-category-mode"
-                    onChange={(event) =>
-                      setQuickCategoryMode(event.target.value as QuickCategoryMode)
-                    }
-                    value={quickCategoryMode}
+              <article className="support-config-card">
+                <div className="support-config-card__header">
+                  <div>
+                    <p className="eyebrow">Selection</p>
+                    <h3>Menu in service</h3>
+                  </div>
+                  <span
+                    className={`status-pill ${
+                      hasDraft ? 'warning' : hasPublished ? 'success' : 'neutral'
+                    }`}
                   >
-                    <option value="EXISTING">Use existing category</option>
-                    <option value="NEW">Create new category</option>
+                    {hasDraft
+                      ? 'Draft open'
+                      : hasPublished
+                        ? 'Published'
+                        : 'No published menu'}
+                  </span>
+                </div>
+                <div className="field">
+                  <label htmlFor="menu-select">Menu</label>
+                  <select
+                    id="menu-select"
+                    onChange={(event) => setSelectedMenuId(event.target.value)}
+                    value={selectedMenuId}
+                  >
+                    <option value="">Select menu</option>
+                    {menus.map((menu) => (
+                      <option key={menu.id} value={menu.id}>
+                        {menu.name}
+                        {menu.isDefault ? ' (Default)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                {quickCategoryMode === 'EXISTING' ? (
-                  <div className="field">
-                    <label htmlFor="quick-category-id">Category</label>
-                    <select
-                      id="quick-category-id"
-                      onChange={(event) => setQuickCategoryId(event.target.value)}
-                      value={quickCategoryId}
-                    >
-                      <option value="">Select category</option>
-                      {(editableVersion?.categories ?? []).map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="field">
-                    <label htmlFor="quick-category-name">New category name</label>
-                    <input
-                      id="quick-category-name"
-                      onChange={(event) => setQuickCategoryName(event.target.value)}
-                      placeholder="Seasonal specials"
-                      value={quickCategoryName}
-                    />
-                  </div>
-                )}
                 <div className="field">
-                  <label htmlFor="quick-item-name">Item name</label>
+                  <label htmlFor="version-select">Version</label>
+                  <select
+                    disabled={!menuDetail}
+                    id="version-select"
+                    onChange={(event) => setSelectedVersionId(event.target.value)}
+                    value={selectedVersionId}
+                  >
+                    {menuDetail?.versions.map((version) => (
+                      <option key={version.id} value={version.id}>
+                        V{version.versionNumber} | {formatEnum(version.status)}
+                      </option>
+                    )) ?? <option value="">Select version</option>}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="menu-search">Search items</label>
                   <input
-                    id="quick-item-name"
-                    onChange={(event) => setQuickItemName(event.target.value)}
-                    placeholder="Grilled seabass"
-                    value={quickItemName}
+                    id="menu-search"
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Search by item, SKU, station, or category"
+                    value={searchTerm}
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="quick-item-price">Price</label>
-                  <input
-                    id="quick-item-price"
-                    inputMode="decimal"
-                    onChange={(event) => setQuickItemPrice(event.target.value)}
-                    placeholder="18.90"
-                    value={quickItemPrice}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="quick-item-sku">SKU</label>
-                  <input
-                    id="quick-item-sku"
-                    onChange={(event) => setQuickItemSku(event.target.value)}
-                    placeholder="FISH-SEA-001"
-                    value={quickItemSku}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="quick-item-station">Prep station</label>
-                  <input
-                    id="quick-item-station"
-                    onChange={(event) => setQuickItemStation(event.target.value)}
-                    placeholder="main-kitchen"
-                    value={quickItemStation}
-                  />
-                </div>
-              </div>
-
-              <div className="field">
-                <label htmlFor="quick-item-description">Description</label>
-                <textarea
-                  id="quick-item-description"
-                  onChange={(event) => setQuickItemDescription(event.target.value)}
-                  placeholder="Short staff-friendly or guest-facing description"
-                  rows={3}
-                  value={quickItemDescription}
-                />
-              </div>
-
-              <div className="inline-actions">
-                <label className="checkbox-row">
-                  <input
-                    checked={quickItemTaxable}
-                    onChange={(event) => setQuickItemTaxable(event.target.checked)}
-                    type="checkbox"
-                  />
-                  <span>Taxable</span>
-                </label>
-                <label className="checkbox-row">
-                  <input
-                    checked={quickItemServiceChargeable}
+                  <label htmlFor="sold-out-filter">Visibility</label>
+                  <select
+                    id="sold-out-filter"
                     onChange={(event) =>
-                      setQuickItemServiceChargeable(event.target.checked)
+                      setVisibilityFilter(event.target.value as ItemVisibilityFilter)
                     }
-                    type="checkbox"
-                  />
-                  <span>Service chargeable</span>
-                </label>
-                <label className="checkbox-row">
-                  <input
-                    checked={quickItemActive}
-                    onChange={(event) => setQuickItemActive(event.target.checked)}
-                    type="checkbox"
-                  />
-                  <span>Visible in menu</span>
-                </label>
-              </div>
+                    value={visibilityFilter}
+                  >
+                    <option value="ALL">All items</option>
+                    <option value="AVAILABLE">Available only</option>
+                    <option value="SOLD_OUT">Sold out only</option>
+                  </select>
+                </div>
+                <p className="support-note">
+                  Service should read from published versions. Use drafts for
+                  edits, then publish when the floor is ready.
+                </p>
+              </article>
 
-              <div className="inline-actions">
-                <button
-                  className="primary-button"
-                  disabled={actionBusyId === 'quick-add-item'}
-                  onClick={() => void handleQuickAddItem()}
-                  type="button"
-                >
-                  {actionBusyId === 'quick-add-item'
-                    ? 'Saving to draft...'
-                    : 'Add item to draft'}
-                </button>
-                <span className="supporting-copy">
-                  {editableVersion?.status === 'DRAFT'
-                    ? 'Saves directly into the current draft version.'
-                    : 'Clone a published menu into a draft first, then quick add items here.'}
-                </span>
-              </div>
-            </section>
-          ) : null}
-
-          {busy ? (
-            <section className="panel section-panel">
-              <p className="supporting-copy">Loading menus...</p>
-            </section>
-          ) : menus.length === 0 ? (
-            <section className="panel section-panel">
-              <div className="empty-state">
-                <h3>No menus available</h3>
-                <p className="supporting-copy">
-                  Configure or publish a menu before using staff menu operations.
-                </p>
-              </div>
-            </section>
-          ) : detailBusy ? (
-            <section className="panel section-panel">
-              <p className="supporting-copy">Loading menu detail...</p>
-            </section>
-          ) : !menuDetail || !selectedVersion ? (
-            <section className="panel section-panel">
-              <div className="empty-state">
-                <h3>Select a menu version</h3>
-                <p className="supporting-copy">
-                  Choose a menu to inspect its categories, items, and service
-                  state.
-                </p>
-              </div>
-            </section>
-          ) : filteredCategories.length === 0 ? (
-            <section className="panel section-panel">
-              <div className="empty-state">
-                <h3>No matching items</h3>
-                <p className="supporting-copy">
-                  Clear the search or broaden the visibility filter to bring menu
-                  items back into view.
-                </p>
-              </div>
-            </section>
-          ) : (
-            <section className="zones-grid">
-              {filteredCategories.map((category) => (
-                <article className="panel section-panel" key={category.id}>
-                  <div className="section-header">
+              {canManageMenus ? (
+                <article className="support-config-card">
+                  <div className="support-config-card__header">
                     <div>
-                      <p className="eyebrow">Category</p>
-                      <h2 className="section-title serif">{category.name}</h2>
-                      <p className="supporting-copy">
-                        {category.items.length} item
-                        {category.items.length === 1 ? '' : 's'} in view
-                      </p>
+                      <p className="eyebrow">Quick add</p>
+                      <h3>Drop in a missing item</h3>
                     </div>
                     <span
                       className={`status-pill ${
-                        category.active ? 'success' : 'neutral'
+                        editableVersion?.status === 'DRAFT'
+                          ? 'success'
+                          : 'warning'
                       }`}
                     >
-                      {category.active ? 'Active' : 'Inactive'}
+                      {editableVersion?.status === 'DRAFT'
+                        ? 'Editing draft'
+                        : 'Draft needed'}
                     </span>
                   </div>
-
-                  <div className="stack-list">
-                    {category.items.map((item) => (
-                      <div className="stack-row" key={item.id}>
-                        <div>
-                          <strong>{item.name}</strong>
-                          <p className="supporting-copy">
-                            {item.sku ?? 'No SKU'} |{' '}
-                            {formatMoney(outlet?.currency ?? 'SGD', item.basePriceCents)} |
-                            {' '}{item.preparationStationKey}
-                          </p>
-                          {item.description ? (
-                            <p className="supporting-copy">{item.description}</p>
-                          ) : null}
-                          <p className="supporting-copy">
-                            Variants: {item.variants.length} | Modifier groups:{' '}
-                            {item.itemModifierGroups.length}
-                          </p>
-                        </div>
-                        <div className="inline-actions">
-                          <span
-                            className={`status-pill ${
-                              item.soldOut ? 'danger' : 'success'
-                            }`}
-                          >
-                            {item.soldOut ? 'Sold out' : 'Available'}
-                          </span>
-                          {canManageMenus ? (
-                            <button
-                              className={
-                                item.soldOut ? 'secondary-button' : 'primary-button'
-                              }
-                              disabled={actionBusyId === item.id}
-                              onClick={() =>
-                                void handleToggleSoldOut(
-                                  item.id,
-                                  item.soldOut,
-                                  item.name,
-                                )
-                              }
-                              type="button"
-                            >
-                              {actionBusyId === item.id
-                                ? 'Updating...'
-                                : item.soldOut
-                                  ? 'Return to sale'
-                                  : 'Mark sold out'}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="field">
+                    <label htmlFor="quick-category-mode">Target category</label>
+                    <select
+                      id="quick-category-mode"
+                      onChange={(event) =>
+                        setQuickCategoryMode(event.target.value as QuickCategoryMode)
+                      }
+                      value={quickCategoryMode}
+                    >
+                      <option value="EXISTING">Use existing</option>
+                      <option value="NEW">Create new</option>
+                    </select>
+                  </div>
+                  {quickCategoryMode === 'EXISTING' ? (
+                    <div className="field">
+                      <label htmlFor="quick-category-id">Category</label>
+                      <select
+                        id="quick-category-id"
+                        onChange={(event) => setQuickCategoryId(event.target.value)}
+                        value={quickCategoryId}
+                      >
+                        <option value="">Select category</option>
+                        {(editableVersion?.categories ?? []).map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="field">
+                      <label htmlFor="quick-category-name">New category</label>
+                      <input
+                        id="quick-category-name"
+                        onChange={(event) => setQuickCategoryName(event.target.value)}
+                        placeholder="Seasonal specials"
+                        value={quickCategoryName}
+                      />
+                    </div>
+                  )}
+                  <div className="form-grid">
+                    <div className="field">
+                      <label htmlFor="quick-item-name">Item name</label>
+                      <input
+                        id="quick-item-name"
+                        onChange={(event) => setQuickItemName(event.target.value)}
+                        placeholder="Grilled seabass"
+                        value={quickItemName}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="quick-item-price">Price</label>
+                      <input
+                        id="quick-item-price"
+                        inputMode="decimal"
+                        onChange={(event) => setQuickItemPrice(event.target.value)}
+                        placeholder="18.90"
+                        value={quickItemPrice}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="quick-item-sku">SKU</label>
+                      <input
+                        id="quick-item-sku"
+                        onChange={(event) => setQuickItemSku(event.target.value)}
+                        placeholder="FISH-SEA-001"
+                        value={quickItemSku}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="quick-item-station">Prep station</label>
+                      <input
+                        id="quick-item-station"
+                        onChange={(event) => setQuickItemStation(event.target.value)}
+                        placeholder="main-kitchen"
+                        value={quickItemStation}
+                      />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="quick-item-description">Description</label>
+                    <textarea
+                      id="quick-item-description"
+                      onChange={(event) => setQuickItemDescription(event.target.value)}
+                      placeholder="Short guest-facing description"
+                      rows={3}
+                      value={quickItemDescription}
+                    />
+                  </div>
+                  <div className="support-toggle-row">
+                    <label className="checkbox-row">
+                      <input
+                        checked={quickItemTaxable}
+                        onChange={(event) => setQuickItemTaxable(event.target.checked)}
+                        type="checkbox"
+                      />
+                      <span>Taxable</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input
+                        checked={quickItemServiceChargeable}
+                        onChange={(event) =>
+                          setQuickItemServiceChargeable(event.target.checked)
+                        }
+                        type="checkbox"
+                      />
+                      <span>Service chargeable</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input
+                        checked={quickItemActive}
+                        onChange={(event) => setQuickItemActive(event.target.checked)}
+                        type="checkbox"
+                      />
+                      <span>Visible</span>
+                    </label>
+                  </div>
+                  <div className="support-card__actions">
+                    <button
+                      className="primary-button"
+                      disabled={actionBusyId === 'quick-add-item'}
+                      onClick={() => void handleQuickAddItem()}
+                      type="button"
+                    >
+                      {actionBusyId === 'quick-add-item'
+                        ? 'Saving...'
+                        : 'Add to draft'}
+                    </button>
                   </div>
                 </article>
-              ))}
-            </section>
-          )}
+              ) : null}
+            </aside>
+
+            <div className="support-board-panel">
+              <section className="support-summary-grid">
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Menus</p>
+                      <h3>{menus.length}</h3>
+                    </div>
+                    <span className="status-pill neutral">Library</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Menu records currently staged for this outlet.
+                  </p>
+                </article>
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Categories</p>
+                      <h3>{categoryCount}</h3>
+                    </div>
+                    <span className="status-pill neutral">In view</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Categories in the selected version.
+                  </p>
+                </article>
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Ready</p>
+                      <h3>{readyItems}</h3>
+                    </div>
+                    <span className="status-pill success">Selling</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Items available for customers right now.
+                  </p>
+                </article>
+                <article className="support-card">
+                  <div className="support-card__header">
+                    <div>
+                      <p className="eyebrow">Sold out</p>
+                      <h3>{itemSummary.soldOut}</h3>
+                    </div>
+                    <span className="status-pill warning">Watchlist</span>
+                  </div>
+                  <p className="supporting-copy">
+                    Items hidden from QR ordering.
+                  </p>
+                </article>
+              </section>
+
+              {busy ? (
+                <section className="panel section-panel">
+                  <p className="supporting-copy">Loading menus...</p>
+                </section>
+              ) : menus.length === 0 ? (
+                <section className="panel section-panel">
+                  <div className="empty-state">
+                    <h3>No menus available</h3>
+                    <p className="supporting-copy">
+                      Publish a menu before using live menu control.
+                    </p>
+                  </div>
+                </section>
+              ) : detailBusy ? (
+                <section className="panel section-panel">
+                  <p className="supporting-copy">Loading menu detail...</p>
+                </section>
+              ) : !menuDetail || !selectedVersion ? (
+                <section className="panel section-panel">
+                  <div className="empty-state">
+                    <h3>Select a menu version</h3>
+                    <p className="supporting-copy">
+                      Pick a menu from the control rail to load the service
+                      board.
+                    </p>
+                  </div>
+                </section>
+              ) : filteredCategories.length === 0 ? (
+                <section className="panel section-panel">
+                  <div className="empty-state">
+                    <h3>No matching items</h3>
+                    <p className="supporting-copy">
+                      Broaden the search or change the visibility filter.
+                    </p>
+                  </div>
+                </section>
+              ) : (
+                <>
+                  <article className="panel section-panel support-card">
+                    <div className="support-card__header">
+                      <div>
+                        <p className="eyebrow">Loaded version</p>
+                        <h2 className="section-title">{menuDetail.name}</h2>
+                        <p className="supporting-copy">
+                          Version {selectedVersion.versionNumber} |{' '}
+                          {formatEnum(selectedVersion.status)}
+                          {menuDetail.isDefault ? ' | Default menu' : ''}
+                        </p>
+                      </div>
+                      <div className="tag-row">
+                        <span
+                          className={`status-pill ${
+                            selectedVersion.status === 'PUBLISHED'
+                              ? 'success'
+                              : 'warning'
+                          }`}
+                        >
+                          {formatEnum(selectedVersion.status)}
+                        </span>
+                        <span className="status-pill neutral">
+                          {selectedVersion.categories.length} categories
+                        </span>
+                      </div>
+                    </div>
+                  </article>
+
+                  <section className="support-list-grid">
+                    {filteredCategories.map((category) => (
+                      <article
+                        className="panel section-panel support-list-card"
+                        key={category.id}
+                      >
+                        <div className="support-list-card__header">
+                          <div>
+                            <p className="eyebrow">Category</p>
+                            <h3>{category.name}</h3>
+                          </div>
+                          <div className="tag-row">
+                            <span
+                              className={`status-pill ${
+                                category.active ? 'success' : 'neutral'
+                              }`}
+                            >
+                              {category.active ? 'Active' : 'Inactive'}
+                            </span>
+                            <span className="status-pill neutral">
+                              {category.items.length} items
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="list-block">
+                          {category.items.map((item) => (
+                            <article className="list-item" key={item.id}>
+                              <div className="support-list-card__header">
+                                <div>
+                                  <h3>{item.name}</h3>
+                                  <p className="supporting-copy">
+                                    {formatMoney(
+                                      outlet?.currency ?? 'SGD',
+                                      item.basePriceCents,
+                                    )}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`status-pill ${
+                                    item.soldOut ? 'danger' : 'success'
+                                  }`}
+                                >
+                                  {item.soldOut ? 'Sold out' : 'Available'}
+                                </span>
+                              </div>
+                              <div className="support-inline-meta">
+                                <span>{item.sku ?? 'No SKU'}</span>
+                                <span>{item.preparationStationKey}</span>
+                                <span>{item.variants.length} variants</span>
+                                <span>
+                                  {item.itemModifierGroups.length} modifiers
+                                </span>
+                              </div>
+                              {item.description ? (
+                                <p className="supporting-copy">{item.description}</p>
+                              ) : null}
+                              <div className="support-inline-meta">
+                                <span>Tax {item.taxable ? 'enabled' : 'off'}</span>
+                                <span>
+                                  Service{' '}
+                                  {item.serviceChargeable ? 'enabled' : 'off'}
+                                </span>
+                                <span>{item.active ? 'Visible' : 'Hidden'}</span>
+                              </div>
+                              {canManageMenus ? (
+                                <div className="support-list-card__actions">
+                                  <button
+                                    className={
+                                      item.soldOut
+                                        ? 'secondary-button'
+                                        : 'primary-button'
+                                    }
+                                    disabled={actionBusyId === item.id}
+                                    onClick={() =>
+                                      void handleToggleSoldOut(
+                                        item.id,
+                                        item.soldOut,
+                                        item.name,
+                                      )
+                                    }
+                                    type="button"
+                                  >
+                                    {actionBusyId === item.id
+                                      ? 'Updating...'
+                                      : item.soldOut
+                                        ? 'Return to sale'
+                                        : 'Mark sold out'}
+                                  </button>
+                                </div>
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </section>
+                </>
+              )}
+            </div>
+          </section>
         </>
       )}
 

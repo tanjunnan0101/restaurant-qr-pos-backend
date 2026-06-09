@@ -450,8 +450,8 @@ export function OutletKdsPage() {
 
   return (
     <OutletPageLayout
-      title="Kitchen display"
-      subtitle="Follow live production flow from new paid tickets through ready handoff."
+      title="Kitchen"
+      subtitle="Live production board for new tickets, prep flow, and ready handoff."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -473,126 +473,30 @@ export function OutletKdsPage() {
         </section>
       ) : null}
 
-      <section className="workspace-hero workspace-hero--staff">
-        <div className="workspace-hero__header">
-          <div className="workspace-hero__copy">
-            <p className="eyebrow">Kitchen rhythm</p>
-            <h2 className="section-title serif">Run the line with clarity</h2>
-            <p className="supporting-copy">
-              Surface what just landed, what is in prep, and what is ready for
-              handoff so the kitchen board reads like a live production system.
-            </p>
-          </div>
-          <div className="workspace-pill-grid">
-            <div className="workspace-pill current">
-              <span>Realtime</span>
-              <strong>{formatRealtimeStatus(realtimeStatus)}</strong>
-            </div>
-            <div className="workspace-pill">
-              <span>Stations</span>
-              <strong>
-                {stationOptions.length === 0
-                  ? 'No station filter'
-                  : `${stationOptions.length} active`}
-              </strong>
-            </div>
-          </div>
-        </div>
-        <div className="operations-summary-grid">
-          <article className="operations-summary-card">
-            <span className="metric-label">New tickets</span>
-            <strong>{sentToKitchenCount}</strong>
-            <p className="supporting-copy">
-              Paid tickets waiting to enter active prep.
-            </p>
-          </article>
-          <article className="operations-summary-card">
-            <span className="metric-label">In prep</span>
-            <strong>{preparingCount}</strong>
-            <p className="supporting-copy">
-              Tickets currently being worked on by the kitchen.
-            </p>
-          </article>
-          <article className="operations-summary-card">
-            <span className="metric-label">Ready</span>
-            <strong>{readyCount}</strong>
-            <p className="supporting-copy">
-              Orders waiting for service handoff or pickup.
-            </p>
-          </article>
-          <article className="operations-summary-card">
-            <span className="metric-label">Oldest wait</span>
-            <strong>
-              {oldestQueuedOrder
-                ? formatRelativeTime(oldestQueuedOrder.createdAt)
-                : 'None'}
-            </strong>
-            <p className="supporting-copy">
-              {oldestQueuedOrder
-                ? `Ticket #${oldestQueuedOrder.orderNumber} has been in queue the longest.`
-                : 'No active kitchen wait at the moment.'}
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section className="metric-board">
-        {groupedOrders.map((entry) => (
-          <article className="panel metric-card" key={entry.status}>
-            <span className="metric-label">{formatEnum(entry.status)}</span>
-            <strong className="metric-value">{entry.orders.length}</strong>
-            <p className="supporting-copy">
-              {kitchenCopyForStatus(entry.status)}
-            </p>
-          </article>
-        ))}
-        <article className="panel metric-card">
-          <span className="metric-label">Live sync</span>
-          <strong className="metric-value">
-            {formatRealtimeStatus(realtimeStatus)}
-          </strong>
-          <p className="supporting-copy">
-            Outlet events are now streaming into the kitchen queue.
-          </p>
-        </article>
-        <article className="panel metric-card">
-          <span className="metric-label">Filtered tickets</span>
-          <strong className="metric-value">{filteredOrders.length}</strong>
-          <p className="supporting-copy">
-            {stageFilter === 'ALL'
-              ? 'All active kitchen tickets in scope.'
-              : `${formatEnum(stageFilter)} tickets in scope.`}
-          </p>
-        </article>
-        <article className="panel metric-card">
-          <span className="metric-label">Oldest queued</span>
-          <strong className="metric-value">
-            {oldestQueuedOrder
-              ? formatRelativeTime(oldestQueuedOrder.createdAt)
-              : 'None'}
-          </strong>
-          <p className="supporting-copy">
-            {oldestQueuedOrder
-              ? `Ticket #${oldestQueuedOrder.orderNumber} has been waiting the longest.`
-              : 'No active kitchen tickets right now.'}
-          </p>
-        </article>
-      </section>
-
-      <section className="operations-layout">
-        <div className="panel section-panel queue-card--upgraded">
+      <section className="operations-layout kitchen-station-layout">
+        <section className="panel section-panel queue-card--upgraded kitchen-board-panel">
           <div className="section-header">
             <div>
-              <p className="eyebrow">Kitchen queue</p>
-              <h2 className="section-title serif">Production board</h2>
+              <p className="eyebrow">Kitchen board</p>
+              <h2 className="section-title">Run the line with clarity</h2>
               <p className="supporting-copy">
-                New paid orders enter automatically. Move them through prep and
-                ready states from here.
+                New paid tickets land here, move into prep, then get pushed ready for handoff.
               </p>
             </div>
+            <span
+              className={`status-pill ${
+                realtimeStatus === 'connected'
+                  ? 'success'
+                  : realtimeStatus === 'error'
+                    ? 'danger'
+                    : 'warning'
+              }`}
+            >
+              {formatRealtimeStatus(realtimeStatus)}
+            </span>
           </div>
 
-          <div className="form-grid">
+          <div className="form-grid kitchen-board-filters">
             <div className="field">
               <label htmlFor="kds-search">Find a ticket</label>
               <input
@@ -636,6 +540,37 @@ export function OutletKdsPage() {
             </div>
           </div>
 
+          <div className="detail-overview-grid floor-summary-grid">
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">New</span>
+              <strong className="scope-card-value">{sentToKitchenCount}</strong>
+              <p className="supporting-copy">Fresh releases waiting for prep.</p>
+            </article>
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">Preparing</span>
+              <strong className="scope-card-value">{preparingCount}</strong>
+              <p className="supporting-copy">Tickets actively being worked on.</p>
+            </article>
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">Ready</span>
+              <strong className="scope-card-value">{readyCount}</strong>
+              <p className="supporting-copy">Waiting for pickup or service handoff.</p>
+            </article>
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">Oldest wait</span>
+              <strong className="scope-card-value">
+                {oldestQueuedOrder
+                  ? formatRelativeTime(oldestQueuedOrder.createdAt)
+                  : 'None'}
+              </strong>
+              <p className="supporting-copy">
+                {oldestQueuedOrder
+                  ? `#${oldestQueuedOrder.orderNumber} is the oldest live ticket.`
+                  : 'No active kitchen wait right now.'}
+              </p>
+            </article>
+          </div>
+
           {busy ? (
             <p className="supporting-copy">Loading kitchen queue...</p>
           ) : filteredOrders.length === 0 ? (
@@ -647,9 +582,9 @@ export function OutletKdsPage() {
               </p>
             </div>
           ) : (
-            <div className="operations-grid">
+            <div className="operations-grid kitchen-lane-grid">
               {groupedOrders.map((entry) => (
-                <article className="sub-panel queue-column-card" key={entry.status}>
+                <article className="sub-panel queue-column-card kitchen-lane-card" key={entry.status}>
                   <div className="section-header">
                     <div>
                       <h3>{formatEnum(entry.status)}</h3>
@@ -670,14 +605,14 @@ export function OutletKdsPage() {
                         <button
                           className={
                             selectedOrderId === order.id
-                              ? 'order-list-item order-list-item--upgraded current'
-                              : 'order-list-item order-list-item--upgraded'
+                              ? 'kitchen-ticket-card active'
+                              : 'kitchen-ticket-card'
                           }
                           key={order.id}
                           onClick={() => setSelectedOrderId(order.id)}
                           type="button"
                         >
-                          <div className="section-header">
+                          <div className="kitchen-ticket-card__header">
                             <div>
                               <strong>#{order.orderNumber}</strong>
                               <p className="supporting-copy">
@@ -692,10 +627,10 @@ export function OutletKdsPage() {
                               {formatEnum(order.status)}
                             </span>
                           </div>
-                          <div className="queue-metrics">
+                          <div className="kitchen-ticket-card__metrics">
                             <div className="metric-inline">
-                              <span>Tickets</span>
-                              <strong>{order.kitchenTickets.length}</strong>
+                              <span>Items</span>
+                              <strong>{order.kitchenTickets.length} stations</strong>
                             </div>
                             <div className="metric-inline">
                               <span>Total</span>
@@ -704,11 +639,11 @@ export function OutletKdsPage() {
                               </strong>
                             </div>
                             <div className="metric-inline">
-                              <span>Updated</span>
+                              <span>Age</span>
                               <strong>{formatRelativeTime(order.updatedAt)}</strong>
                             </div>
                           </div>
-                          <div className="inline-actions">
+                          <div className="kitchen-ticket-card__footer">
                             {nextKitchenAction(order.status) ? (
                               <button
                                 className="secondary-button"
@@ -730,9 +665,9 @@ export function OutletKdsPage() {
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="panel section-panel detail-panel detail-panel--upgraded">
+        <aside className="panel section-panel detail-panel detail-panel--upgraded kitchen-inspector">
           {detailBusy ? (
             <p className="supporting-copy">Loading ticket detail...</p>
           ) : !selectedOrder ? (
@@ -745,10 +680,10 @@ export function OutletKdsPage() {
             </div>
           ) : (
             <>
-              <div className="section-header">
+              <div className="service-inspector__hero">
                 <div>
                   <p className="eyebrow">Ticket detail</p>
-                  <h2 className="section-title serif">
+                  <h2 className="section-title">
                     #{selectedOrder.orderNumber}
                   </h2>
                   <p className="supporting-copy">
@@ -757,7 +692,7 @@ export function OutletKdsPage() {
                     {formatRelativeTime(selectedOrder.createdAt)}
                   </p>
                 </div>
-                <div className="inline-actions">
+                <div className="service-inspector__actions">
                   <Link
                     className="secondary-button"
                     href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
@@ -768,6 +703,41 @@ export function OutletKdsPage() {
                     {formatEnum(selectedOrder.status)}
                   </span>
                 </div>
+              </div>
+
+              <div className="detail-overview-grid service-inspector__overview">
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Current lane</span>
+                  <strong className="scope-card-value">
+                    {formatEnum(selectedOrder.status)}
+                  </strong>
+                  <p className="supporting-copy">
+                    Active production stage for this ticket.
+                  </p>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Stations</span>
+                  <strong className="scope-card-value">
+                    {selectedOrder.kitchenTickets.length}
+                  </strong>
+                  <p className="supporting-copy">Stations attached to this order.</p>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Table</span>
+                  <strong className="scope-card-value">
+                    {selectedOrder.table?.displayName ?? 'Counter'}
+                  </strong>
+                  <p className="supporting-copy">
+                    {selectedOrder.table?.zone?.name ?? 'No floor zone'}
+                  </p>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Wait age</span>
+                  <strong className="scope-card-value">
+                    {formatRelativeTime(selectedOrder.createdAt)}
+                  </strong>
+                  <p className="supporting-copy">How long this ticket has been in flow.</p>
+                </article>
               </div>
 
               <article className="sub-panel surface-panel">
@@ -802,60 +772,61 @@ export function OutletKdsPage() {
                 </div>
               </article>
 
-              <article className="sub-panel surface-panel">
-                <h3>Kitchen tickets</h3>
-                <div className="stack-list">
-                  {selectedOrder.kitchenTickets.map((ticket) => (
-                    <div className="stack-row" key={ticket.id}>
-                      <div>
-                        <strong>{ticket.station?.name ?? 'Kitchen station'}</strong>
-                        <p className="supporting-copy">
-                          Ticket {ticket.id.slice(0, 8)}
-                        </p>
+              <div className="service-inspector__actions-grid">
+                <article className="sub-panel surface-panel">
+                  <h3>Kitchen tickets</h3>
+                  <div className="stack-list">
+                    {selectedOrder.kitchenTickets.map((ticket) => (
+                      <div className="stack-row" key={ticket.id}>
+                        <div>
+                          <strong>{ticket.station?.name ?? 'Kitchen station'}</strong>
+                          <p className="supporting-copy">
+                            Ticket {ticket.id.slice(0, 8)}
+                          </p>
+                        </div>
+                        <span className={`status-pill ${statusTone(ticket.status)}`}>
+                          {formatEnum(ticket.status)}
+                        </span>
                       </div>
-                      <span className={`status-pill ${statusTone(ticket.status)}`}>
-                        {formatEnum(ticket.status)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </article>
+                    ))}
+                  </div>
+                </article>
 
-              <article className="sub-panel surface-panel">
-                <h3>Next kitchen action</h3>
-                {nextAction ? (
-                  <form className="form-grid" onSubmit={submitKitchenAction}>
+                <article className="sub-panel surface-panel">
+                  <h3>Next kitchen action</h3>
+                  {nextAction ? (
+                    <form className="form-grid" onSubmit={submitKitchenAction}>
+                      <p className="supporting-copy">
+                        Move this ticket to{' '}
+                        <strong>{formatEnum(nextAction.status)}</strong>.
+                      </p>
+                      <div className="field">
+                        <label htmlFor="kds-reason">Reason</label>
+                        <textarea
+                          id="kds-reason"
+                          onChange={(event) => setReason(event.target.value)}
+                          rows={3}
+                          value={reason}
+                        />
+                      </div>
+                      <button
+                        className="primary-button"
+                        disabled={actionBusy || reason.trim().length < 3}
+                        type="submit"
+                      >
+                        {actionBusy ? 'Updating...' : nextAction.label}
+                      </button>
+                    </form>
+                  ) : (
                     <p className="supporting-copy">
-                      This ticket can move to{' '}
-                      <strong>{formatEnum(nextAction.status)}</strong>.
+                      No kitchen action is available from this state.
                     </p>
-                    <div className="field">
-                      <label htmlFor="kds-reason">Reason</label>
-                      <textarea
-                        id="kds-reason"
-                        onChange={(event) => setReason(event.target.value)}
-                        rows={3}
-                        value={reason}
-                      />
-                    </div>
-                    <button
-                      className="primary-button"
-                      disabled={actionBusy || reason.trim().length < 3}
-                      type="submit"
-                    >
-                      {actionBusy ? 'Updating...' : nextAction.label}
-                    </button>
-                  </form>
-                ) : (
-                  <p className="supporting-copy">
-                    No kitchen action is available from this state. Front-of-house
-                    can complete later service actions from the orders board.
-                  </p>
-                )}
-              </article>
+                  )}
+                </article>
+              </div>
             </>
           )}
-        </div>
+        </aside>
       </section>
     </OutletPageLayout>
   );

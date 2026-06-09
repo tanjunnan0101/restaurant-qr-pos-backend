@@ -89,7 +89,7 @@ export function OutletInventoryPage() {
           setInventory(inventoryResponse);
           setMovements(movementResponse.movements);
           setMenuDetails(details);
-          setMovementItemId(inventoryResponse.items[0]?.id ?? '');
+          setMovementItemId((current) => current || inventoryResponse.items[0]?.id || '');
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -134,6 +134,14 @@ export function OutletInventoryPage() {
     () => inventory?.items.filter((item) => item.lowStock) ?? [],
     [inventory],
   );
+
+  const activeItems = useMemo(
+    () => inventory?.items.filter((item) => item.active) ?? [],
+    [inventory],
+  );
+
+  const selectedMovementItem =
+    inventory?.items.find((item) => item.id === movementItemId) ?? null;
 
   async function reloadData() {
     if (!session?.accessToken) {
@@ -215,11 +223,16 @@ export function OutletInventoryPage() {
             movementReason.trim() || 'Staff recorded a stock count adjustment.',
         });
       } else {
-        await recordInventoryMovement(session.accessToken, outletId, movementMode, {
-          inventoryItemId: movementItemId,
-          quantity,
-          ...(movementReason.trim() ? { reason: movementReason.trim() } : {}),
-        });
+        await recordInventoryMovement(
+          session.accessToken,
+          outletId,
+          movementMode,
+          {
+            inventoryItemId: movementItemId,
+            quantity,
+            ...(movementReason.trim() ? { reason: movementReason.trim() } : {}),
+          },
+        );
       }
       setMovementQuantity('');
       setMovementReason('');
@@ -265,12 +278,17 @@ export function OutletInventoryPage() {
     setError(null);
     setSuccess(null);
     try {
-      await upsertInventoryRecipe(session.accessToken, outletId, recipeMenuItemId, {
-        active: true,
-        saleDeductionEnabled: recipeSaleDeductionEnabled,
-        reason: recipeReason.trim() || 'Updated recipe deduction mapping.',
-        ingredients,
-      });
+      await upsertInventoryRecipe(
+        session.accessToken,
+        outletId,
+        recipeMenuItemId,
+        {
+          active: true,
+          saleDeductionEnabled: recipeSaleDeductionEnabled,
+          reason: recipeReason.trim() || 'Updated recipe deduction mapping.',
+          ingredients,
+        },
+      );
       await reloadData();
       setSuccess('Recipe saved.');
     } catch (mutationError) {
@@ -294,7 +312,9 @@ export function OutletInventoryPage() {
             item.active
               ? 'Why are you deactivating this inventory item?'
               : 'Why are you reactivating this inventory item?',
-            item.active ? 'Item retired from current purchasing.' : 'Item restored to active use.',
+            item.active
+              ? 'Item retired from current purchasing.'
+              : 'Item restored to active use.',
           )
         : null;
     if (!reason?.trim()) {
@@ -326,7 +346,7 @@ export function OutletInventoryPage() {
     return (
       <OutletPageLayout
         title="Inventory"
-        subtitle="Loading stock balances, movement history, and recipe mappings."
+        subtitle="Loading stock levels, movement history, and recipe links."
       >
         <section className="panel section-panel">
           <p>Loading inventory operations...</p>
@@ -339,10 +359,12 @@ export function OutletInventoryPage() {
     return (
       <OutletPageLayout
         title="Inventory"
-        subtitle="Inventory lite for day-to-day stock operations."
+        subtitle="Run stock control, counts, and recipe deduction from one station."
       >
         <section className="panel section-panel">
-          <div className="alert error">{outletError ?? 'Outlet context unavailable.'}</div>
+          <div className="alert error">
+            {outletError ?? 'Outlet context unavailable.'}
+          </div>
         </section>
       </OutletPageLayout>
     );
@@ -351,7 +373,7 @@ export function OutletInventoryPage() {
   return (
     <OutletPageLayout
       title="Inventory"
-      subtitle="Inventory lite for item master, stock movement, and sale-deduction recipes."
+      subtitle="Run counts, movement, and sale deduction without leaving service."
     >
       <OutletHeader outlet={outlet} />
 
@@ -366,443 +388,586 @@ export function OutletInventoryPage() {
         </section>
       ) : null}
 
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Inventory health</p>
-            <h2 className="section-title serif">Outlet stock overview</h2>
+      <section className="operations-layout support-station-layout">
+        <aside className="panel section-panel support-control-rail">
+          <article className="support-config-card">
+            <div className="support-config-card__header">
+              <div>
+                <p className="eyebrow">Stock station</p>
+                <h2 className="section-title">Control rail</h2>
+              </div>
+              <span className="status-pill warning">
+                {lowStockItems.length} low
+              </span>
+            </div>
             <p className="supporting-copy">
-              Give the cashier and floor team a live view of balances, low-stock
-              alerts, and recipe deduction coverage.
+              Receive stock, record wastage, run counts, and connect recipes to
+              menu items without leaving the service console.
             </p>
-          </div>
-        </div>
-        <div className="stats-grid">
-          <article className="stat-card">
-            <span className="metric-label">Inventory items</span>
-            <strong>{inventory?.items.length ?? 0}</strong>
+            <div className="support-inline-meta">
+              <span>{inventory?.items.length ?? 0} items</span>
+              <span>{activeItems.length} active</span>
+              <span>{inventory?.recipes.length ?? 0} recipes</span>
+              <span>{movements.length} recent moves</span>
+            </div>
           </article>
-          <article className="stat-card">
-            <span className="metric-label">Low stock alerts</span>
-            <strong>{lowStockItems.length}</strong>
-          </article>
-          <article className="stat-card">
-            <span className="metric-label">Recipe mappings</span>
-            <strong>{inventory?.recipes.length ?? 0}</strong>
-          </article>
-          <article className="stat-card">
-            <span className="metric-label">Recent movements</span>
-            <strong>{movements.length}</strong>
-          </article>
-        </div>
-      </section>
 
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Item master</p>
-            <h2 className="section-title serif">Create inventory items</h2>
-          </div>
-        </div>
-        <div className="form-grid">
-          <div className="field">
-            <label htmlFor="inventorySku">SKU</label>
-            <input
-              id="inventorySku"
-              onChange={(event) =>
-                setNewItem((current) => ({ ...current, sku: event.target.value }))
-              }
-              value={newItem.sku}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="inventoryName">Name</label>
-            <input
-              id="inventoryName"
-              onChange={(event) =>
-                setNewItem((current) => ({ ...current, name: event.target.value }))
-              }
-              value={newItem.name}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="inventoryCategory">Category</label>
-            <input
-              id="inventoryCategory"
-              onChange={(event) =>
-                setNewItem((current) => ({
-                  ...current,
-                  category: event.target.value,
-                }))
-              }
-              value={newItem.category}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="inventoryBaseUnit">Base unit</label>
-            <input
-              id="inventoryBaseUnit"
-              onChange={(event) =>
-                setNewItem((current) => ({
-                  ...current,
-                  baseUnit: event.target.value,
-                }))
-              }
-              value={newItem.baseUnit}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="inventoryPurchaseUnit">Purchase unit</label>
-            <input
-              id="inventoryPurchaseUnit"
-              onChange={(event) =>
-                setNewItem((current) => ({
-                  ...current,
-                  purchaseUnit: event.target.value,
-                }))
-              }
-              value={newItem.purchaseUnit}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="inventoryReorderPoint">Reorder point</label>
-            <input
-              id="inventoryReorderPoint"
-              inputMode="decimal"
-              onChange={(event) =>
-                setNewItem((current) => ({
-                  ...current,
-                  reorderPoint: event.target.value,
-                }))
-              }
-              value={newItem.reorderPoint}
-            />
-          </div>
-        </div>
-        <div className="inline-actions">
-          <button
-            className="primary-button"
-            disabled={submitting}
-            onClick={() => void handleCreateItem()}
-            type="button"
-          >
-            {submitting ? 'Saving item...' : 'Create inventory item'}
-          </button>
-        </div>
-      </section>
+          <article className="support-config-card">
+            <div className="support-config-card__header">
+              <div>
+                <p className="eyebrow">Item master</p>
+                <h3>Add stock item</h3>
+              </div>
+            </div>
+            <div className="form-grid">
+              <div className="field">
+                <label htmlFor="inventorySku">SKU</label>
+                <input
+                  id="inventorySku"
+                  onChange={(event) =>
+                    setNewItem((current) => ({
+                      ...current,
+                      sku: event.target.value,
+                    }))
+                  }
+                  value={newItem.sku}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="inventoryName">Name</label>
+                <input
+                  id="inventoryName"
+                  onChange={(event) =>
+                    setNewItem((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                  value={newItem.name}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="inventoryCategory">Category</label>
+                <input
+                  id="inventoryCategory"
+                  onChange={(event) =>
+                    setNewItem((current) => ({
+                      ...current,
+                      category: event.target.value,
+                    }))
+                  }
+                  value={newItem.category}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="inventoryBaseUnit">Base unit</label>
+                <input
+                  id="inventoryBaseUnit"
+                  onChange={(event) =>
+                    setNewItem((current) => ({
+                      ...current,
+                      baseUnit: event.target.value,
+                    }))
+                  }
+                  value={newItem.baseUnit}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="inventoryPurchaseUnit">Purchase unit</label>
+                <input
+                  id="inventoryPurchaseUnit"
+                  onChange={(event) =>
+                    setNewItem((current) => ({
+                      ...current,
+                      purchaseUnit: event.target.value,
+                    }))
+                  }
+                  value={newItem.purchaseUnit}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="inventoryReorderPoint">Reorder point</label>
+                <input
+                  id="inventoryReorderPoint"
+                  inputMode="decimal"
+                  onChange={(event) =>
+                    setNewItem((current) => ({
+                      ...current,
+                      reorderPoint: event.target.value,
+                    }))
+                  }
+                  value={newItem.reorderPoint}
+                />
+              </div>
+            </div>
+            <div className="support-card__actions">
+              <button
+                className="primary-button"
+                disabled={submitting}
+                onClick={() => void handleCreateItem()}
+                type="button"
+              >
+                {submitting ? 'Saving...' : 'Create item'}
+              </button>
+            </div>
+          </article>
 
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Stock movement</p>
-            <h2 className="section-title serif">Record stock changes</h2>
-          </div>
-        </div>
-        <div className="form-grid">
-          <div className="field">
-            <label htmlFor="movementMode">Movement type</label>
-            <select
-              id="movementMode"
-              onChange={(event) => setMovementMode(event.target.value as MovementMode)}
-              value={movementMode}
-            >
-              <option value="stock-in">Stock in</option>
-              <option value="wastage">Wastage</option>
-              <option value="adjustment">Adjustment</option>
-              <option value="stock-count">Stock count</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="movementItemId">Inventory item</label>
-            <select
-              id="movementItemId"
-              onChange={(event) => setMovementItemId(event.target.value)}
-              value={movementItemId}
-            >
-              {inventory?.items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.stockOnHand} {item.baseUnit})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="movementQuantity">
-              {movementMode === 'stock-count' ? 'Actual quantity' : 'Quantity'}
-            </label>
-            <input
-              id="movementQuantity"
-              inputMode="decimal"
-              onChange={(event) => setMovementQuantity(event.target.value)}
-              value={movementQuantity}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="movementReason">Reason</label>
-            <input
-              id="movementReason"
-              onChange={(event) => setMovementReason(event.target.value)}
-              value={movementReason}
-            />
-          </div>
-        </div>
-        <div className="inline-actions">
-          <button
-            className="primary-button"
-            disabled={submitting || !inventory?.items.length}
-            onClick={() => void handleRecordMovement()}
-            type="button"
-          >
-            {submitting ? 'Saving movement...' : 'Record movement'}
-          </button>
-        </div>
-      </section>
+          <article className="support-config-card">
+            <div className="support-config-card__header">
+              <div>
+                <p className="eyebrow">Movement</p>
+                <h3>Adjust stock</h3>
+              </div>
+              {selectedMovementItem ? (
+                <span className="status-pill neutral">
+                  {selectedMovementItem.stockOnHand} {selectedMovementItem.baseUnit}
+                </span>
+              ) : null}
+            </div>
+            <div className="form-grid">
+              <div className="field">
+                <label htmlFor="movementMode">Movement type</label>
+                <select
+                  id="movementMode"
+                  onChange={(event) =>
+                    setMovementMode(event.target.value as MovementMode)
+                  }
+                  value={movementMode}
+                >
+                  <option value="stock-in">Stock in</option>
+                  <option value="wastage">Wastage</option>
+                  <option value="adjustment">Adjustment</option>
+                  <option value="stock-count">Stock count</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="movementItemId">Inventory item</label>
+                <select
+                  id="movementItemId"
+                  onChange={(event) => setMovementItemId(event.target.value)}
+                  value={movementItemId}
+                >
+                  <option value="">Select item</option>
+                  {inventory?.items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({item.stockOnHand} {item.baseUnit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="movementQuantity">
+                  {movementMode === 'stock-count' ? 'Actual qty' : 'Quantity'}
+                </label>
+                <input
+                  id="movementQuantity"
+                  inputMode="decimal"
+                  onChange={(event) => setMovementQuantity(event.target.value)}
+                  value={movementQuantity}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="movementReason">Reason</label>
+                <input
+                  id="movementReason"
+                  onChange={(event) => setMovementReason(event.target.value)}
+                  placeholder="Receiving, wastage, recount, breakage"
+                  value={movementReason}
+                />
+              </div>
+            </div>
+            <div className="support-card__actions">
+              <button
+                className="primary-button"
+                disabled={submitting || !inventory?.items.length}
+                onClick={() => void handleRecordMovement()}
+                type="button"
+              >
+                {submitting ? 'Saving...' : 'Record movement'}
+              </button>
+            </div>
+          </article>
 
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Recipe / BOM</p>
-            <h2 className="section-title serif">Map menu items to ingredient deduction</h2>
-          </div>
-        </div>
-        <div className="form-grid">
-          <div className="field">
-            <label htmlFor="recipeMenuItem">Menu item</label>
-            <select
-              id="recipeMenuItem"
-              onChange={(event) => setRecipeMenuItemId(event.target.value)}
-              value={recipeMenuItemId}
-            >
-              <option value="">Choose a published menu item</option>
-              {publishedMenuItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.menuName})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="recipeReason">Reason</label>
-            <input
-              id="recipeReason"
-              onChange={(event) => setRecipeReason(event.target.value)}
-              value={recipeReason}
-            />
-          </div>
-          <div className="field checkbox-field">
-            <label>
+          <article className="support-config-card">
+            <div className="support-config-card__header">
+              <div>
+                <p className="eyebrow">Recipe mapping</p>
+                <h3>Link item deduction</h3>
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="recipeMenuItem">Menu item</label>
+              <select
+                id="recipeMenuItem"
+                onChange={(event) => setRecipeMenuItemId(event.target.value)}
+                value={recipeMenuItemId}
+              >
+                <option value="">Choose a published menu item</option>
+                {publishedMenuItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} ({item.menuName})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="recipeReason">Reason</label>
+              <input
+                id="recipeReason"
+                onChange={(event) => setRecipeReason(event.target.value)}
+                value={recipeReason}
+              />
+            </div>
+            <label className="checkbox-row">
               <input
                 checked={recipeSaleDeductionEnabled}
                 onChange={(event) =>
                   setRecipeSaleDeductionEnabled(event.target.checked)
                 }
                 type="checkbox"
-              />{' '}
-              Enable sale deduction for this recipe
+              />
+              <span>Enable sale deduction</span>
             </label>
-          </div>
-        </div>
-        <div className="stack-list">
-          {recipeIngredients.map((ingredient, index) => (
-            <div className="form-grid" key={`${ingredient.inventoryItemId}-${index}`}>
-              <div className="field">
-                <label>Inventory item</label>
-                <select
-                  onChange={(event) =>
-                    setRecipeIngredients((current) =>
-                      current.map((entry, entryIndex) =>
-                        entryIndex === index
-                          ? { ...entry, inventoryItemId: event.target.value }
-                          : entry,
-                      ),
-                    )
-                  }
-                  value={ingredient.inventoryItemId}
-                >
-                  <option value="">Choose an item</option>
-                  {inventory?.items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>Quantity</label>
-                <input
-                  inputMode="decimal"
-                  onChange={(event) =>
-                    setRecipeIngredients((current) =>
-                      current.map((entry, entryIndex) =>
-                        entryIndex === index
-                          ? { ...entry, quantity: event.target.value }
-                          : entry,
-                      ),
-                    )
-                  }
-                  value={ingredient.quantity}
-                />
-              </div>
-              <div className="field">
-                <label>Unit</label>
-                <input
-                  onChange={(event) =>
-                    setRecipeIngredients((current) =>
-                      current.map((entry, entryIndex) =>
-                        entryIndex === index
-                          ? { ...entry, unit: event.target.value }
-                          : entry,
-                      ),
-                    )
-                  }
-                  value={ingredient.unit}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="inline-actions">
-          <button
-            className="secondary-button"
-            onClick={() =>
-              setRecipeIngredients((current) => [
-                ...current,
-                { inventoryItemId: '', quantity: '', unit: 'pcs' },
-              ])
-            }
-            type="button"
-          >
-            Add ingredient row
-          </button>
-          <button
-            className="primary-button"
-            disabled={submitting || !inventory?.items.length || !publishedMenuItems.length}
-            onClick={() => void handleRecipeSave()}
-            type="button"
-          >
-            {submitting ? 'Saving recipe...' : 'Save recipe'}
-          </button>
-        </div>
-      </section>
-
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Stock register</p>
-            <h2 className="section-title serif">Current balances</h2>
-          </div>
-        </div>
-        <div className="table-shell">
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>SKU</th>
-                <th>On hand</th>
-                <th>Reorder point</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {inventory?.items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <strong>{item.name}</strong>
-                    <div>{item.category ?? 'Uncategorized'}</div>
-                  </td>
-                  <td>{item.sku ?? '—'}</td>
-                  <td>
-                    {item.stockOnHand} {item.baseUnit}
-                  </td>
-                  <td>
-                    {item.reorderPoint} {item.baseUnit}
-                  </td>
-                  <td>
-                    <span className={`status-pill ${item.lowStock ? 'warning' : item.active ? 'success' : 'neutral'}`}>
-                      {item.lowStock
-                        ? 'Low stock'
-                        : item.active
-                          ? 'Active'
-                          : 'Inactive'}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      className="secondary-button"
-                      onClick={() => void handleToggleItem(item)}
-                      type="button"
-                    >
-                      {item.active ? 'Deactivate' : 'Reactivate'}
-                    </button>
-                  </td>
-                </tr>
-              )) ?? null}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Recent activity</p>
-            <h2 className="section-title serif">Latest stock movements</h2>
-          </div>
-        </div>
-        <div className="stack-list">
-          {movements.map((movement) => (
-            <article className="sub-panel" key={movement.id}>
-              <div className="section-header">
-                <div>
-                  <strong>{movement.inventoryItem.name}</strong>
-                  <p className="supporting-copy">
-                    {formatMovementType(movement.movementType)} • {movement.quantityDelta}{' '}
-                    {movement.unit}
-                  </p>
+            <div className="support-config-stack">
+              {recipeIngredients.map((ingredient, index) => (
+                <div className="support-card" key={`${ingredient.inventoryItemId}-${index}`}>
+                  <div className="form-grid">
+                    <div className="field">
+                      <label>Inventory item</label>
+                      <select
+                        onChange={(event) =>
+                          setRecipeIngredients((current) =>
+                            current.map((entry, entryIndex) =>
+                              entryIndex === index
+                                ? {
+                                    ...entry,
+                                    inventoryItemId: event.target.value,
+                                  }
+                                : entry,
+                            ),
+                          )
+                        }
+                        value={ingredient.inventoryItemId}
+                      >
+                        <option value="">Choose an item</option>
+                        {inventory?.items.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label>Quantity</label>
+                      <input
+                        inputMode="decimal"
+                        onChange={(event) =>
+                          setRecipeIngredients((current) =>
+                            current.map((entry, entryIndex) =>
+                              entryIndex === index
+                                ? { ...entry, quantity: event.target.value }
+                                : entry,
+                            ),
+                          )
+                        }
+                        value={ingredient.quantity}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Unit</label>
+                      <input
+                        onChange={(event) =>
+                          setRecipeIngredients((current) =>
+                            current.map((entry, entryIndex) =>
+                              entryIndex === index
+                                ? { ...entry, unit: event.target.value }
+                                : entry,
+                            ),
+                          )
+                        }
+                        value={ingredient.unit}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <span className="supporting-copy">
-                  {formatDateTime(movement.createdAt)}
-                </span>
+              ))}
+            </div>
+            <div className="support-card__actions">
+              <button
+                className="secondary-button"
+                onClick={() =>
+                  setRecipeIngredients((current) => [
+                    ...current,
+                    { inventoryItemId: '', quantity: '', unit: 'pcs' },
+                  ])
+                }
+                type="button"
+              >
+                Add ingredient row
+              </button>
+              <button
+                className="primary-button"
+                disabled={
+                  submitting ||
+                  !inventory?.items.length ||
+                  !publishedMenuItems.length
+                }
+                onClick={() => void handleRecipeSave()}
+                type="button"
+              >
+                {submitting ? 'Saving...' : 'Save recipe'}
+              </button>
+            </div>
+          </article>
+        </aside>
+
+        <div className="support-board-panel">
+          <section className="support-summary-grid">
+            <article className="support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Stock masters</p>
+                  <h3>{inventory?.items.length ?? 0}</h3>
+                </div>
+                <span className="status-pill neutral">Catalog</span>
               </div>
               <p className="supporting-copy">
-                {movement.reason ?? 'No reason provided.'}
+                Ingredients and supply items configured for this outlet.
               </p>
             </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Recipe mappings</p>
-            <h2 className="section-title serif">Active deduction rules</h2>
-          </div>
-        </div>
-        <div className="stack-list">
-          {(inventory?.recipes ?? []).map((recipe: InventoryRecipeSummary) => (
-            <article className="sub-panel" key={recipe.id}>
-              <div className="section-header">
+            <article className="support-card">
+              <div className="support-card__header">
                 <div>
-                  <strong>{recipe.menuItemName}</strong>
-                  <p className="supporting-copy">
-                    {recipe.saleDeductionEnabled
-                      ? 'Sale deduction enabled'
-                      : 'Mapped but sale deduction is off'}
-                  </p>
+                  <p className="eyebrow">Low stock</p>
+                  <h3>{lowStockItems.length}</h3>
                 </div>
+                <span className="status-pill warning">Reorder</span>
               </div>
-              <ul>
-                {recipe.ingredients.map((ingredient) => (
-                  <li key={`${recipe.id}-${ingredient.inventoryItemId}`}>
-                    {ingredient.inventoryItemName}: {ingredient.quantity}{' '}
-                    {ingredient.unit}
-                  </li>
-                ))}
-              </ul>
+              <p className="supporting-copy">
+                Items already at or below their reorder point.
+              </p>
             </article>
-          ))}
+            <article className="support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Recipes</p>
+                  <h3>{inventory?.recipes.length ?? 0}</h3>
+                </div>
+                <span className="status-pill success">Mapped</span>
+              </div>
+              <p className="supporting-copy">
+                Menu items connected to deduction logic.
+              </p>
+            </article>
+            <article className="support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Recent moves</p>
+                  <h3>{movements.length}</h3>
+                </div>
+                <span className="status-pill neutral">Ledger</span>
+              </div>
+              <p className="supporting-copy">
+                Stock-ins, wastage, counts, and adjustments in the latest feed.
+              </p>
+            </article>
+          </section>
+
+          <section className="support-card-grid">
+            <article className="panel section-panel support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Immediate attention</p>
+                  <h2 className="section-title">Low stock board</h2>
+                </div>
+                <span className="status-pill warning">
+                  {lowStockItems.length} flagged
+                </span>
+              </div>
+              {lowStockItems.length === 0 ? (
+                <p className="supporting-copy">
+                  No low-stock alerts right now.
+                </p>
+              ) : (
+                <div className="list-block">
+                  {lowStockItems.map((item) => (
+                    <article className="list-item" key={item.id}>
+                      <div className="support-list-card__header">
+                        <div>
+                          <h3>{item.name}</h3>
+                          <p className="supporting-copy">
+                            {item.category ?? 'Uncategorized'}
+                          </p>
+                        </div>
+                        <span className="status-pill warning">Low stock</span>
+                      </div>
+                      <div className="support-inline-meta">
+                        <span>
+                          On hand: {item.stockOnHand} {item.baseUnit}
+                        </span>
+                        <span>
+                          Reorder: {item.reorderPoint} {item.baseUnit}
+                        </span>
+                        <span>{item.purchaseUnit || 'No purchase unit'}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="panel section-panel support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Item register</p>
+                  <h2 className="section-title">Current balances</h2>
+                </div>
+                <span className="status-pill neutral">Live stock</span>
+              </div>
+              <div className="table-shell">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>SKU</th>
+                      <th>On hand</th>
+                      <th>Reorder</th>
+                      <th>Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory?.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <strong>{item.name}</strong>
+                          <div>{item.category ?? 'Uncategorized'}</div>
+                        </td>
+                        <td>{item.sku ?? 'N/A'}</td>
+                        <td>
+                          {item.stockOnHand} {item.baseUnit}
+                        </td>
+                        <td>
+                          {item.reorderPoint} {item.baseUnit}
+                        </td>
+                        <td>
+                          <span
+                            className={`status-pill ${
+                              item.lowStock
+                                ? 'warning'
+                                : item.active
+                                  ? 'success'
+                                  : 'neutral'
+                            }`}
+                          >
+                            {item.lowStock
+                              ? 'Low stock'
+                              : item.active
+                                ? 'Active'
+                                : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="secondary-button"
+                            onClick={() => void handleToggleItem(item)}
+                            type="button"
+                          >
+                            {item.active ? 'Deactivate' : 'Reactivate'}
+                          </button>
+                        </td>
+                      </tr>
+                    )) ?? null}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section className="support-list-grid">
+            <article className="panel section-panel support-list-card">
+              <div className="support-list-card__header">
+                <div>
+                  <p className="eyebrow">Movement ledger</p>
+                  <h2 className="section-title">Recent activity</h2>
+                </div>
+                <span className="status-pill neutral">{movements.length} moves</span>
+              </div>
+              <div className="list-block">
+                {movements.map((movement) => (
+                  <article className="list-item" key={movement.id}>
+                    <div className="support-list-card__header">
+                      <div>
+                        <h3>{movement.inventoryItem.name}</h3>
+                        <p className="supporting-copy">
+                          {formatMovementType(movement.movementType)}
+                        </p>
+                      </div>
+                      <span className="status-pill neutral">
+                        {movement.quantityDelta} {movement.unit}
+                      </span>
+                    </div>
+                    <div className="support-inline-meta">
+                      <span>{formatDateTime(movement.createdAt)}</span>
+                      <span>{movement.reason ?? 'No reason provided'}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel section-panel support-list-card">
+              <div className="support-list-card__header">
+                <div>
+                  <p className="eyebrow">Deduction rules</p>
+                  <h2 className="section-title">Recipe mappings</h2>
+                </div>
+                <span className="status-pill success">
+                  {inventory?.recipes.length ?? 0} active
+                </span>
+              </div>
+              {(inventory?.recipes ?? []).length === 0 ? (
+                <p className="supporting-copy">
+                  No deduction recipes have been mapped yet.
+                </p>
+              ) : (
+                <div className="list-block">
+                  {(inventory?.recipes ?? []).map((recipe: InventoryRecipeSummary) => (
+                    <article className="list-item" key={recipe.id}>
+                      <div className="support-list-card__header">
+                        <div>
+                          <h3>{recipe.menuItemName}</h3>
+                          <p className="supporting-copy">
+                            {recipe.saleDeductionEnabled
+                              ? 'Sale deduction enabled'
+                              : 'Mapped but paused'}
+                          </p>
+                        </div>
+                        <span
+                          className={`status-pill ${
+                            recipe.saleDeductionEnabled ? 'success' : 'neutral'
+                          }`}
+                        >
+                          {recipe.saleDeductionEnabled ? 'Live' : 'Paused'}
+                        </span>
+                      </div>
+                      <div className="tag-row">
+                        {recipe.ingredients.map((ingredient) => (
+                          <span
+                            className="tag"
+                            key={`${recipe.id}-${ingredient.inventoryItemId}`}
+                          >
+                            {ingredient.inventoryItemName}: {ingredient.quantity}{' '}
+                            {ingredient.unit}
+                          </span>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+          </section>
         </div>
       </section>
     </OutletPageLayout>

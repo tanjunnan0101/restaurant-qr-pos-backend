@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutList, ScanLine, SquareTerminal } from 'lucide-react';
+import { CreditCard, LayoutList, ScanLine, SquareTerminal } from 'lucide-react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadSession } from '@/lib/session';
@@ -20,46 +20,44 @@ export function StaffLandingPage() {
       <div className="auth-layout">
         <section className="hero-card">
           <div className="hero-copy">
-            <p className="eyebrow">Staff Operations</p>
-            <h1 className="display-title serif">
-              Keep the floor, pass, and pickup flow moving.
-            </h1>
+            <p className="eyebrow">Staff terminal</p>
+            <h1 className="display-title serif">Run service from one board.</h1>
             <p className="supporting-copy">
-              This first staff console is built for service hours: live outlet
-              access, active order visibility, table state awareness, and clean
-              handoffs from paid QR orders into kitchen execution.
+              Open the outlet floor, live queue, cashier POS, and kitchen flow
+              from one touch-first staff surface.
             </p>
           </div>
 
           <div className="feature-grid">
             <article className="feature-card">
               <LayoutList size={18} />
-              <h3>Service queue</h3>
-              <p>
-                Track every outlet order from kitchen release to completion.
-              </p>
+              <h3>Service board</h3>
+              <p>See live queue, help requests, and outlet pressure instantly.</p>
             </article>
             <article className="feature-card">
               <ScanLine size={18} />
-              <h3>Table awareness</h3>
-              <p>See zone and table states with QR coverage in one place.</p>
+              <h3>Tables and QR</h3>
+              <p>Open a table, resolve help, and keep QR coverage visible.</p>
             </article>
             <article className="feature-card">
               <SquareTerminal size={18} />
-              <h3>POS next</h3>
-              <p>
-                The walk-in order entry surface now has a real landing zone.
-              </p>
+              <h3>POS terminal</h3>
+              <p>Run counter, waiter, and QR-linked tickets in one workflow.</p>
+            </article>
+            <article className="feature-card">
+              <CreditCard size={18} />
+              <h3>Payment recovery</h3>
+              <p>Handle unpaid, manual, and blocked checkout cases quickly.</p>
             </article>
           </div>
         </section>
 
         <section className="panel compact-card">
           <p className="eyebrow">Start service</p>
-          <h2 className="section-title serif">Open staff sign in</h2>
+          <h2 className="section-title">Open staff sign in</h2>
           <p className="supporting-copy">
             Use the same company slug, staff email, and password model as the
-            backend JWT auth flow. Outlet access stays tenant-isolated.
+            backend JWT auth flow.
           </p>
           <div className="stack-actions">
             <Link className="primary-button" href="/login">

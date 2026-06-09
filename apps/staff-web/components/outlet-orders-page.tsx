@@ -310,6 +310,7 @@ export function OutletOrdersPage() {
       order.status === 'PAYMENT_PROCESSING',
   ).length;
   const draftCount = orders.filter((order) => order.status === 'DRAFT').length;
+  const oldestVisibleOrder = filteredOrders[0] ?? null;
 
   useEffect(() => {
     setCheckoutResult(null);
@@ -576,8 +577,8 @@ export function OutletOrdersPage() {
 
   return (
     <OutletPageLayout
-      title="Live orders"
-      subtitle="Monitor the service queue and advance orders through the outlet workflow."
+      title="Orders"
+      subtitle="Action board for live tickets, payment recovery, and service status handoff."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -599,86 +600,42 @@ export function OutletOrdersPage() {
         </section>
       ) : null}
 
-      <section className="workspace-hero workspace-hero--staff">
-        <div className="workspace-hero__header">
-          <div className="workspace-hero__copy">
-            <p className="eyebrow">Service flow</p>
-            <h2 className="section-title serif">Keep the queue moving</h2>
-            <p className="supporting-copy">
-              Track live checkout outcomes, catch anything stuck between payment
-              and service, and move the floor forward with fewer clicks.
-            </p>
-          </div>
-          <div className="workspace-pill-grid">
-            <div className="workspace-pill current">
-              <span>Realtime</span>
-              <strong>{formatRealtimeStatus(realtimeStatus)}</strong>
-            </div>
-            <div className="workspace-pill">
-              <span>Focus</span>
-              <strong>
-                {focusedTable
-                  ? `${focusedTable.displayName} (${focusedTable.tableCode})`
-                  : 'All outlet tickets'}
-              </strong>
-            </div>
-          </div>
-        </div>
-        <div className="operations-summary-grid">
-          <article className="operations-summary-card">
-            <span className="metric-label">Visible tickets</span>
-            <strong>{liveQueueCount}</strong>
-            <p className="supporting-copy">
-              Orders currently in this search and status view.
-            </p>
-          </article>
-          <article className="operations-summary-card">
-            <span className="metric-label">Action now</span>
-            <strong>{actionNowCount}</strong>
-            <p className="supporting-copy">
-              Tickets ready for the next service status change.
-            </p>
-          </article>
-          <article className="operations-summary-card">
-            <span className="metric-label">Payment attention</span>
-            <strong>{paymentAttentionCount}</strong>
-            <p className="supporting-copy">
-              Orders waiting on payment completion or verification.
-            </p>
-          </article>
-          <article className="operations-summary-card">
-            <span className="metric-label">Held drafts</span>
-            <strong>{draftCount}</strong>
-            <p className="supporting-copy">
-              Draft tickets still waiting to be resumed at service.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section className="operations-layout">
-        <div className="panel section-panel queue-card--upgraded">
+      <section className="operations-layout service-board-layout">
+        <aside className="panel section-panel queue-card--upgraded service-queue-rail">
           <div className="section-header">
             <div>
-              <p className="eyebrow">Queue filter</p>
-            <h2 className="section-title serif">Current order board</h2>
-            <p className="supporting-copy">
-              Live sync: {formatRealtimeStatus(realtimeStatus)}
-            </p>
-            {focusedTable ? (
+              <p className="eyebrow">Service queue</p>
+              <h2 className="section-title">Run the live ticket board</h2>
               <p className="supporting-copy">
-                Focused on {focusedTable.displayName} ({focusedTable.tableCode}).
+                Payment recovery, service progression, and table follow-up stay in one lane here.
               </p>
-            ) : null}
+              {focusedTable ? (
+                <p className="supporting-copy">
+                  Focused on {focusedTable.displayName} ({focusedTable.tableCode}).
+                </p>
+              ) : null}
+            </div>
+            <div className="inline-actions">
+              <span
+                className={`status-pill ${
+                  realtimeStatus === 'connected'
+                    ? 'success'
+                    : realtimeStatus === 'error'
+                      ? 'danger'
+                      : 'warning'
+                }`}
+              >
+                {formatRealtimeStatus(realtimeStatus)}
+              </span>
+              {requestedTableId ? (
+                <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
+                  Clear table focus
+                </Link>
+              ) : null}
+            </div>
           </div>
-          {requestedTableId ? (
-            <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
-              Clear table focus
-            </Link>
-          ) : null}
-        </div>
 
-          <div className="form-grid">
+          <div className="form-grid service-board-filters">
             <div className="field">
               <label htmlFor="orders-search">Find an order</label>
               <input
@@ -707,6 +664,29 @@ export function OutletOrdersPage() {
             </div>
           </div>
 
+          <div className="detail-overview-grid floor-summary-grid">
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">Visible</span>
+              <strong className="scope-card-value">{liveQueueCount}</strong>
+              <p className="supporting-copy">Tickets in this current view.</p>
+            </article>
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">Action now</span>
+              <strong className="scope-card-value">{actionNowCount}</strong>
+              <p className="supporting-copy">Ready for the next service move.</p>
+            </article>
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">Payments</span>
+              <strong className="scope-card-value">{paymentAttentionCount}</strong>
+              <p className="supporting-copy">Still waiting on settlement attention.</p>
+            </article>
+            <article className="sub-panel surface-panel">
+              <span className="metric-label">Drafts</span>
+              <strong className="scope-card-value">{draftCount}</strong>
+              <p className="supporting-copy">Held tickets waiting to be resumed.</p>
+            </article>
+          </div>
+
           {busy ? (
             <p className="supporting-copy">Loading orders...</p>
           ) : orders.length === 0 ? (
@@ -733,13 +713,13 @@ export function OutletOrdersPage() {
               </p>
             </div>
           ) : (
-            <div className="order-list">
+            <div className="service-ticket-list">
               {filteredOrders.map((order) => (
                 <button
                   className={
                     selectedOrderId === order.id
-                      ? 'order-list-item order-list-item--upgraded current'
-                      : 'order-list-item order-list-item--upgraded'
+                      ? 'service-ticket-card active'
+                      : 'service-ticket-card'
                   }
                   key={order.id}
                   onClick={() => {
@@ -748,19 +728,25 @@ export function OutletOrdersPage() {
                   }}
                   type="button"
                 >
-                  <div className="section-header">
+                  <div className="service-ticket-card__header">
                     <div>
                       <strong>#{order.orderNumber}</strong>
                       <p className="supporting-copy">
-                        {order.table?.displayName ?? 'No table'} |{' '}
+                        {order.table?.displayName ?? 'Counter'} ·{' '}
                         {order.customerName ?? 'Walk-in / guest'}
                       </p>
                     </div>
-                    <span className={`status-pill ${statusTone(order.status)}`}>
-                      {formatEnum(order.status)}
-                    </span>
+                    <div className="service-ticket-card__badges">
+                      <span className={`status-pill ${statusTone(order.status)}`}>
+                        {formatEnum(order.status)}
+                      </span>
+                      <span className={`mini-badge mini-badge--${paymentAttentionTone(order.paymentStatus)}`}>
+                        {formatEnum(order.paymentStatus)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="queue-metrics">
+
+                  <div className="service-ticket-card__metrics">
                     <div className="metric-inline">
                       <span>Total</span>
                       <strong>
@@ -768,15 +754,20 @@ export function OutletOrdersPage() {
                       </strong>
                     </div>
                     <div className="metric-inline">
-                      <span>Payment</span>
-                      <strong>{formatEnum(order.paymentStatus)}</strong>
+                      <span>Kitchen</span>
+                      <strong>{order.kitchenTickets.length} tickets</strong>
                     </div>
                     <div className="metric-inline">
-                      <span>Kitchen tickets</span>
-                      <strong>{order.kitchenTickets.length}</strong>
+                      <span>Updated</span>
+                      <strong>{formatRelativeTime(order.updatedAt)}</strong>
                     </div>
                   </div>
-                  <div className="inline-actions">
+
+                  <div className="service-ticket-card__footer">
+                    <span>
+                      {order.table?.tableCode ?? 'Counter'} ·{' '}
+                      {order.customerPhone ?? 'No phone'}
+                    </span>
                     {nextStatusAction(order.status) ? (
                       <button
                         className="secondary-button"
@@ -794,9 +785,9 @@ export function OutletOrdersPage() {
               ))}
             </div>
           )}
-        </div>
+        </aside>
 
-        <div className="panel section-panel detail-panel detail-panel--upgraded">
+        <section className="panel section-panel detail-panel detail-panel--upgraded service-inspector">
           {detailBusy ? (
             <p className="supporting-copy">Loading order detail...</p>
           ) : !selectedOrder ? (
@@ -809,24 +800,23 @@ export function OutletOrdersPage() {
             </div>
           ) : (
             <>
-              <div className="section-header">
+              <div className="service-inspector__hero">
                 <div>
-                  <p className="eyebrow">Order detail</p>
-                  <h2 className="section-title serif">
-                    #{selectedOrder.orderNumber}
-                  </h2>
+                  <p className="eyebrow">Selected ticket</p>
+                  <h2 className="section-title">#{selectedOrder.orderNumber}</h2>
                   <p className="supporting-copy">
                     {selectedOrder.table?.zone?.name ?? 'No zone'} |{' '}
                     {selectedOrder.table?.displayName ?? 'No table'} |{' '}
-                    {new Date(selectedOrder.createdAt).toLocaleString()}
+                    {new Date(selectedOrder.createdAt).toLocaleString()} |{' '}
+                    {selectedOrder.customerName ?? 'Walk-in / guest'}
                   </p>
                 </div>
-                <div className="inline-actions">
+                <div className="service-inspector__actions">
                   <Link
                     className="secondary-button"
                     href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
                   >
-                    Open detail URL
+                    Open detail
                   </Link>
                   <span
                     className={`status-pill ${statusTone(selectedOrder.status)}`}
@@ -836,9 +826,77 @@ export function OutletOrdersPage() {
                 </div>
               </div>
 
-              <div className="detail-grid">
+              <div className="detail-overview-grid service-inspector__overview">
                 <article className="sub-panel surface-panel">
-                  <h3>Items</h3>
+                  <span className="metric-label">Total</span>
+                  <strong className="scope-card-value">
+                    {formatMoney(
+                      selectedOrder.currency,
+                      selectedOrder.grandTotalCents,
+                    )}
+                  </strong>
+                  <p className="supporting-copy">
+                    Current payable amount for this ticket.
+                  </p>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Payment</span>
+                  <strong className="scope-card-value">
+                    {formatEnum(selectedOrder.paymentStatus)}
+                  </strong>
+                  <p className="supporting-copy">
+                    {currentPayment
+                      ? formatEnum(currentPayment.method)
+                      : 'No payment record attached yet.'}
+                  </p>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Kitchen</span>
+                  <strong className="scope-card-value">
+                    {selectedOrder.kitchenTickets.length}
+                  </strong>
+                  <p className="supporting-copy">
+                    Ticket{selectedOrder.kitchenTickets.length === 1 ? '' : 's'} already created for stations.
+                  </p>
+                </article>
+                <article className="sub-panel surface-panel">
+                  <span className="metric-label">Next move</span>
+                  <strong className="scope-card-value">
+                    {nextAction ? nextAction.label : 'No action'}
+                  </strong>
+                  <p className="supporting-copy">
+                    The next fastest service action from this state.
+                  </p>
+                </article>
+              </div>
+
+              <div className="service-inspector__priority">
+                <article className="sub-panel surface-panel">
+                  <h3>Priority now</h3>
+                  <div className="stack-list">
+                    <div className="metric-inline">
+                      <span>Current lane</span>
+                      <strong>{formatEnum(selectedOrder.status)}</strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>Payment lane</span>
+                      <strong>{formatEnum(selectedOrder.paymentStatus)}</strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>Oldest visible</span>
+                      <strong>
+                        {oldestVisibleOrder
+                          ? `#${oldestVisibleOrder.orderNumber}`
+                          : 'None'}
+                      </strong>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <div className="detail-grid service-inspector__details">
+                <article className="sub-panel surface-panel">
+                  <h3>Items in this ticket</h3>
                   <div className="stack-list">
                     {selectedOrder.items.map((item) => (
                       <div className="stack-row" key={item.id}>
@@ -878,7 +936,7 @@ export function OutletOrdersPage() {
                 </article>
 
                 <article className="sub-panel surface-panel">
-                  <h3>Payments and tickets</h3>
+                  <h3>Payments and kitchen handoff</h3>
                   <div className="stack-list">
                     {selectedOrder.payments.map((payment) => (
                       <div className="stack-row" key={payment.id}>
@@ -922,237 +980,205 @@ export function OutletOrdersPage() {
                 </article>
               </div>
 
-              <article className="sub-panel surface-panel">
-                <h3>Edit unpaid order</h3>
-                {supportsAmendment ? (
-                  <div className="form-grid">
-                    <p className="supporting-copy">
-                      Reopen this unpaid POS or waiter order in the staff
-                      composer to adjust items, guest details, table assignment,
-                      or payment method before settlement continues.
-                    </p>
-                    <Link
-                      className="primary-button"
-                      href={`/outlets/${outletId}/pos?orderId=${selectedOrder.id}`}
-                    >
-                      Edit in POS
-                    </Link>
-                  </div>
-                ) : (
-                  <p className="supporting-copy">
-                    Only unpaid staff-assisted orders can be amended here. Once
-                    checkout is in progress or the order reaches kitchen flow,
-                    use void and recreate instead.
-                  </p>
-                )}
-              </article>
-
-              <article className="sub-panel surface-panel">
-                <h3>Payment actions</h3>
-                {supportsOnlineCheckout ? (
-                  <div className="form-grid">
-                    <p className="supporting-copy">
-                      Create or reopen a HitPay hosted checkout link for the
-                      customer.
-                    </p>
-                    <button
-                      className="primary-button"
-                      disabled={checkoutBusy}
-                      onClick={() => void handleCreateCheckout()}
-                      type="button"
-                    >
-                      {checkoutBusy
-                        ? 'Creating checkout...'
-                        : 'Create HitPay checkout'}
-                    </button>
-                    {checkoutResult?.checkoutUrl ? (
-                      <a
-                        className="secondary-button"
-                        href={checkoutResult.checkoutUrl}
-                        rel="noreferrer"
-                        target="_blank"
+              <div className="service-inspector__actions-grid">
+                <article className="sub-panel surface-panel">
+                  <h3>Next service action</h3>
+                  {nextAction ? (
+                    <form className="form-grid" onSubmit={submitNextStatus}>
+                      <p className="supporting-copy">
+                        Move this order to{' '}
+                        <strong>{formatEnum(nextAction.status)}</strong>.
+                      </p>
+                      <div className="field">
+                        <label htmlFor="reason">Reason</label>
+                        <textarea
+                          id="reason"
+                          onChange={(event) => setReason(event.target.value)}
+                          rows={3}
+                          value={reason}
+                        />
+                      </div>
+                      <button
+                        className="primary-button"
+                        disabled={actionBusy || reason.trim().length < 3}
+                        type="submit"
                       >
-                        Open checkout page
-                      </a>
-                    ) : null}
-                  </div>
-                ) : supportsManualVerification ? (
-                  <form
-                    className="form-grid"
-                    onSubmit={handleVerifyManualPayment}
-                  >
+                        {actionBusy ? 'Updating...' : nextAction.label}
+                      </button>
+                    </form>
+                  ) : (
                     <p className="supporting-copy">
-                      Confirm the outlet has received the full manual payment
-                      before the order proceeds to the kitchen.
+                      No staff status transition is available from the current
+                      state.
                     </p>
-                    <div className="field">
-                      <label htmlFor="manual-amount">Verified amount</label>
-                      <input
-                        id="manual-amount"
-                        readOnly
-                        value={formatMoney(
+                  )}
+                </article>
+
+                <article className="sub-panel surface-panel">
+                  <h3>Payment actions</h3>
+                  {supportsOnlineCheckout ? (
+                    <div className="form-grid">
+                      <p className="supporting-copy">
+                        Create or reopen the hosted HitPay checkout for this guest.
+                      </p>
+                      <button
+                        className="primary-button"
+                        disabled={checkoutBusy}
+                        onClick={() => void handleCreateCheckout()}
+                        type="button"
+                      >
+                        {checkoutBusy ? 'Creating checkout...' : 'Create checkout'}
+                      </button>
+                      {checkoutResult?.checkoutUrl ? (
+                        <a
+                          className="secondary-button"
+                          href={checkoutResult.checkoutUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Open checkout
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : supportsManualVerification ? (
+                    <form className="form-grid" onSubmit={handleVerifyManualPayment}>
+                      <div className="field">
+                        <label htmlFor="manual-amount">Verified amount</label>
+                        <input
+                          id="manual-amount"
+                          readOnly
+                          value={formatMoney(
+                            selectedOrder.currency,
+                            selectedOrder.grandTotalCents,
+                          )}
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="manual-reference">Reference</label>
+                        <input
+                          id="manual-reference"
+                          onChange={(event) => setManualReference(event.target.value)}
+                          placeholder="Transfer or receipt reference"
+                          value={manualReference}
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="manual-reason">Reason</label>
+                        <textarea
+                          id="manual-reason"
+                          onChange={(event) => setManualReason(event.target.value)}
+                          rows={3}
+                          value={manualReason}
+                        />
+                      </div>
+                      <button
+                        className="primary-button"
+                        disabled={
+                          manualBusy ||
+                          manualReference.trim().length < 2 ||
+                          manualReason.trim().length < 3
+                        }
+                        type="submit"
+                      >
+                        {manualBusy ? 'Verifying...' : 'Confirm manual payment'}
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="supporting-copy">
+                      No payment recovery is needed right now.
+                    </p>
+                  )}
+                </article>
+
+                <article className="sub-panel surface-panel">
+                  <h3>Edit or void</h3>
+                  <div className="stack-list">
+                    {supportsAmendment ? (
+                      <Link
+                        className="primary-button"
+                        href={`/outlets/${outletId}/pos?orderId=${selectedOrder.id}`}
+                      >
+                        Edit in POS
+                      </Link>
+                    ) : (
+                      <p className="supporting-copy">
+                        This ticket can no longer be amended in POS.
+                      </p>
+                    )}
+
+                    {supportsCancellation ? (
+                      <form className="form-grid" onSubmit={handleCancelOrder}>
+                        <div className="field">
+                          <label htmlFor="cancel-reason">Void reason</label>
+                          <textarea
+                            id="cancel-reason"
+                            onChange={(event) => setCancelReason(event.target.value)}
+                            rows={3}
+                            value={cancelReason}
+                          />
+                        </div>
+                        <button
+                          className="secondary-button"
+                          disabled={cancelBusy || cancelReason.trim().length < 3}
+                          type="submit"
+                        >
+                          {cancelBusy ? 'Voiding...' : 'Void unpaid order'}
+                        </button>
+                      </form>
+                    ) : (
+                      <p className="supporting-copy">
+                        Void is only available before kitchen release.
+                      </p>
+                    )}
+                  </div>
+                </article>
+
+                <article className="sub-panel surface-panel">
+                  <h3>Bill summary</h3>
+                  <div className="queue-metrics">
+                    <div className="metric-inline">
+                      <span>Subtotal</span>
+                      <strong>
+                        {formatMoney(
+                          selectedOrder.currency,
+                          selectedOrder.subtotalCents,
+                        )}
+                      </strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>Service</span>
+                      <strong>
+                        {formatMoney(
+                          selectedOrder.currency,
+                          selectedOrder.serviceChargeTotalCents,
+                        )}
+                      </strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>GST</span>
+                      <strong>
+                        {formatMoney(
+                          selectedOrder.currency,
+                          selectedOrder.gstTotalCents,
+                        )}
+                      </strong>
+                    </div>
+                    <div className="metric-inline">
+                      <span>Total</span>
+                      <strong>
+                        {formatMoney(
                           selectedOrder.currency,
                           selectedOrder.grandTotalCents,
                         )}
-                      />
+                      </strong>
                     </div>
-                    <div className="field">
-                      <label htmlFor="manual-reference">Reference</label>
-                      <input
-                        id="manual-reference"
-                        onChange={(event) =>
-                          setManualReference(event.target.value)
-                        }
-                        placeholder="Transfer or receipt reference"
-                        value={manualReference}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="manual-reason">Reason</label>
-                      <textarea
-                        id="manual-reason"
-                        onChange={(event) =>
-                          setManualReason(event.target.value)
-                        }
-                        rows={3}
-                        value={manualReason}
-                      />
-                    </div>
-                    <button
-                      className="primary-button"
-                      disabled={
-                        manualBusy ||
-                        manualReference.trim().length < 2 ||
-                        manualReason.trim().length < 3
-                      }
-                      type="submit"
-                    >
-                      {manualBusy ? 'Verifying...' : 'Confirm manual payment'}
-                    </button>
-                  </form>
-                ) : (
-                  <p className="supporting-copy">
-                    No payment action is needed right now. Paid orders can
-                    continue through service, while unpaid orders must stay
-                    aligned with their selected payment method.
-                  </p>
-                )}
-              </article>
+                  </div>
+                </article>
+              </div>
 
-              <article className="sub-panel surface-panel">
-                <h3>Void order</h3>
-                {supportsCancellation ? (
-                  <form className="form-grid" onSubmit={handleCancelOrder}>
-                    <p className="supporting-copy">
-                      Void this order before it reaches kitchen release. This
-                      cancels the local order flow and prevents late checkout
-                      callbacks from releasing it.
-                    </p>
-                    <div className="field">
-                      <label htmlFor="cancel-reason">Reason</label>
-                      <textarea
-                        id="cancel-reason"
-                        onChange={(event) =>
-                          setCancelReason(event.target.value)
-                        }
-                        rows={3}
-                        value={cancelReason}
-                      />
-                    </div>
-                    <button
-                      className="secondary-button"
-                      disabled={cancelBusy || cancelReason.trim().length < 3}
-                      type="submit"
-                    >
-                      {cancelBusy ? 'Voiding...' : 'Void unpaid order'}
-                    </button>
-                  </form>
-                ) : (
-                  <p className="supporting-copy">
-                    Only pre-kitchen orders that are still awaiting or
-                    processing payment can be voided here.
-                  </p>
-                )}
-              </article>
-
-              <article className="sub-panel surface-panel">
-                <h3>Bill summary</h3>
-                <div className="queue-metrics">
-                  <div className="metric-inline">
-                    <span>Subtotal</span>
-                    <strong>
-                      {formatMoney(
-                        selectedOrder.currency,
-                        selectedOrder.subtotalCents,
-                      )}
-                    </strong>
-                  </div>
-                  <div className="metric-inline">
-                    <span>Service</span>
-                    <strong>
-                      {formatMoney(
-                        selectedOrder.currency,
-                        selectedOrder.serviceChargeTotalCents,
-                      )}
-                    </strong>
-                  </div>
-                  <div className="metric-inline">
-                    <span>GST</span>
-                    <strong>
-                      {formatMoney(
-                        selectedOrder.currency,
-                        selectedOrder.gstTotalCents,
-                      )}
-                    </strong>
-                  </div>
-                  <div className="metric-inline">
-                    <span>Total</span>
-                    <strong>
-                      {formatMoney(
-                        selectedOrder.currency,
-                        selectedOrder.grandTotalCents,
-                      )}
-                    </strong>
-                  </div>
-                </div>
-              </article>
-
-              <article className="sub-panel surface-panel">
-                <h3>Next service action</h3>
-                {nextAction ? (
-                  <form className="form-grid" onSubmit={submitNextStatus}>
-                    <p className="supporting-copy">
-                      This order can move to{' '}
-                      <strong>{formatEnum(nextAction.status)}</strong>.
-                    </p>
-                    <div className="field">
-                      <label htmlFor="reason">Reason</label>
-                      <textarea
-                        id="reason"
-                        onChange={(event) => setReason(event.target.value)}
-                        rows={3}
-                        value={reason}
-                      />
-                    </div>
-                    <button
-                      className="primary-button"
-                      disabled={actionBusy || reason.trim().length < 3}
-                      type="submit"
-                    >
-                      {actionBusy ? 'Updating...' : nextAction.label}
-                    </button>
-                  </form>
-                ) : (
-                  <p className="supporting-copy">
-                    No staff status transition is available from the current
-                    state. This usually means the order is waiting on payment,
-                    already completed, or cancelled.
-                  </p>
-                )}
-              </article>
             </>
           )}
-        </div>
+        </section>
       </section>
     </OutletPageLayout>
   );
@@ -1246,4 +1272,41 @@ function formatRealtimeStatus(status: RealtimeStatus) {
     default:
       return 'Idle';
   }
+}
+
+function formatRelativeTime(value: string) {
+  const timestamp = new Date(value).getTime();
+  const diffMs = Date.now() - timestamp;
+  const diffMinutes = Math.max(0, Math.round(diffMs / 60000));
+  if (diffMinutes < 1) {
+    return 'just now';
+  }
+  if (diffMinutes === 1) {
+    return '1 min ago';
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes} mins ago`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours === 1) {
+    return '1 hour ago';
+  }
+  return `${diffHours} hours ago`;
+}
+
+function paymentAttentionTone(status: string) {
+  if (status === 'PAID') {
+    return 'success';
+  }
+  if (
+    status === 'MANUAL_VERIFICATION_REQUIRED' ||
+    status === 'PENDING' ||
+    status === 'PROCESSING'
+  ) {
+    return 'warning';
+  }
+  if (status === 'FAILED' || status === 'CANCELLED') {
+    return 'danger';
+  }
+  return 'neutral';
 }

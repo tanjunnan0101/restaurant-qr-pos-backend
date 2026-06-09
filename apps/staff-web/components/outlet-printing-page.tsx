@@ -247,8 +247,8 @@ export function OutletPrintingPage() {
 
   return (
     <OutletPageLayout
-      title="Printing operations"
-      subtitle="Monitor kitchen routing, printer connectivity, and recovery actions from one outlet screen."
+      title="Printing"
+      subtitle="Track routes, printers, retries, and receipt recovery from one board."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -270,293 +270,371 @@ export function OutletPrintingPage() {
         </section>
       ) : null}
 
-      <section className="metric-board">
-        <article className="panel metric-card">
-          <span className="metric-label">Stations</span>
-          <strong className="metric-value">{stations.length}</strong>
-        </article>
-        <article className="panel metric-card">
-          <span className="metric-label">Printers</span>
-          <strong className="metric-value">{printers.length}</strong>
-        </article>
-        <article className="panel metric-card">
-          <span className="metric-label">Active printers</span>
-          <strong className="metric-value">{onlinePrinters}</strong>
-        </article>
-        <article className="panel metric-card">
-          <span className="metric-label">Active agents</span>
-          <strong className="metric-value">{activeAgents}</strong>
-        </article>
-        <article className="panel metric-card">
-          <span className="metric-label">Failed jobs</span>
-          <strong className="metric-value">{failedJobs.length}</strong>
-        </article>
-      </section>
-
-      <section className="panel section-panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Outlet print network</p>
-            <h2 className="section-title serif">Printing health board</h2>
+      <section className="operations-layout support-station-layout">
+        <aside className="panel section-panel support-control-rail">
+          <article className="support-config-card">
+            <div className="support-config-card__header">
+              <div>
+                <p className="eyebrow">Print station</p>
+                <h2 className="section-title">Network control</h2>
+              </div>
+              <span className="status-pill success">
+                {formatRealtimeStatus(status)}
+              </span>
+            </div>
             <p className="supporting-copy">
-              Refresh state: {formatRealtimeStatus(status)}
+              Keep kitchen and receipt routing visible in one place. This tab is
+              for outlet setup, heartbeat checks, retries, and reprint recovery.
             </p>
-          </div>
-          <button
-            className="secondary-button"
-            disabled={busy}
-            onClick={() => setRefreshTick((current) => current + 1)}
-            type="button"
-          >
-            {busy ? 'Refreshing...' : 'Refresh printing status'}
-          </button>
+            <div className="support-inline-meta">
+              <span>{stations.length} stations</span>
+              <span>{printers.length} printers</span>
+              <span>{activeAgents} agents online</span>
+              <span>{failedJobs.length} failed jobs</span>
+            </div>
+            <div className="support-card__actions">
+              <button
+                className="secondary-button"
+                disabled={busy}
+                onClick={() => setRefreshTick((current) => current + 1)}
+                type="button"
+              >
+                {busy ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() =>
+                  setSetupJson(JSON.stringify(buildSampleSetupDraft(), null, 2))
+                }
+                type="button"
+              >
+                Load example
+              </button>
+            </div>
+          </article>
+
+          <article className="support-config-card">
+            <div className="support-config-card__header">
+              <div>
+                <p className="eyebrow">Setup payload</p>
+                <h3>Route printers and agents</h3>
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="printing-setup-json">Setup JSON</label>
+              <textarea
+                id="printing-setup-json"
+                onChange={(event) => setSetupJson(event.target.value)}
+                rows={22}
+                value={setupJson}
+              />
+            </div>
+            <div className="support-card__actions">
+              <button
+                className="primary-button"
+                disabled={setupBusy || setupJson.trim().length === 0}
+                onClick={() => void handleSetupSave()}
+                type="button"
+              >
+                {setupBusy ? 'Saving...' : 'Save setup'}
+              </button>
+            </div>
+            {setupSecret ? (
+              <div className="alert success">
+                Printer agent key returned once: {setupSecret}
+              </div>
+            ) : null}
+          </article>
+        </aside>
+
+        <div className="support-board-panel">
+          <section className="support-summary-grid">
+            <article className="support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Stations</p>
+                  <h3>{stations.length}</h3>
+                </div>
+                <span className="status-pill neutral">Routes</span>
+              </div>
+              <p className="supporting-copy">
+                Kitchen and receipt stations mapped for this outlet.
+              </p>
+            </article>
+            <article className="support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Printers</p>
+                  <h3>{printers.length}</h3>
+                </div>
+                <span className="status-pill neutral">Devices</span>
+              </div>
+              <p className="supporting-copy">
+                Configured outlet printers across kitchen and receipt roles.
+              </p>
+            </article>
+            <article className="support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Active printers</p>
+                  <h3>{onlinePrinters}</h3>
+                </div>
+                <span className="status-pill success">Enabled</span>
+              </div>
+              <p className="supporting-copy">
+                Printer records currently marked active.
+              </p>
+            </article>
+            <article className="support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Failed jobs</p>
+                  <h3>{failedJobs.length}</h3>
+                </div>
+                <span className="status-pill warning">Attention</span>
+              </div>
+              <p className="supporting-copy">
+                Jobs waiting for retry or reprint action.
+              </p>
+            </article>
+          </section>
+
+          <section className="support-card-grid">
+            <article className="panel section-panel support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Kitchen routes</p>
+                  <h2 className="section-title">Station routing</h2>
+                </div>
+                <span className="status-pill neutral">{stations.length} mapped</span>
+              </div>
+              {busy ? (
+                <p className="supporting-copy">Loading station routes...</p>
+              ) : stations.length === 0 ? (
+                <p className="supporting-copy">
+                  No kitchen stations or printer routes have been configured yet.
+                </p>
+              ) : (
+                <div className="list-block">
+                  {stations.map((station) => (
+                    <article className="list-item" key={station.id}>
+                      <div className="support-list-card__header">
+                        <div>
+                          <h3>{station.name}</h3>
+                          <p className="supporting-copy">
+                            Key: {station.key} | Order {station.displayOrder}
+                          </p>
+                        </div>
+                        <span
+                          className={`status-pill ${
+                            station.active ? 'success' : 'neutral'
+                          }`}
+                        >
+                          {station.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className="support-inline-meta">
+                        <span>
+                          Primary:{' '}
+                          {station.printerRoute?.primaryPrinter?.name ?? 'Not routed'}
+                        </span>
+                        <span>
+                          Backup:{' '}
+                          {station.printerRoute?.backupPrinter?.name ?? 'None'}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="panel section-panel support-card">
+              <div className="support-card__header">
+                <div>
+                  <p className="eyebrow">Agents</p>
+                  <h2 className="section-title">Heartbeat board</h2>
+                </div>
+                <span className="status-pill neutral">{agents.length} devices</span>
+              </div>
+              {busy ? (
+                <p className="supporting-copy">Loading agent heartbeat...</p>
+              ) : agents.length === 0 ? (
+                <p className="supporting-copy">
+                  No printer agent has been registered for this outlet yet.
+                </p>
+              ) : (
+                <div className="list-block">
+                  {agents.map((agent) => (
+                    <article className="list-item" key={agent.id}>
+                      <div className="support-list-card__header">
+                        <div>
+                          <h3>{agent.name}</h3>
+                          <p className="supporting-copy">Device: {agent.deviceId}</p>
+                        </div>
+                        <span
+                          className={`status-pill ${
+                            agent.active ? 'success' : 'warning'
+                          }`}
+                        >
+                          {agent.active ? 'Registered' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className="support-inline-meta">
+                        <span>
+                          Last heartbeat:{' '}
+                          {agent.lastHeartbeatAt
+                            ? new Date(agent.lastHeartbeatAt).toLocaleString()
+                            : 'No heartbeat yet'}
+                        </span>
+                        <span>Version: {agent.appVersion ?? 'Unknown'}</span>
+                        <span>IP: {agent.lastIpAddress ?? 'Unknown'}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+          </section>
+
+          <section className="support-list-grid">
+            <article className="panel section-panel support-list-card">
+              <div className="support-list-card__header">
+                <div>
+                  <p className="eyebrow">Printers</p>
+                  <h2 className="section-title">Device roster</h2>
+                </div>
+                <span className="status-pill neutral">{printers.length} devices</span>
+              </div>
+              {busy ? (
+                <p className="supporting-copy">Loading printers...</p>
+              ) : printers.length === 0 ? (
+                <p className="supporting-copy">
+                  No outlet printers are configured yet.
+                </p>
+              ) : (
+                <div className="list-block">
+                  {printers.map((printer) => (
+                    <article className="list-item" key={printer.id}>
+                      <div className="support-list-card__header">
+                        <div>
+                          <h3>{printer.name}</h3>
+                          <p className="supporting-copy">
+                            {formatEnum(printer.role)} |{' '}
+                            {formatEnum(printer.connectionType)}
+                          </p>
+                        </div>
+                        <span
+                          className={`status-pill ${
+                            printer.active ? 'success' : 'neutral'
+                          }`}
+                        >
+                          {printer.active ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      <div className="support-inline-meta">
+                        <span>
+                          {printer.host
+                            ? `${printer.host}:${printer.port ?? 9100}`
+                            : 'No host configured'}
+                        </span>
+                        <span>{printer.paperWidthMm}mm paper</span>
+                        <span>Health: {formatEnum(printer.healthStatus)}</span>
+                      </div>
+                      <div className="support-list-card__actions">
+                        <button
+                          className="secondary-button"
+                          disabled={actionBusyId === printer.id || !printer.active}
+                          onClick={() =>
+                            void handleAction(
+                              'test',
+                              printer.id,
+                              `Staff queued a printer test for ${printer.name}.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          {actionBusyId === printer.id
+                            ? 'Queueing...'
+                            : 'Queue test print'}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="panel section-panel support-list-card">
+              <div className="support-list-card__header">
+                <div>
+                  <p className="eyebrow">Recovery</p>
+                  <h2 className="section-title">Failed jobs</h2>
+                </div>
+                <span className="status-pill warning">{failedJobs.length} waiting</span>
+              </div>
+              {busy ? (
+                <p className="supporting-copy">Loading print jobs...</p>
+              ) : failedJobs.length === 0 ? (
+                <p className="supporting-copy">
+                  No failed or retrying print jobs are waiting for action.
+                </p>
+              ) : (
+                <div className="list-block">
+                  {failedJobs.map((job) => (
+                    <article className="list-item" key={job.id}>
+                      <div className="support-list-card__header">
+                        <div>
+                          <h3>{formatEnum(job.template)}</h3>
+                          <p className="supporting-copy">
+                            Printer: {job.printer?.name ?? 'Unassigned'}
+                          </p>
+                        </div>
+                        <span className="status-pill warning">
+                          {formatEnum(job.status)}
+                        </span>
+                      </div>
+                      <div className="support-inline-meta">
+                        <span>Created: {new Date(job.createdAt).toLocaleString()}</span>
+                        {job.lastError ? <span>{job.lastError}</span> : null}
+                      </div>
+                      <div className="support-list-card__actions">
+                        <button
+                          className="secondary-button"
+                          disabled={actionBusyId === job.id}
+                          onClick={() =>
+                            void handleAction(
+                              'retry',
+                              job.id,
+                              `Staff retried failed print job ${job.id}.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          {actionBusyId === job.id ? 'Working...' : 'Retry'}
+                        </button>
+                        <button
+                          className="secondary-button"
+                          disabled={actionBusyId === job.id}
+                          onClick={() =>
+                            void handleAction(
+                              'reprint',
+                              job.id,
+                              `Staff queued a reprint from job ${job.id}.`,
+                            )
+                          }
+                          type="button"
+                        >
+                          {actionBusyId === job.id ? 'Working...' : 'Reprint'}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+          </section>
         </div>
-        <p className="supporting-copy">
-          This page is designed to stay useful even before a live printer is on
-          hand: routes, assigned devices, agent heartbeat, and failed jobs can
-          all be reviewed here first.
-        </p>
-      </section>
-
-      <section className="detail-grid">
-        <article className="panel section-panel">
-          <h2 className="section-title serif">Setup payload</h2>
-          <p className="supporting-copy">
-            Prepare or update stations, printers, routes, and printer-agent
-            registration from one JSON payload. This is useful while staging the
-            outlet before the physical device is on site.
-          </p>
-          <div className="field">
-            <label htmlFor="printing-setup-json">Setup JSON</label>
-            <textarea
-              id="printing-setup-json"
-              onChange={(event) => setSetupJson(event.target.value)}
-              rows={22}
-              value={setupJson}
-            />
-          </div>
-          <div className="inline-actions">
-            <button
-              className="primary-button"
-              disabled={setupBusy || setupJson.trim().length === 0}
-              onClick={() => void handleSetupSave()}
-              type="button"
-            >
-              {setupBusy ? 'Saving setup...' : 'Save printing setup'}
-            </button>
-            <button
-              className="secondary-button"
-              onClick={() =>
-                setSetupJson(JSON.stringify(buildSampleSetupDraft(), null, 2))
-              }
-              type="button"
-            >
-              Load starter example
-            </button>
-          </div>
-          {setupSecret ? (
-            <div className="alert success">
-              Printer agent key returned once: {setupSecret}
-            </div>
-          ) : null}
-        </article>
-
-        <article className="panel section-panel">
-          <h2 className="section-title serif">Kitchen routes</h2>
-          {busy ? (
-            <p className="supporting-copy">Loading station routes...</p>
-          ) : stations.length === 0 ? (
-            <p className="supporting-copy">
-              No kitchen stations or printer routes have been configured yet.
-            </p>
-          ) : (
-            <div className="stack-list">
-              {stations.map((station) => (
-                <div className="stack-row" key={station.id}>
-                  <div>
-                    <strong>{station.name}</strong>
-                    <p className="supporting-copy">
-                      Key: {station.key} | Display order: {station.displayOrder}
-                    </p>
-                    <p className="supporting-copy">
-                      Primary:{' '}
-                      {station.printerRoute?.primaryPrinter?.name ?? 'Not routed'}
-                      {station.printerRoute?.backupPrinter
-                        ? ` | Backup: ${station.printerRoute.backupPrinter.name}`
-                        : ''}
-                    </p>
-                  </div>
-                  <span
-                    className={`status-pill ${
-                      station.active ? 'success' : 'neutral'
-                    }`}
-                  >
-                    {station.active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-
-        <article className="panel section-panel">
-          <h2 className="section-title serif">Printer agents</h2>
-          {busy ? (
-            <p className="supporting-copy">Loading agent heartbeat...</p>
-          ) : agents.length === 0 ? (
-            <p className="supporting-copy">
-              No printer agent has been registered for this outlet yet.
-            </p>
-          ) : (
-            <div className="stack-list">
-              {agents.map((agent) => (
-                <div className="stack-row" key={agent.id}>
-                  <div>
-                    <strong>{agent.name}</strong>
-                    <p className="supporting-copy">Device: {agent.deviceId}</p>
-                    <p className="supporting-copy">
-                      Last heartbeat:{' '}
-                      {agent.lastHeartbeatAt
-                        ? new Date(agent.lastHeartbeatAt).toLocaleString()
-                        : 'No heartbeat yet'}
-                    </p>
-                    <p className="supporting-copy">
-                      App version: {agent.appVersion ?? 'Unknown'} | IP:{' '}
-                      {agent.lastIpAddress ?? 'Unknown'}
-                    </p>
-                  </div>
-                  <span
-                    className={`status-pill ${agent.active ? 'success' : 'warning'}`}
-                  >
-                    {agent.active ? 'Registered' : 'Inactive'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-      </section>
-
-      <section className="detail-grid">
-        <article className="panel section-panel">
-          <h2 className="section-title serif">Printers</h2>
-          {busy ? (
-            <p className="supporting-copy">Loading printers...</p>
-          ) : printers.length === 0 ? (
-            <p className="supporting-copy">
-              No outlet printers are configured yet.
-            </p>
-          ) : (
-            <div className="stack-list">
-              {printers.map((printer) => (
-                <div className="stack-row" key={printer.id}>
-                  <div>
-                    <strong>{printer.name}</strong>
-                    <p className="supporting-copy">
-                      {formatEnum(printer.role)} |{' '}
-                      {formatEnum(printer.connectionType)}
-                    </p>
-                    <p className="supporting-copy">
-                      {printer.host
-                        ? `${printer.host}:${printer.port ?? 9100}`
-                        : 'No host configured'}{' '}
-                      | {printer.paperWidthMm}mm paper
-                    </p>
-                    <p className="supporting-copy">
-                      Health: {formatEnum(printer.healthStatus)}
-                    </p>
-                  </div>
-                  <div className="inline-actions">
-                    <span
-                      className={`status-pill ${
-                        printer.active ? 'success' : 'neutral'
-                      }`}
-                    >
-                      {printer.active ? 'Enabled' : 'Disabled'}
-                    </span>
-                    <button
-                      className="secondary-button"
-                      disabled={actionBusyId === printer.id || !printer.active}
-                      onClick={() =>
-                        void handleAction(
-                          'test',
-                          printer.id,
-                          `Staff queued a printer test for ${printer.name}.`,
-                        )
-                      }
-                      type="button"
-                    >
-                      {actionBusyId === printer.id
-                        ? 'Queueing...'
-                        : 'Queue test print'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-
-        <article className="panel section-panel">
-          <h2 className="section-title serif">Failed and retrying jobs</h2>
-          {busy ? (
-            <p className="supporting-copy">Loading print jobs...</p>
-          ) : failedJobs.length === 0 ? (
-            <p className="supporting-copy">
-              No failed or retrying print jobs are waiting for action.
-            </p>
-          ) : (
-            <div className="stack-list">
-              {failedJobs.map((job) => (
-                <div className="stack-row" key={job.id}>
-                  <div>
-                    <strong>{formatEnum(job.template)}</strong>
-                    <p className="supporting-copy">
-                      Printer: {job.printer?.name ?? 'Unassigned'}
-                    </p>
-                    <p className="supporting-copy">
-                      Status: {formatEnum(job.status)} | Created:{' '}
-                      {new Date(job.createdAt).toLocaleString()}
-                    </p>
-                    {job.lastError ? (
-                      <p className="supporting-copy">Last error: {job.lastError}</p>
-                    ) : null}
-                  </div>
-                  <div className="inline-actions">
-                    <button
-                      className="secondary-button"
-                      disabled={actionBusyId === job.id}
-                      onClick={() =>
-                        void handleAction(
-                          'retry',
-                          job.id,
-                          `Staff retried failed print job ${job.id}.`,
-                        )
-                      }
-                      type="button"
-                    >
-                      {actionBusyId === job.id ? 'Working...' : 'Retry job'}
-                    </button>
-                    <button
-                      className="secondary-button"
-                      disabled={actionBusyId === job.id}
-                      onClick={() =>
-                        void handleAction(
-                          'reprint',
-                          job.id,
-                          `Staff queued a reprint from job ${job.id}.`,
-                        )
-                      }
-                      type="button"
-                    >
-                      {actionBusyId === job.id ? 'Working...' : 'Reprint copy'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
       </section>
 
       <OutletAuditFeed
