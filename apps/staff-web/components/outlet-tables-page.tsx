@@ -31,6 +31,8 @@ const tableStatusFilters = [
   'OUT_OF_SERVICE',
 ] as const;
 
+const ALL_ZONES_FILTER = '__ALL__';
+
 type TableStatusFilter = (typeof tableStatusFilters)[number];
 
 type TableOrderSnapshot = {
@@ -53,7 +55,7 @@ export function OutletTablesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TableStatusFilter>('ALL');
-  const [selectedZoneId, setSelectedZoneId] = useState<string>('');
+  const [selectedZoneId, setSelectedZoneId] = useState<string>(ALL_ZONES_FILTER);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
   const [actionTableId, setActionTableId] = useState<string | null>(null);
   const [qrActionTableId, setQrActionTableId] = useState<string | null>(null);
@@ -235,25 +237,36 @@ export function OutletTablesPage() {
 
   useEffect(() => {
     if (filteredZones.length === 0) {
-      setSelectedZoneId('');
+      setSelectedZoneId(ALL_ZONES_FILTER);
       return;
     }
 
-    if (filteredZones.some((zone) => zone.id === selectedZoneId)) {
+    if (
+      selectedZoneId === ALL_ZONES_FILTER ||
+      filteredZones.some((zone) => zone.id === selectedZoneId)
+    ) {
       return;
     }
 
-    setSelectedZoneId(filteredZones[0]?.id ?? '');
+    setSelectedZoneId(ALL_ZONES_FILTER);
   }, [filteredZones, selectedZoneId]);
 
   const tables = filteredZones.flatMap((zone) => zone.tables);
+  const displayedZones =
+    selectedZoneId === ALL_ZONES_FILTER
+      ? filteredZones
+      : filteredZones.filter((zone) => zone.id === selectedZoneId);
   const activeZone =
-    filteredZones.find((zone) => zone.id === selectedZoneId) ??
-    filteredZones[0] ??
-    null;
-  const boardTables = filteredZones.flatMap((zone) => zone.tables);
+    selectedZoneId === ALL_ZONES_FILTER
+      ? null
+      : filteredZones.find((zone) => zone.id === selectedZoneId) ?? null;
+  const boardTables = displayedZones.flatMap((zone) => zone.tables);
   const selectedTable =
     boardTables.find((table) => table.id === selectedTableId) ?? boardTables[0] ?? null;
+  const selectedTableZone =
+    selectedTable
+      ? zones.find((zone) => zone.tables.some((table) => table.id === selectedTable.id)) ?? null
+      : null;
   const selectedTableSnapshot = selectedTable
     ? tableOrderSnapshots[selectedTable.id]
     : undefined;
@@ -431,7 +444,7 @@ export function OutletTablesPage() {
             .map((entry) => [entry.tableId, entry.qrUrl as string]),
         ),
       );
-      setSelectedZoneId(result.zones[0]?.id ?? '');
+      setSelectedZoneId(ALL_ZONES_FILTER);
       setSelectedTableId(result.zones[0]?.tables[0]?.id ?? '');
     } catch (setupError) {
       setError(
@@ -469,66 +482,96 @@ export function OutletTablesPage() {
         </section>
       ) : null}
 
-      <section className="operations-layout floor-board-layout">
-        <aside className="panel section-panel floor-control-rail">
+      <section className="operations-stack floor-board-stack">
+        <section className="panel section-panel floor-command-deck">
           <div className="section-header">
             <div>
               <p className="eyebrow">Floor controls</p>
-              <h2 className="section-title">Whole floor visibility</h2>
+              <h2 className="section-title">Run the room from one board</h2>
               <p className="supporting-copy">
-                Search, filter, and operate tables from a full-room board.
+                Load the floor, filter by service pressure, and keep every zone visible from one
+                operational surface.
               </p>
             </div>
-            <div className="table-inspector__actions">
-              <span className={`status-pill ${realtimeStatus === 'connected' ? 'success' : realtimeStatus === 'error' ? 'danger' : 'warning'}`}>
+            <div className="support-card__actions">
+              <span
+                className={`status-pill ${
+                  realtimeStatus === 'connected'
+                    ? 'success'
+                    : realtimeStatus === 'error'
+                      ? 'danger'
+                      : 'warning'
+                }`}
+              >
                 {formatRealtimeStatus(realtimeStatus)}
               </span>
               <button
-                className="secondary-button"
+                className="primary-button"
                 disabled={setupBusy || !canLoadDemoFloor}
                 onClick={() => void handleLoadDemoFloor()}
                 type="button"
               >
-                {setupBusy ? 'Loading tables...' : 'Load tables'}
+                {setupBusy ? 'Loading floor...' : zones.length === 0 ? 'Load tables' : 'Reload sample floor'}
               </button>
+              {selectedZoneId !== ALL_ZONES_FILTER ? (
+                <button
+                  className="secondary-button"
+                  onClick={() => setSelectedZoneId(ALL_ZONES_FILTER)}
+                  type="button"
+                >
+                  Show whole floor
+                </button>
+              ) : null}
             </div>
           </div>
-          {canLoadDemoFloor ? (
-            <p className="support-note">
-              Loads a ready-to-use 10-table sample floor across two zones so the
-              team can test seating, QR handoff, and POS actions immediately.
-            </p>
-          ) : (
-            <p className="support-note">
-              This floor setup action needs table and QR manage access.
-            </p>
-          )}
+          <div className="floor-command-grid">
+            <article className="sub-panel surface-panel floor-command-card">
+              <span className="metric-label">Floor setup</span>
+              <strong className="scope-card-value">
+                {zones.length === 0 ? 'Not loaded' : `${summary.total} tables`}
+              </strong>
+              <p className="supporting-copy">
+                {canLoadDemoFloor
+                  ? 'Ready-to-use 10-table floor across two zones for demo, QR, and POS testing.'
+                  : 'This setup action needs table and QR manage access.'}
+              </p>
+              {zones.length === 0 ? (
+                <div className="support-inline-meta">
+                  <span>2 zones</span>
+                  <span>10 tables</span>
+                  <span>QR ready</span>
+                </div>
+              ) : null}
+            </article>
 
-          <div className="form-grid floor-control-form">
-            <div className="field">
-              <label htmlFor="table-search">Search tables</label>
-              <input
-                id="table-search"
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Zone, code, QR, shape"
-                value={searchTerm}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="table-status-filter">Table state</label>
-              <select
-                id="table-status-filter"
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as TableStatusFilter)
-                }
-                value={statusFilter}
-              >
-                {tableStatusFilters.map((status) => (
-                  <option key={status} value={status}>
-                    {status === 'ALL' ? 'All states' : formatEnum(status)}
-                  </option>
-                ))}
-              </select>
+            <div className="sub-panel surface-panel floor-control-rail">
+              <div className="form-grid floor-control-form">
+                <div className="field">
+                  <label htmlFor="table-search">Search tables</label>
+                  <input
+                    id="table-search"
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Zone, code, QR, shape"
+                    value={searchTerm}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="table-status-filter">Table state</label>
+                  <select
+                    id="table-status-filter"
+                    onChange={(event) =>
+                      setStatusFilter(event.target.value as TableStatusFilter)
+                    }
+                    value={statusFilter}
+                  >
+                    {tableStatusFilters.map((status) => (
+                      <option key={status} value={status}>
+                        {status === 'ALL' ? 'All states' : formatEnum(status)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -556,7 +599,7 @@ export function OutletTablesPage() {
               <p className="supporting-copy">Active QR coverage.</p>
             </article>
           </div>
-        </aside>
+        </section>
 
         <section className="panel section-panel floor-board-panel">
           {busy ? (
@@ -570,6 +613,18 @@ export function OutletTablesPage() {
               <p className="supporting-copy">
                 Dining zones and tables have not been configured for this outlet.
               </p>
+              {canLoadDemoFloor ? (
+                <div className="inline-actions">
+                  <button
+                    className="primary-button"
+                    disabled={setupBusy}
+                    onClick={() => void handleLoadDemoFloor()}
+                    type="button"
+                  >
+                    {setupBusy ? 'Loading floor...' : 'Load sample floor'}
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : filteredZones.length === 0 ? (
             <div className="empty-state">
@@ -588,19 +643,33 @@ export function OutletTablesPage() {
                   </h2>
                   <p className="supporting-copy">
                     {boardTables.length} table{boardTables.length === 1 ? '' : 's'} visible across{' '}
-                    {filteredZones.length} zone{filteredZones.length === 1 ? '' : 's'}.
+                    {displayedZones.length} zone{displayedZones.length === 1 ? '' : 's'}.
                   </p>
                 </div>
-                <span className={`status-pill ${activeZone?.active ? 'success' : 'neutral'}`}>
-                  {activeZone?.active ? 'Floor active' : 'Floor inactive'}
-                </span>
+                <div className="support-inline-meta">
+                  <span>{summary.occupied} occupied</span>
+                  <span>{summary.helpRequests} help calls</span>
+                  <span>{summary.withQr}/{summary.total} QR live</span>
+                </div>
               </div>
 
               <div className="floor-zone-bar">
+                <button
+                  className={
+                    selectedZoneId === ALL_ZONES_FILTER
+                      ? 'floor-zone-chip active'
+                      : 'floor-zone-chip'
+                  }
+                  onClick={() => setSelectedZoneId(ALL_ZONES_FILTER)}
+                  type="button"
+                >
+                  <strong>All floor</strong>
+                  <span>{tables.length} tables</span>
+                </button>
                 {filteredZones.map((zone) => (
                   <button
                     className={
-                      zone.id === activeZone?.id
+                      zone.id === selectedZoneId
                         ? 'floor-zone-chip active'
                         : 'floor-zone-chip'
                     }
@@ -622,12 +691,13 @@ export function OutletTablesPage() {
                       <h3 className="section-title">Tap a table to operate</h3>
                     </div>
                     <p className="supporting-copy">
-                      Every zone stays visible at once so the team can scan the whole room in one pass.
+                      This board stays wide on purpose so the team can scan the room, spot pressure,
+                      and jump straight into POS or orders without hunting through text.
                     </p>
                   </div>
 
-                  <div className="floor-zone-board">
-                    {filteredZones.map((zone) => (
+                  <div className="floor-zone-board floor-zone-board--wide">
+                    {displayedZones.map((zone) => (
                       <section className="floor-zone-section" key={zone.id}>
                         <div className="floor-zone-section__header">
                           <div>
@@ -638,18 +708,12 @@ export function OutletTablesPage() {
                           </div>
                           <span
                             className={`status-pill ${
-                              zone.id === activeZone?.id
-                                ? 'info'
-                                : zone.active
+                              zone.active
                                   ? 'success'
                                   : 'neutral'
                             }`}
                           >
-                            {zone.id === activeZone?.id
-                              ? 'Focus zone'
-                              : zone.active
-                                ? 'Visible'
-                                : 'Inactive'}
+                            {zone.active ? 'Active zone' : 'Inactive'}
                           </span>
                         </div>
 
@@ -660,14 +724,13 @@ export function OutletTablesPage() {
 
                             return (
                               <button
-                                className={
+                              className={
                                   table.id === selectedTable?.id
                                     ? 'floor-tile active'
                                     : 'floor-tile'
                                 }
                                 key={table.id}
                                 onClick={() => {
-                                  setSelectedZoneId(zone.id);
                                   setSelectedTableId(table.id);
                                 }}
                                 type="button"
@@ -693,6 +756,14 @@ export function OutletTablesPage() {
                                     {table.capacity ? `${table.capacity} seats` : 'Flexible seating'}
                                   </span>
                                 </div>
+                                <div className="floor-tile__signals">
+                                  <span>{zone.name}</span>
+                                  <span>
+                                    {snapshot?.latestOrderNumber
+                                      ? `#${snapshot.latestOrderNumber}`
+                                      : 'No ticket'}
+                                  </span>
+                                </div>
                                 <div className="floor-tile__footer">
                                   <span>{snapshot?.activeCount ?? 0} live</span>
                                   <span>
@@ -709,72 +780,73 @@ export function OutletTablesPage() {
                     ))}
                   </div>
                 </section>
+              </div>
 
-                {selectedTable ? (
-                  <aside className="sub-panel surface-panel table-inspector">
-                    <div className="table-inspector__hero">
-                      <div>
-                        <span className="metric-label">Selected table</span>
-                        <h3 className="section-title">{selectedTable.displayName}</h3>
-                        <p className="supporting-copy">
-                          {selectedTable.tableCode} | {formatEnum(selectedTable.shape)} |{' '}
-                          {selectedTable.capacity
-                            ? `${selectedTable.capacity} seats`
-                            : 'Flexible seating'}
-                        </p>
-                      </div>
+              {selectedTable ? (
+                <section className="sub-panel surface-panel table-inspector table-inspector--dock">
+                  <div className="table-inspector__hero">
+                    <div>
+                      <span className="metric-label">Selected table</span>
+                      <h3 className="section-title">{selectedTable.displayName}</h3>
+                      <p className="supporting-copy">
+                        {selectedTable.tableCode} | {formatEnum(selectedTable.shape)} |{' '}
+                        {selectedTable.capacity
+                          ? `${selectedTable.capacity} seats`
+                          : 'Flexible seating'}
+                      </p>
+                    </div>
+                    <div className="support-inline-meta">
+                      <span>{selectedTable.active ? 'Enabled' : 'Disabled'}</span>
+                      <span>{selectedTableZone?.name ?? 'Whole floor'}</span>
                       <span className={`status-pill ${statusTone(selectedTable.status)}`}>
                         {formatEnum(selectedTable.status)}
                       </span>
                     </div>
+                  </div>
 
-                    <div className="table-inspector__metrics">
-                      <article className="sub-panel surface-panel">
-                        <span className="metric-label">Live orders</span>
-                        <strong className="scope-card-value">
-                          {selectedTableSnapshot?.activeCount ?? 0}
-                        </strong>
-                      </article>
-                      <article className="sub-panel surface-panel">
-                        <span className="metric-label">Latest ticket</span>
-                        <strong className="scope-card-value">
-                          {selectedTableSnapshot?.latestOrderNumber
-                            ? `#${selectedTableSnapshot.latestOrderNumber}`
-                            : 'None'}
-                        </strong>
-                      </article>
-                    </div>
+                  <div className="table-inspector__metrics table-inspector__metrics--wide">
+                    <article className="sub-panel surface-panel">
+                      <span className="metric-label">Live orders</span>
+                      <strong className="scope-card-value">
+                        {selectedTableSnapshot?.activeCount ?? 0}
+                      </strong>
+                    </article>
+                    <article className="sub-panel surface-panel">
+                      <span className="metric-label">Latest ticket</span>
+                      <strong className="scope-card-value">
+                        {selectedTableSnapshot?.latestOrderNumber
+                          ? `#${selectedTableSnapshot.latestOrderNumber}`
+                          : 'None'}
+                      </strong>
+                    </article>
+                    <article className="sub-panel surface-panel">
+                      <span className="metric-label">QR status</span>
+                      <strong className="scope-card-value">
+                        {selectedTable.qrCodes.length > 0 ? 'Live' : 'Missing'}
+                      </strong>
+                    </article>
+                    <article className="sub-panel surface-panel">
+                      <span className="metric-label">Help requests</span>
+                      <strong className="scope-card-value">
+                        {selectedTable.serviceRequests.length}
+                      </strong>
+                    </article>
+                  </div>
 
-                    <div className="table-card__meta">
-                      <span>{selectedTable.active ? 'Enabled' : 'Disabled'}</span>
-                      <span>
-                        {selectedTable.qrCodes.length > 0
-                          ? `QR ${selectedTable.qrCodes[0].publicCode}`
-                          : 'No QR assigned'}
-                      </span>
-                      {selectedTableSnapshot?.latestStatus ? (
-                        <span>{formatEnum(selectedTableSnapshot.latestStatus)}</span>
-                      ) : null}
-                    </div>
+                  <div className="table-card__meta">
+                    <span>
+                      {selectedTable.qrCodes.length > 0
+                        ? `QR ${selectedTable.qrCodes[0].publicCode}`
+                        : 'No QR assigned'}
+                    </span>
+                    {selectedTableSnapshot?.latestStatus ? (
+                      <span>{formatEnum(selectedTableSnapshot.latestStatus)}</span>
+                    ) : null}
+                    {freshQrUrls[selectedTable.id] ? <span>Fresh QR ready</span> : null}
+                  </div>
 
-                    {selectedTable.serviceRequests.length > 0 ? (
-                      <div className="table-card__callout table-card__callout--danger">
-                        <strong>Guest needs help now</strong>
-                        <p className="supporting-copy">
-                          {selectedTable.serviceRequests[0]?.note?.trim() ||
-                            formatEnum(selectedTable.serviceRequests[0]?.type ?? 'SERVICE')}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="soft-note">
-                        <strong>No active help requests</strong>
-                        <p className="supporting-copy">
-                          This table is clear from guest assistance alerts.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="table-inspector__actions">
+                  <div className="table-inspector__dock">
+                    <div className="table-inspector__main-actions">
                       <Link
                         className="primary-button"
                         href={`/outlets/${outletId}/pos?tableId=${selectedTable.id}`}
@@ -797,126 +869,145 @@ export function OutletTablesPage() {
                       ) : null}
                     </div>
 
-                    <div className="table-inspector__actions table-inspector__actions--secondary">
+                    <div className="table-inspector__service-panel">
                       {selectedTable.serviceRequests.length > 0 ? (
-                        <button
-                          className="primary-button"
-                          disabled={serviceRequestActionId !== null}
-                          onClick={() =>
-                            void handleResolveServiceRequest(
-                              selectedTable.id,
-                              selectedTable.serviceRequests[0].id,
-                              selectedTable.displayName,
-                            )
-                          }
-                          type="button"
-                        >
-                          {serviceRequestActionId === selectedTable.serviceRequests[0].id
-                            ? 'Resolving...'
-                            : 'Help delivered'}
-                        </button>
-                      ) : null}
+                        <div className="table-card__callout table-card__callout--danger">
+                          <strong>Guest needs help now</strong>
+                          <p className="supporting-copy">
+                            {selectedTable.serviceRequests[0]?.note?.trim() ||
+                              formatEnum(selectedTable.serviceRequests[0]?.type ?? 'SERVICE')}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="soft-note">
+                          <strong>No active help requests</strong>
+                          <p className="supporting-copy">
+                            This table is clear from guest assistance alerts.
+                          </p>
+                        </div>
+                      )}
 
-                      {canManageQr ? (
-                        <button
-                          className="secondary-button"
-                          disabled={qrActionTableId === selectedTable.id}
-                          onClick={() =>
-                            void handleRotateQr(
-                              selectedTable.id,
-                              selectedTable.displayName,
-                            )
-                          }
-                          type="button"
-                        >
-                          {qrActionTableId === selectedTable.id
-                            ? 'Rotating...'
-                            : 'Rotate QR'}
-                        </button>
-                      ) : null}
+                      <div className="table-inspector__actions table-inspector__actions--secondary">
+                        {selectedTable.serviceRequests.length > 0 ? (
+                          <button
+                            className="primary-button"
+                            disabled={serviceRequestActionId !== null}
+                            onClick={() =>
+                              void handleResolveServiceRequest(
+                                selectedTable.id,
+                                selectedTable.serviceRequests[0].id,
+                                selectedTable.displayName,
+                              )
+                            }
+                            type="button"
+                          >
+                            {serviceRequestActionId === selectedTable.serviceRequests[0].id
+                              ? 'Resolving...'
+                              : 'Help delivered'}
+                          </button>
+                        ) : null}
 
-                      {canManageTables ? (
-                        selectedTable.status !== 'OCCUPIED' ? (
+                        {canManageQr ? (
                           <button
                             className="secondary-button"
-                            disabled={actionTableId === selectedTable.id}
+                            disabled={qrActionTableId === selectedTable.id}
                             onClick={() =>
-                              void handleTableAction(
+                              void handleRotateQr(
                                 selectedTable.id,
-                                'OCCUPIED',
-                                `Staff seated guests at ${selectedTable.displayName}.`,
+                                selectedTable.displayName,
                               )
                             }
                             type="button"
                           >
-                            {actionTableId === selectedTable.id ? 'Updating...' : 'Seat table'}
+                            {qrActionTableId === selectedTable.id
+                              ? 'Rotating...'
+                              : 'Rotate QR'}
                           </button>
-                        ) : (
-                          <button
-                            className="secondary-button"
-                            disabled={actionTableId === selectedTable.id}
-                            onClick={() =>
-                              void handleTableAction(
-                                selectedTable.id,
-                                'AVAILABLE',
-                                `Staff cleared ${selectedTable.displayName} after service.`,
-                              )
-                            }
-                            type="button"
-                          >
-                            {actionTableId === selectedTable.id ? 'Updating...' : 'Clear table'}
-                          </button>
-                        )
-                      ) : null}
+                        ) : null}
 
-                      {canManageTables ? (
-                        selectedTable.status !== 'OUT_OF_SERVICE' ? (
-                          <button
-                            className="ghost-button"
-                            disabled={actionTableId === selectedTable.id}
-                            onClick={() =>
-                              void handleTableAction(
-                                selectedTable.id,
-                                'OUT_OF_SERVICE',
-                                `Staff marked ${selectedTable.displayName} out of service.`,
-                              )
-                            }
-                            type="button"
+                        {canManageTables ? (
+                          selectedTable.status !== 'OCCUPIED' ? (
+                            <button
+                              className="secondary-button"
+                              disabled={actionTableId === selectedTable.id}
+                              onClick={() =>
+                                void handleTableAction(
+                                  selectedTable.id,
+                                  'OCCUPIED',
+                                  `Staff seated guests at ${selectedTable.displayName}.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              {actionTableId === selectedTable.id ? 'Updating...' : 'Seat table'}
+                            </button>
+                          ) : (
+                            <button
+                              className="secondary-button"
+                              disabled={actionTableId === selectedTable.id}
+                              onClick={() =>
+                                void handleTableAction(
+                                  selectedTable.id,
+                                  'AVAILABLE',
+                                  `Staff cleared ${selectedTable.displayName} after service.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              {actionTableId === selectedTable.id ? 'Updating...' : 'Clear table'}
+                            </button>
+                          )
+                        ) : null}
+
+                        {canManageTables ? (
+                          selectedTable.status !== 'OUT_OF_SERVICE' ? (
+                            <button
+                              className="ghost-button"
+                              disabled={actionTableId === selectedTable.id}
+                              onClick={() =>
+                                void handleTableAction(
+                                  selectedTable.id,
+                                  'OUT_OF_SERVICE',
+                                  `Staff marked ${selectedTable.displayName} out of service.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              Mark out of service
+                            </button>
+                          ) : (
+                            <button
+                              className="ghost-button"
+                              disabled={actionTableId === selectedTable.id}
+                              onClick={() =>
+                                void handleTableAction(
+                                  selectedTable.id,
+                                  'AVAILABLE',
+                                  `Staff returned ${selectedTable.displayName} to service.`,
+                                )
+                              }
+                              type="button"
+                            >
+                              Restore to floor
+                            </button>
+                          )
+                        ) : null}
+
+                        {freshQrUrls[selectedTable.id] ? (
+                          <a
+                            className="secondary-button"
+                            href={freshQrUrls[selectedTable.id]}
+                            rel="noreferrer"
+                            target="_blank"
                           >
-                            Mark out of service
-                          </button>
-                        ) : (
-                          <button
-                            className="ghost-button"
-                            disabled={actionTableId === selectedTable.id}
-                            onClick={() =>
-                              void handleTableAction(
-                                selectedTable.id,
-                                'AVAILABLE',
-                                `Staff returned ${selectedTable.displayName} to service.`,
-                              )
-                            }
-                            type="button"
-                          >
-                            Restore to floor
-                          </button>
-                        )
-                      ) : null}
+                            Open fresh QR URL
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
-
-                    {freshQrUrls[selectedTable.id] ? (
-                      <a
-                        className="secondary-button full-width"
-                        href={freshQrUrls[selectedTable.id]}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        Open fresh QR URL
-                      </a>
-                    ) : null}
-                  </aside>
-                ) : null}
-              </div>
+                  </div>
+                </section>
+              ) : null}
             </>
           )}
         </section>

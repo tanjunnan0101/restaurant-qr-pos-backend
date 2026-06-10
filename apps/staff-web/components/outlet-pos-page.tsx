@@ -1279,6 +1279,60 @@ export function OutletPosPage() {
         </div>
       </section>
 
+      <section className="panel section-panel pos-ticket-launchpad">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Current ticket</p>
+            <h2 className="section-title">Keep the sale visible while you add items</h2>
+            <p className="supporting-copy">
+              The active ticket stays one tap away, with service, table, payment, and total
+              visible before you scroll into the cashier rail.
+            </p>
+          </div>
+          <div className="support-card__actions">
+            <a className="primary-button" href="#current-ticket">
+              Open ticket rail
+            </a>
+            <a className="secondary-button" href="#pos-live-feed">
+              Live orders
+            </a>
+          </div>
+        </div>
+
+        <div className="detail-overview-grid pos-ticket-launchpad__grid">
+          <article className="sub-panel surface-panel">
+            <span className="metric-label">Lines</span>
+            <strong className="scope-card-value">{cart.length}</strong>
+            <p className="supporting-copy">
+              {itemCount} item{itemCount === 1 ? '' : 's'} ready in this sale.
+            </p>
+          </article>
+          <article className="sub-panel surface-panel">
+            <span className="metric-label">Service</span>
+            <strong className="scope-card-value">
+              {serviceTypeOptions.find((option) => option.value === serviceType)?.label ?? serviceType}
+            </strong>
+            <p className="supporting-copy">
+              {selectedTable ? `${selectedTable.zoneName} | ${selectedTable.displayName}` : 'Counter / no table'}
+            </p>
+          </article>
+          <article className="sub-panel surface-panel">
+            <span className="metric-label">Payment</span>
+            <strong className="scope-card-value">{paymentMethodLabel}</strong>
+            <p className="supporting-copy">
+              {onlineCardEnabled ? 'Online card available' : 'Cash / manual flows only'}
+            </p>
+          </article>
+          <article className="sub-panel surface-panel">
+            <span className="metric-label">Total due</span>
+            <strong className="scope-card-value">
+              {formatMoney(outlet?.currency ?? 'SGD', summary.grandTotalCents)}
+            </strong>
+            <p className="supporting-copy">Running cashier total.</p>
+          </article>
+        </div>
+      </section>
+
       <section className="pos-layout">
         <section className="panel section-panel pos-shell-card">
           <div className="section-header">
@@ -1311,7 +1365,7 @@ export function OutletPosPage() {
                 value={menuSearch}
               />
               <a className="secondary-button" href="#current-ticket">
-                Current ticket
+                Ticket rail
               </a>
             </div>
           </div>
@@ -1902,7 +1956,7 @@ export function OutletPosPage() {
             </div>
           </div>
 
-          <div className="pos-live-rail">
+          <div className="pos-live-rail" id="pos-live-feed">
             <div className="section-header">
               <div>
                 <p className="eyebrow">Live outlet feed</p>

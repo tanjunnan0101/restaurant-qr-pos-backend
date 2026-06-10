@@ -149,6 +149,26 @@ export function OutletAttendancePage() {
   const manualSelection =
     selectedUserId && !selectedShift ? staffRoster.find((entry) => entry.id === selectedUserId) : null;
 
+  function selectShiftForStation(entry: AttendanceShiftEntry) {
+    setSelectedShiftId(entry.id);
+    setSelectedUserId(entry.user.id);
+    setScheduleUserId(entry.user.id);
+    setPhotoDataUrl(undefined);
+    setPhotoName(null);
+    setSuccess(null);
+    setError(null);
+  }
+
+  function selectManualStaff(userId: string) {
+    setSelectedShiftId(null);
+    setSelectedUserId(userId);
+    setScheduleUserId(userId);
+    setPhotoDataUrl(undefined);
+    setPhotoName(null);
+    setSuccess(null);
+    setError(null);
+  }
+
   useEffect(() => {
     if (staffRoster.length === 0) {
       setScheduleUserId(null);
@@ -374,15 +394,157 @@ export function OutletAttendancePage() {
             </div>
           </section>
 
+          <section className="panel section-panel attendance-station-callout">
+            <div>
+              <p className="eyebrow">Shared iPad flow</p>
+              <h2 className="section-title">
+                {selectedShift ? selectedShift.user.fullName : selectedUser.fullName}
+              </h2>
+              <p className="supporting-copy">
+                {selectedShift
+                  ? `${selectedShift.title} | ${formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}`
+                  : 'Use the timetable first. If a shift was not scheduled, choose the employee manually.'}
+              </p>
+            </div>
+            <div className="support-card__actions">
+              <span className="status-pill success">1. Select shift</span>
+              <span className="status-pill warning">2. Take photo</span>
+              <span className="status-pill neutral">3. Clock action</span>
+              <a className="primary-button" href="#attendance-capture-station">
+                Go to camera station
+              </a>
+            </div>
+          </section>
+
           <section className="attendance-board-layout">
+            <section className="panel section-panel attendance-board-panel">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">Timetable</p>
+                  <h2 className="section-title">Tap a shift to clock</h2>
+                  <p className="supporting-copy">
+                    Full-room schedule board for shared iPad attendance and shift handoff.
+                  </p>
+                </div>
+                <div className="support-inline-meta">
+                  <span>{shiftBoard.length} scheduled</span>
+                  <span>{activeStaffCount} active now</span>
+                  <span>{payload.scheduleWindow ? `${formatScheduleDate(payload.scheduleWindow.from)} to ${formatScheduleDate(payload.scheduleWindow.to)}` : 'This week'}</span>
+                </div>
+              </div>
+
+              {shiftBoard.length === 0 ? (
+                <div className="empty-state attendance-board-empty">
+                  <strong>No scheduled shifts yet</strong>
+                  <p className="supporting-copy">
+                    Start by adding a shift from the planner lane, then staff can tap it here.
+                  </p>
+                </div>
+              ) : (
+                <div className="attendance-day-columns">
+                  {groupedShifts.map(([dayLabel, dayShifts]) => (
+                    <section className="attendance-day-column" key={dayLabel}>
+                      <div className="attendance-day-column__header">
+                        <div>
+                          <p className="eyebrow">Day lane</p>
+                          <h3>{dayLabel}</h3>
+                        </div>
+                        <span className="status-pill neutral">
+                          {dayShifts.length} shift{dayShifts.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <div className="attendance-shift-stack">
+                        {dayShifts.map((entry) => {
+                          const active = entry.id === selectedShift?.id;
+                          const roleName =
+                            staffRoster.find((staff) => staff.id === entry.user.id)?.roleName ??
+                            'Staff';
+                          const statusTone =
+                            entry.status === 'CANCELLED'
+                              ? 'danger'
+                              : entry.latestSession?.status === 'CLOCKED_IN'
+                                ? 'warning'
+                                : entry.status === 'COMPLETED'
+                                  ? 'success'
+                                  : 'neutral';
+
+                          return (
+                            <article
+                              className={active ? 'attendance-shift-card active' : 'attendance-shift-card'}
+                              key={entry.id}
+                            >
+                              <div className="attendance-shift-card__top">
+                                <div>
+                                  <p className="eyebrow">{entry.title}</p>
+                                  <h4>{entry.user.fullName}</h4>
+                                  <p className="supporting-copy">{roleName}</p>
+                                </div>
+                                <span className={`status-pill ${statusTone}`}>
+                                  {entry.status === 'CANCELLED'
+                                    ? 'Cancelled'
+                                    : entry.latestSession?.status === 'CLOCKED_IN'
+                                      ? 'On shift'
+                                      : entry.status === 'COMPLETED'
+                                        ? 'Completed'
+                                        : 'Scheduled'}
+                                </span>
+                              </div>
+
+                              <div className="attendance-shift-card__time">
+                                <strong>{formatShiftRange(entry.startsAt, entry.endsAt)}</strong>
+                                <span>{entry.stationLabel ?? 'Shared station'}</span>
+                              </div>
+
+                              <div className="support-inline-meta">
+                                <span>{entry.note ?? 'No manager note'}</span>
+                                <span>
+                                  {entry.latestSession
+                                    ? `Last clock ${formatDateTime(entry.latestSession.clockInAt)}`
+                                    : 'Not clocked yet'}
+                                </span>
+                              </div>
+
+                              <div className="attendance-shift-card__actions">
+                                <button
+                                  className={active ? 'primary-button' : 'secondary-button'}
+                                  onClick={() => selectShiftForStation(entry)}
+                                  type="button"
+                                >
+                                  {active
+                                    ? 'Selected at station'
+                                    : entry.latestSession?.status === 'CLOCKED_IN'
+                                      ? 'Continue this shift'
+                                      : 'Clock this shift'}
+                                </button>
+                                {canManageSchedule ? (
+                                  <button
+                                    className="secondary-button"
+                                    disabled={scheduleBusy || entry.status === 'CANCELLED'}
+                                    onClick={() => void handleCancelShift(entry.id)}
+                                    type="button"
+                                  >
+                                    Cancel
+                                  </button>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <aside className="panel section-panel attendance-planner-rail">
               <article className="attendance-planner-card">
                 <div className="section-header">
                   <div>
                     <p className="eyebrow">Planner</p>
-                    <h2 className="section-title">Shift builder</h2>
+                    <h2 className="section-title">Manager shift builder</h2>
                     <p className="supporting-copy">
-                      Build today&apos;s timetable first, then staff tap their own shift to start.
+                      Build the timetable here. Staff should spend most of their time on the shift board, not in this form.
                     </p>
                   </div>
                   <span className={`status-pill ${canManageSchedule ? 'success' : 'neutral'}`}>
@@ -503,15 +665,7 @@ export function OutletAttendancePage() {
                       <button
                         className={active ? 'attendance-quick-chip active' : 'attendance-quick-chip'}
                         key={entry.id}
-                        onClick={() => {
-                          setSelectedShiftId(null);
-                          setSelectedUserId(entry.id);
-                          setScheduleUserId(entry.id);
-                          setPhotoDataUrl(undefined);
-                          setPhotoName(null);
-                          setSuccess(null);
-                          setError(null);
-                        }}
+                        onClick={() => selectManualStaff(entry.id)}
                         type="button"
                       >
                         <strong>{entry.fullName}</strong>
@@ -523,133 +677,13 @@ export function OutletAttendancePage() {
               </article>
             </aside>
 
-            <section className="panel section-panel attendance-board-panel">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Timetable</p>
-                  <h2 className="section-title">Tap a shift to clock</h2>
-                  <p className="supporting-copy">
-                    Full-room schedule board for shared iPad attendance and shift handoff.
-                  </p>
-                </div>
-                <div className="support-inline-meta">
-                  <span>{shiftBoard.length} scheduled</span>
-                  <span>{activeStaffCount} active now</span>
-                  <span>{payload.scheduleWindow ? `${formatScheduleDate(payload.scheduleWindow.from)} to ${formatScheduleDate(payload.scheduleWindow.to)}` : 'This week'}</span>
-                </div>
-              </div>
-
-              {shiftBoard.length === 0 ? (
-                <div className="empty-state attendance-board-empty">
-                  <strong>No scheduled shifts yet</strong>
-                  <p className="supporting-copy">
-                    Start by adding a shift from the planner rail, then staff can tap it here.
-                  </p>
-                </div>
-              ) : (
-                <div className="attendance-day-columns">
-                  {groupedShifts.map(([dayLabel, dayShifts]) => (
-                    <section className="attendance-day-column" key={dayLabel}>
-                      <div className="attendance-day-column__header">
-                        <div>
-                          <p className="eyebrow">Day lane</p>
-                          <h3>{dayLabel}</h3>
-                        </div>
-                        <span className="status-pill neutral">
-                          {dayShifts.length} shift{dayShifts.length === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                      <div className="attendance-shift-stack">
-                        {dayShifts.map((entry) => {
-                          const active = entry.id === selectedShift?.id;
-                          const roleName =
-                            staffRoster.find((staff) => staff.id === entry.user.id)?.roleName ??
-                            'Staff';
-                          const statusTone =
-                            entry.status === 'CANCELLED'
-                              ? 'danger'
-                              : entry.latestSession?.status === 'CLOCKED_IN'
-                                ? 'warning'
-                                : entry.status === 'COMPLETED'
-                                  ? 'success'
-                                  : 'neutral';
-
-                          return (
-                            <article
-                              className={active ? 'attendance-shift-card active' : 'attendance-shift-card'}
-                              key={entry.id}
-                            >
-                              <div className="attendance-shift-card__top">
-                                <div>
-                                  <p className="eyebrow">{entry.title}</p>
-                                  <h4>{entry.user.fullName}</h4>
-                                  <p className="supporting-copy">{roleName}</p>
-                                </div>
-                                <span className={`status-pill ${statusTone}`}>
-                                  {entry.status === 'CANCELLED'
-                                    ? 'Cancelled'
-                                    : entry.latestSession?.status === 'CLOCKED_IN'
-                                      ? 'On shift'
-                                      : entry.status === 'COMPLETED'
-                                        ? 'Completed'
-                                        : 'Scheduled'}
-                                </span>
-                              </div>
-
-                              <div className="attendance-shift-card__time">
-                                <strong>{formatShiftRange(entry.startsAt, entry.endsAt)}</strong>
-                                <span>{entry.stationLabel ?? 'Shared station'}</span>
-                              </div>
-
-                              <div className="support-inline-meta">
-                                <span>{entry.note ?? 'No manager note'}</span>
-                                <span>
-                                  {entry.latestSession
-                                    ? `Last clock ${formatDateTime(entry.latestSession.clockInAt)}`
-                                    : 'Not clocked yet'}
-                                </span>
-                              </div>
-
-                              <div className="attendance-shift-card__actions">
-                                <button
-                                  className={active ? 'primary-button' : 'secondary-button'}
-                                  onClick={() => {
-                                    setSelectedShiftId(entry.id);
-                                    setSelectedUserId(entry.user.id);
-                                    setScheduleUserId(entry.user.id);
-                                    setPhotoDataUrl(undefined);
-                                    setPhotoName(null);
-                                    setSuccess(null);
-                                    setError(null);
-                                  }}
-                                  type="button"
-                                >
-                                  {active ? 'Selected for clocking' : 'Use this shift'}
-                                </button>
-                                {canManageSchedule ? (
-                                  <button
-                                    className="secondary-button"
-                                    disabled={scheduleBusy || entry.status === 'CANCELLED'}
-                                    onClick={() => void handleCancelShift(entry.id)}
-                                    type="button"
-                                  >
-                                    Cancel
-                                  </button>
-                                ) : null}
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
-            </section>
           </section>
 
           <section className="attendance-station-grid">
-            <section className="panel section-panel attendance-capture-card">
+            <section
+              className="panel section-panel attendance-capture-card"
+              id="attendance-capture-station"
+            >
               <div className="section-header">
                 <div>
                   <p className="eyebrow">Clock action</p>

@@ -1937,6 +1937,22 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.menu-launchpad,
+.pos-ticket-launchpad,
+.floor-board-stack,
+.floor-command-deck,
+.floor-command-grid,
+.floor-command-card,
+.attendance-station-callout {
+  display: grid;
+  gap: 18px;
+}
+
+.menu-launchpad {
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(244, 237, 226, 0.98));
+}
+
 .support-card-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2031,6 +2047,15 @@ body {
 
 .attendance-hero__meta {
   justify-items: end;
+}
+
+.attendance-station-callout {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 251, 245, 0.98);
 }
 
 .attendance-station-grid {
@@ -2295,6 +2320,22 @@ body {
   grid-template-columns: 1fr;
 }
 
+.floor-command-deck {
+  padding: 22px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(245, 237, 226, 0.98));
+}
+
+.floor-command-grid {
+  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 0.58fr);
+  align-items: start;
+}
+
+.floor-command-card {
+  min-height: 100%;
+}
+
 .floor-control-rail {
   display: grid;
   gap: 18px;
@@ -2342,6 +2383,10 @@ body {
 .floor-zone-board {
   display: grid;
   gap: 18px;
+}
+
+.floor-zone-board--wide {
+  gap: 22px;
 }
 
 .floor-zone-section {
@@ -2480,9 +2525,25 @@ body {
 }
 
 .floor-tile__copy span,
+.floor-tile__signals span,
 .floor-tile__footer span {
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.floor-tile__signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.floor-tile__signals span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(29, 23, 18, 0.05);
 }
 
 .floor-tile__footer {
@@ -2569,6 +2630,10 @@ body {
   position: static;
 }
 
+.table-inspector--dock {
+  gap: 20px;
+}
+
 .table-inspector__hero {
   display: flex;
   justify-content: space-between;
@@ -2580,6 +2645,23 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.table-inspector__metrics--wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.table-inspector__dock {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.table-inspector__main-actions,
+.table-inspector__service-panel {
+  display: grid;
+  gap: 14px;
 }
 
 .table-inspector__actions {
@@ -2785,6 +2867,10 @@ body {
   gap: 18px;
 }
 
+.pos-ticket-launchpad__grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .pos-ticket-setup,
 .pos-payment-controls {
   display: grid;
@@ -2963,6 +3049,9 @@ body {
   .attendance-station-grid,
   .floor-board-layout,
   .floor-workspace,
+  .floor-command-grid,
+  .table-inspector__dock,
+  .attendance-station-callout,
   .detail-grid,
   .detail-overview-grid {
     grid-template-columns: 1fr;
@@ -2985,6 +3074,8 @@ body {
   .table-grid--board,
   .operations-grid,
   .detail-overview-grid,
+  .table-inspector__metrics--wide,
+  .pos-ticket-launchpad__grid,
   .kitchen-lane-grid,
   .support-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3011,10 +3102,12 @@ body {
   .support-summary-grid,
   .table-card__stats,
   .table-inspector__metrics,
+  .table-inspector__metrics--wide,
   .service-ticket-card__metrics,
   .kitchen-ticket-card__metrics,
   .service-inspector__actions-grid,
   .support-card-grid,
+  .pos-ticket-launchpad__grid,
   .queue-metrics,
   .detail-grid {
     grid-template-columns: 1fr;
@@ -3024,6 +3117,7 @@ body {
   .outlet-terminal-bar__identity,
   .workspace-hero__header,
   .attendance-hero,
+  .attendance-station-callout,
   .attendance-day-column__header,
   .floor-canvas__header,
   .floor-zone-section__header,
