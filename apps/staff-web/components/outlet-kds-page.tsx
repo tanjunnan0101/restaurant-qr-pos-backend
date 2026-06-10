@@ -602,49 +602,53 @@ export function OutletKdsPage() {
                       </p>
                     ) : (
                       entry.orders.map((order) => (
-                        <button
+                        <article
                           className={
                             selectedOrderId === order.id
                               ? 'kitchen-ticket-card active'
                               : 'kitchen-ticket-card'
                           }
                           key={order.id}
-                          onClick={() => setSelectedOrderId(order.id)}
-                          type="button"
                         >
-                          <div className="kitchen-ticket-card__header">
-                            <div>
-                              <strong>#{order.orderNumber}</strong>
-                              <p className="supporting-copy">
-                                {order.table?.displayName ?? 'No table'} |{' '}
-                                {order.customerName ?? 'Walk-in / guest'}
-                              </p>
-                              <p className="supporting-copy">
-                                {describeOrderStations(order, stationNameById)}
-                              </p>
+                          <button
+                            className="kitchen-ticket-card__select"
+                            onClick={() => setSelectedOrderId(order.id)}
+                            type="button"
+                          >
+                            <div className="kitchen-ticket-card__header">
+                              <div>
+                                <strong>#{order.orderNumber}</strong>
+                                <p className="supporting-copy">
+                                  {order.table?.displayName ?? 'No table'} |{' '}
+                                  {order.customerName ?? 'Walk-in / guest'}
+                                </p>
+                                <p className="supporting-copy">
+                                  {describeOrderStations(order, stationNameById)}
+                                </p>
+                              </div>
+                              <span className={`status-pill ${statusTone(order.status)}`}>
+                                {formatEnum(order.status)}
+                              </span>
                             </div>
-                            <span className={`status-pill ${statusTone(order.status)}`}>
-                              {formatEnum(order.status)}
-                            </span>
-                          </div>
-                          <div className="kitchen-ticket-card__metrics">
-                            <div className="metric-inline">
-                              <span>Items</span>
-                              <strong>{order.kitchenTickets.length} stations</strong>
+                            <div className="kitchen-ticket-card__metrics">
+                              <div className="metric-inline">
+                                <span>Stations</span>
+                                <strong>{order.kitchenTickets.length}</strong>
+                              </div>
+                              <div className="metric-inline">
+                                <span>Total</span>
+                                <strong>
+                                  {formatMoney(order.currency, order.grandTotalCents)}
+                                </strong>
+                              </div>
+                              <div className="metric-inline">
+                                <span>Age</span>
+                                <strong>{formatRelativeTime(order.updatedAt)}</strong>
+                              </div>
                             </div>
-                            <div className="metric-inline">
-                              <span>Total</span>
-                              <strong>
-                                {formatMoney(order.currency, order.grandTotalCents)}
-                              </strong>
-                            </div>
-                            <div className="metric-inline">
-                              <span>Age</span>
-                              <strong>{formatRelativeTime(order.updatedAt)}</strong>
-                            </div>
-                          </div>
-                          <div className="kitchen-ticket-card__footer">
-                            {nextKitchenAction(order.status) ? (
+                          </button>
+                          {nextKitchenAction(order.status) ? (
+                            <div className="kitchen-ticket-card__rail">
                               <button
                                 className="secondary-button"
                                 disabled={quickActionOrderId === order.id}
@@ -655,9 +659,9 @@ export function OutletKdsPage() {
                                   ? 'Updating...'
                                   : nextKitchenAction(order.status)?.label}
                               </button>
-                            ) : null}
-                          </div>
-                        </button>
+                            </div>
+                          ) : null}
+                        </article>
                       ))
                     )}
                   </div>

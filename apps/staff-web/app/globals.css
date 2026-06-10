@@ -2812,6 +2812,18 @@ body {
   box-shadow: 0 8px 18px rgba(12, 18, 20, 0.04);
 }
 
+.service-ticket-card__select,
+.kitchen-ticket-card__select {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
 .service-ticket-card.active,
 .kitchen-ticket-card.active {
   border-color: rgba(30, 109, 115, 0.36);
@@ -2862,6 +2874,14 @@ body {
   align-items: center;
 }
 
+.service-ticket-card__rail,
+.kitchen-ticket-card__rail {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid rgba(24, 33, 38, 0.06);
+}
+
 .service-ticket-card__footer span,
 .kitchen-ticket-card__footer span {
   color: var(--muted);
@@ -2876,6 +2896,20 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.service-inspector__hero {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.service-inspector__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .kitchen-lane-grid {
   grid-template-columns: repeat(3, minmax(260px, 1fr));
   align-items: start;
@@ -2884,6 +2918,7 @@ body {
 .kitchen-lane-card {
   gap: 14px;
   align-content: start;
+  min-width: 0;
 }
 
 .kitchen-lane-card .stack-list {
@@ -2893,21 +2928,41 @@ body {
 }
 
 .pos-command-deck {
-  gap: 14px;
-}
-
-.pos-ticket-launchpad__grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.pos-ticket-launchpad {
-  padding: 16px;
+  gap: 12px;
 }
 
 .pos-ticket-setup,
 .pos-payment-controls {
   display: grid;
   gap: 14px;
+}
+
+.pos-ticket-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pos-ticket-cart {
+  order: 1;
+}
+
+.pos-ticket-totals {
+  order: 2;
+}
+
+.pos-payment-controls {
+  order: 3;
+}
+
+.pos-ticket-setup {
+  order: 4;
+}
+
+.pos-action-stack {
+  order: 5;
+}
+
+.pos-live-rail {
+  order: 6;
 }
 
 .metric-inline {
@@ -3045,6 +3100,17 @@ body {
 .pos-ticket-builder {
   display: grid;
   gap: 14px;
+}
+
+.pos-live-order-list {
+  max-height: 28vh;
+  padding-right: 4px;
+}
+
+.pos-live-order-card {
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
 }
 
 .cart-list {

@@ -715,60 +715,68 @@ export function OutletOrdersPage() {
           ) : (
             <div className="service-ticket-list">
               {filteredOrders.map((order) => (
-                <button
+                <article
                   className={
                     selectedOrderId === order.id
                       ? 'service-ticket-card active'
                       : 'service-ticket-card'
                   }
                   key={order.id}
-                  onClick={() => {
-                    setSelectedOrderId(order.id);
-                    setReason(defaultReasonForStatus(order.status));
-                  }}
-                  type="button"
                 >
-                  <div className="service-ticket-card__header">
-                    <div>
-                      <strong>#{order.orderNumber}</strong>
-                      <p className="supporting-copy">
-                        {order.table?.displayName ?? 'Counter'} |{' '}
-                        {order.customerName ?? 'Walk-in / guest'}
-                      </p>
+                  <button
+                    className="service-ticket-card__select"
+                    onClick={() => {
+                      setSelectedOrderId(order.id);
+                      setReason(defaultReasonForStatus(order.status));
+                    }}
+                    type="button"
+                  >
+                    <div className="service-ticket-card__header">
+                      <div>
+                        <strong>#{order.orderNumber}</strong>
+                        <p className="supporting-copy">
+                          {order.table?.displayName ?? 'Counter'} |{' '}
+                          {order.customerName ?? 'Walk-in / guest'}
+                        </p>
+                      </div>
+                      <div className="service-ticket-card__badges">
+                        <span className={`status-pill ${statusTone(order.status)}`}>
+                          {formatEnum(order.status)}
+                        </span>
+                        <span
+                          className={`mini-badge mini-badge--${paymentAttentionTone(order.paymentStatus)}`}
+                        >
+                          {formatEnum(order.paymentStatus)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="service-ticket-card__badges">
-                      <span className={`status-pill ${statusTone(order.status)}`}>
-                        {formatEnum(order.status)}
-                      </span>
-                      <span className={`mini-badge mini-badge--${paymentAttentionTone(order.paymentStatus)}`}>
-                        {formatEnum(order.paymentStatus)}
-                      </span>
-                    </div>
-                  </div>
 
-                  <div className="service-ticket-card__metrics">
-                    <div className="metric-inline">
-                      <span>Total</span>
-                      <strong>
-                        {formatMoney(order.currency, order.grandTotalCents)}
-                      </strong>
+                    <div className="service-ticket-card__metrics">
+                      <div className="metric-inline">
+                        <span>Total</span>
+                        <strong>
+                          {formatMoney(order.currency, order.grandTotalCents)}
+                        </strong>
+                      </div>
+                      <div className="metric-inline">
+                        <span>Kitchen</span>
+                        <strong>{order.kitchenTickets.length} tickets</strong>
+                      </div>
+                      <div className="metric-inline">
+                        <span>Updated</span>
+                        <strong>{formatRelativeTime(order.updatedAt)}</strong>
+                      </div>
                     </div>
-                    <div className="metric-inline">
-                      <span>Kitchen</span>
-                      <strong>{order.kitchenTickets.length} tickets</strong>
-                    </div>
-                    <div className="metric-inline">
-                      <span>Updated</span>
-                      <strong>{formatRelativeTime(order.updatedAt)}</strong>
-                    </div>
-                  </div>
 
-                  <div className="service-ticket-card__footer">
-                    <span>
-                      {order.table?.tableCode ?? 'Counter'} |{' '}
-                      {order.customerPhone ?? 'No phone'}
-                    </span>
-                    {nextStatusAction(order.status) ? (
+                    <div className="service-ticket-card__footer">
+                      <span>
+                        {order.table?.tableCode ?? 'Counter'} |{' '}
+                        {order.customerPhone ?? 'No phone'}
+                      </span>
+                    </div>
+                  </button>
+                  {nextStatusAction(order.status) ? (
+                    <div className="service-ticket-card__rail">
                       <button
                         className="secondary-button"
                         disabled={quickActionOrderId === order.id}
@@ -779,9 +787,9 @@ export function OutletOrdersPage() {
                           ? 'Updating...'
                           : nextStatusAction(order.status)?.label}
                       </button>
-                    ) : null}
-                  </div>
-                </button>
+                    </div>
+                  ) : null}
+                </article>
               ))}
             </div>
           )}

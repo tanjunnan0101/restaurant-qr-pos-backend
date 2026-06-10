@@ -1279,60 +1279,6 @@ export function OutletPosPage() {
         </div>
       </section>
 
-      <section className="panel section-panel pos-ticket-launchpad">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Current ticket</p>
-            <h2 className="section-title">Keep the sale visible while you add items</h2>
-            <p className="supporting-copy">
-              The active ticket stays one tap away, with service, table, payment, and total
-              visible before you scroll into the cashier rail.
-            </p>
-          </div>
-          <div className="support-card__actions">
-            <a className="primary-button" href="#current-ticket">
-              Open ticket rail
-            </a>
-            <a className="secondary-button" href="#pos-live-feed">
-              Live orders
-            </a>
-          </div>
-        </div>
-
-        <div className="detail-overview-grid pos-ticket-launchpad__grid">
-          <article className="sub-panel surface-panel">
-            <span className="metric-label">Lines</span>
-            <strong className="scope-card-value">{cart.length}</strong>
-            <p className="supporting-copy">
-              {itemCount} item{itemCount === 1 ? '' : 's'} ready in this sale.
-            </p>
-          </article>
-          <article className="sub-panel surface-panel">
-            <span className="metric-label">Service</span>
-            <strong className="scope-card-value">
-              {serviceTypeOptions.find((option) => option.value === serviceType)?.label ?? serviceType}
-            </strong>
-            <p className="supporting-copy">
-              {selectedTable ? `${selectedTable.zoneName} | ${selectedTable.displayName}` : 'Counter / no table'}
-            </p>
-          </article>
-          <article className="sub-panel surface-panel">
-            <span className="metric-label">Payment</span>
-            <strong className="scope-card-value">{paymentMethodLabel}</strong>
-            <p className="supporting-copy">
-              {onlineCardEnabled ? 'Online card available' : 'Cash / manual flows only'}
-            </p>
-          </article>
-          <article className="sub-panel surface-panel">
-            <span className="metric-label">Total due</span>
-            <strong className="scope-card-value">
-              {formatMoney(outlet?.currency ?? 'SGD', summary.grandTotalCents)}
-            </strong>
-            <p className="supporting-copy">Running cashier total.</p>
-          </article>
-        </div>
-      </section>
-
       <section className="pos-layout">
         <section className="panel section-panel pos-shell-card">
           <div className="section-header">
@@ -1364,8 +1310,8 @@ export function OutletPosPage() {
                 placeholder="Search items, categories, or stations"
                 value={menuSearch}
               />
-              <a className="secondary-button" href="#current-ticket">
-                Ticket rail
+              <a className="secondary-button" href="#pos-live-feed">
+                Live orders
               </a>
             </div>
           </div>
@@ -1492,7 +1438,7 @@ export function OutletPosPage() {
             <p className="eyebrow">Order builder</p>
             <h2 className="section-title">Current ticket</h2>
 
-            <div className="detail-overview-grid detail-overview-grid--ticket">
+            <div className="detail-overview-grid detail-overview-grid--ticket pos-ticket-summary">
               <article className="sub-panel surface-panel">
                 <span className="metric-label">Lines</span>
                 <strong className="scope-card-value">{cart.length}</strong>
@@ -1530,131 +1476,127 @@ export function OutletPosPage() {
               </article>
             </div>
 
-            <div className="pos-ticket-setup pos-ticket-section">
-              <div className="form-grid">
-                <div className="field">
-                  <label htmlFor="source">Source</label>
-                  <select
-                    id="source"
-                    onChange={(event) =>
-                      setSource(event.target.value as 'POS' | 'WAITER')
-                    }
-                    value={source}
-                  >
-                    <option value="POS">POS</option>
-                    <option value="WAITER">Waiter</option>
-                  </select>
-                </div>
-
-                <div className="field">
-                  <label htmlFor="serviceType">Service type</label>
-                  <select
-                    id="serviceType"
-                    onChange={(event) =>
-                      setServiceType(event.target.value as StaffServiceType)
-                    }
-                    value={serviceType}
-                  >
-                    {serviceTypeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {serviceType === 'DINE_IN' ? (
-                  <div className="field">
-                    <label htmlFor="tableId">Table</label>
-                    <select
-                      id="tableId"
-                      onChange={(event) => setTableId(event.target.value)}
-                      value={tableId}
-                    >
-                      <option value="">Select table</option>
-                      {availableTables.map((table) => (
-                        <option key={table.id} value={table.id}>
-                          {table.zoneName} | {table.displayName}
-                        </option>
-                      ))}
-                    </select>
+            <div className="cart-list pos-ticket-section pos-ticket-cart">
+            {cart.length === 0 ? (
+              <div className="empty-state">
+                <h3>Cart is empty</h3>
+                <p className="supporting-copy">
+                  Add items from the published POS menu to begin the ticket.
+                </p>
+              </div>
+            ) : (
+              cart.map((item) => (
+                <article className="cart-card cart-card--dense" key={item.id}>
+                  <div className="section-header">
+                    <div>
+                      <strong>{item.itemName}</strong>
+                      <p className="supporting-copy">
+                        {item.variantName ? `${item.variantName} | ` : ''}
+                        {item.modifierLabels.join(', ') || 'No modifiers'}
+                      </p>
+                      {item.remarks ? (
+                        <p className="supporting-copy">Note: {item.remarks}</p>
+                      ) : null}
+                    </div>
+                    <strong>
+                      {formatMoney(
+                        outlet?.currency ?? 'SGD',
+                        item.lineTotalCents,
+                      )}
+                    </strong>
                   </div>
-                ) : null}
+                  <div className="cart-item-controls">
+                    <button
+                      className="quantity-button"
+                      onClick={() => updateCartQuantity(item.id, -1)}
+                      type="button"
+                    >
+                      -
+                    </button>
+                    <span className="quantity-value">{item.quantity}</span>
+                    <button
+                      className="quantity-button"
+                      onClick={() => updateCartQuantity(item.id, 1)}
+                      type="button"
+                    >
+                      +
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() => startEditingCartItem(item)}
+                      type="button"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="ghost-button"
+                      onClick={() => removeCartItem(item.id)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+            </div>
 
-                <div className="field">
-                  <label htmlFor="customerName">Customer name</label>
-                  <input
-                    id="customerName"
-                    onChange={(event) => setCustomerName(event.target.value)}
-                    placeholder="Optional guest name"
-                    value={customerName}
-                  />
+            <article className="sub-panel bill-card totals-hero pos-ticket-totals">
+            <h3>Estimated totals</h3>
+            <div className="stack-list">
+              <div className="stack-row">
+                <span>Subtotal</span>
+                <strong>
+                  {formatMoney(
+                    outlet?.currency ?? 'SGD',
+                    summary.subtotalCents,
+                  )}
+                </strong>
+              </div>
+              {summary.discountTotalCents > 0 ? (
+                <div className="stack-row">
+                  <span>Discount</span>
+                  <strong>
+                    -
+                    {formatMoney(
+                      outlet?.currency ?? 'SGD',
+                      summary.discountTotalCents,
+                    )}
+                  </strong>
                 </div>
-
-                <div className="field">
-                  <label htmlFor="customerPhone">Customer phone</label>
-                  <input
-                    id="customerPhone"
-                    onChange={(event) => setCustomerPhone(event.target.value)}
-                    placeholder="Optional contact number"
-                    value={customerPhone}
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="discountType">Order discount</label>
-                  <select
-                    id="discountType"
-                    value={discountType}
-                    onChange={(event) => {
-                      const nextType = event.target.value as
-                        | 'NONE'
-                        | 'PERCENT'
-                        | 'AMOUNT';
-                      setDiscountType(nextType);
-                      if (nextType === 'NONE') {
-                        setDiscountValue('');
-                        setDiscountReason('');
-                      }
-                    }}
-                  >
-                    <option value="NONE">No discount</option>
-                    <option value="PERCENT">Percentage</option>
-                    <option value="AMOUNT">Fixed amount</option>
-                  </select>
-                </div>
-
-                {discountType !== 'NONE' ? (
-                  <>
-                    <div className="field">
-                      <label htmlFor="discountValue">
-                        {discountType === 'PERCENT'
-                          ? 'Discount percent'
-                          : 'Discount amount'}
-                      </label>
-                      <input
-                        id="discountValue"
-                        inputMode={discountType === 'PERCENT' ? 'decimal' : 'decimal'}
-                        onChange={(event) => setDiscountValue(event.target.value)}
-                        placeholder={
-                          discountType === 'PERCENT' ? '10' : formatCurrencyInput(500)
-                        }
-                        value={discountValue}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="discountReason">Discount reason</label>
-                      <input
-                        id="discountReason"
-                        onChange={(event) => setDiscountReason(event.target.value)}
-                        placeholder="Loyalty perk, service recovery, staff meal"
-                        value={discountReason}
-                      />
-                    </div>
-                  </>
-                ) : null}
+              ) : null}
+              <div className="stack-row">
+                <span>Service charge</span>
+                <strong>
+                  {formatMoney(
+                    outlet?.currency ?? 'SGD',
+                    summary.serviceChargeTotalCents,
+                  )}
+                </strong>
+              </div>
+              <div className="stack-row">
+                <span>GST</span>
+                <strong>
+                  {formatMoney(
+                    outlet?.currency ?? 'SGD',
+                    summary.gstTotalCents,
+                  )}
+                </strong>
+              </div>
+              <div className="stack-row">
+                <span>Total</span>
+                <strong>
+                  {formatMoney(
+                    outlet?.currency ?? 'SGD',
+                    summary.grandTotalCents,
+                  )}
+                </strong>
               </div>
             </div>
+            <p className="supporting-copy">
+              Final totals are confirmed by the backend when the order is saved.
+            </p>
+            </article>
 
             <div className="pos-payment-controls pos-ticket-section">
               <div className="field">
@@ -1792,127 +1734,131 @@ export function OutletPosPage() {
               ) : null}
             </div>
 
-            <div className="cart-list pos-ticket-section">
-            {cart.length === 0 ? (
-              <div className="empty-state">
-                <h3>Cart is empty</h3>
-                <p className="supporting-copy">
-                  Add items from the published POS menu to begin the ticket.
-                </p>
-              </div>
-            ) : (
-              cart.map((item) => (
-                <article className="cart-card cart-card--dense" key={item.id}>
-                  <div className="section-header">
-                    <div>
-                      <strong>{item.itemName}</strong>
-                      <p className="supporting-copy">
-                        {item.variantName ? `${item.variantName} | ` : ''}
-                        {item.modifierLabels.join(', ') || 'No modifiers'}
-                      </p>
-                      {item.remarks ? (
-                        <p className="supporting-copy">Note: {item.remarks}</p>
-                      ) : null}
-                    </div>
-                    <strong>
-                      {formatMoney(
-                        outlet?.currency ?? 'SGD',
-                        item.lineTotalCents,
-                      )}
-                    </strong>
-                  </div>
-                  <div className="cart-item-controls">
-                    <button
-                      className="quantity-button"
-                      onClick={() => updateCartQuantity(item.id, -1)}
-                      type="button"
-                    >
-                      -
-                    </button>
-                    <span className="quantity-value">{item.quantity}</span>
-                    <button
-                      className="quantity-button"
-                      onClick={() => updateCartQuantity(item.id, 1)}
-                      type="button"
-                    >
-                      +
-                    </button>
-                    <button
-                      className="secondary-button"
-                      onClick={() => startEditingCartItem(item)}
-                      type="button"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="ghost-button"
-                      onClick={() => removeCartItem(item.id)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </article>
-              ))
-            )}
-            </div>
-
-            <article className="sub-panel bill-card totals-hero">
-            <h3>Estimated totals</h3>
-            <div className="stack-list">
-              <div className="stack-row">
-                <span>Subtotal</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.subtotalCents,
-                  )}
-                </strong>
-              </div>
-              {summary.discountTotalCents > 0 ? (
-                <div className="stack-row">
-                  <span>Discount</span>
-                  <strong>
-                    -
-                    {formatMoney(
-                      outlet?.currency ?? 'SGD',
-                      summary.discountTotalCents,
-                    )}
-                  </strong>
+            <div className="pos-ticket-setup pos-ticket-section">
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="source">Source</label>
+                  <select
+                    id="source"
+                    onChange={(event) =>
+                      setSource(event.target.value as 'POS' | 'WAITER')
+                    }
+                    value={source}
+                  >
+                    <option value="POS">POS</option>
+                    <option value="WAITER">Waiter</option>
+                  </select>
                 </div>
-              ) : null}
-              <div className="stack-row">
-                <span>Service charge</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.serviceChargeTotalCents,
-                  )}
-                </strong>
-              </div>
-              <div className="stack-row">
-                <span>GST</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.gstTotalCents,
-                  )}
-                </strong>
-              </div>
-              <div className="stack-row">
-                <span>Total</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.grandTotalCents,
-                  )}
-                </strong>
+
+                <div className="field">
+                  <label htmlFor="serviceType">Service type</label>
+                  <select
+                    id="serviceType"
+                    onChange={(event) =>
+                      setServiceType(event.target.value as StaffServiceType)
+                    }
+                    value={serviceType}
+                  >
+                    {serviceTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {serviceType === 'DINE_IN' ? (
+                  <div className="field">
+                    <label htmlFor="tableId">Table</label>
+                    <select
+                      id="tableId"
+                      onChange={(event) => setTableId(event.target.value)}
+                      value={tableId}
+                    >
+                      <option value="">Select table</option>
+                      {availableTables.map((table) => (
+                        <option key={table.id} value={table.id}>
+                          {table.zoneName} | {table.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                <div className="field">
+                  <label htmlFor="customerName">Customer name</label>
+                  <input
+                    id="customerName"
+                    onChange={(event) => setCustomerName(event.target.value)}
+                    placeholder="Optional guest name"
+                    value={customerName}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="customerPhone">Customer phone</label>
+                  <input
+                    id="customerPhone"
+                    onChange={(event) => setCustomerPhone(event.target.value)}
+                    placeholder="Optional contact number"
+                    value={customerPhone}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="discountType">Order discount</label>
+                  <select
+                    id="discountType"
+                    value={discountType}
+                    onChange={(event) => {
+                      const nextType = event.target.value as
+                        | 'NONE'
+                        | 'PERCENT'
+                        | 'AMOUNT';
+                      setDiscountType(nextType);
+                      if (nextType === 'NONE') {
+                        setDiscountValue('');
+                        setDiscountReason('');
+                      }
+                    }}
+                  >
+                    <option value="NONE">No discount</option>
+                    <option value="PERCENT">Percentage</option>
+                    <option value="AMOUNT">Fixed amount</option>
+                  </select>
+                </div>
+
+                {discountType !== 'NONE' ? (
+                  <>
+                    <div className="field">
+                      <label htmlFor="discountValue">
+                        {discountType === 'PERCENT'
+                          ? 'Discount percent'
+                          : 'Discount amount'}
+                      </label>
+                      <input
+                        id="discountValue"
+                        inputMode={discountType === 'PERCENT' ? 'decimal' : 'decimal'}
+                        onChange={(event) => setDiscountValue(event.target.value)}
+                        placeholder={
+                          discountType === 'PERCENT' ? '10' : formatCurrencyInput(500)
+                        }
+                        value={discountValue}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="discountReason">Discount reason</label>
+                      <input
+                        id="discountReason"
+                        onChange={(event) => setDiscountReason(event.target.value)}
+                        placeholder="Loyalty perk, service recovery, staff meal"
+                        value={discountReason}
+                      />
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
-            <p className="supporting-copy">
-              Final totals are confirmed by the backend when the order is saved.
-            </p>
-            </article>
 
             <div className="pos-action-stack">
               <button
