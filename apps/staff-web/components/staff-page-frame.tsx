@@ -142,7 +142,7 @@ export function StaffPageFrame({
               <div className="terminal-inline-note">
                 <span>Current outlet</span>
                 <strong>
-                  {currentOutlet.name} · {currentOutlet.role}
+                  {currentOutlet.name} | {currentOutlet.role}
                 </strong>
               </div>
             ) : null}

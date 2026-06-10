@@ -732,7 +732,7 @@ export function OutletOrdersPage() {
                     <div>
                       <strong>#{order.orderNumber}</strong>
                       <p className="supporting-copy">
-                        {order.table?.displayName ?? 'Counter'} ·{' '}
+                        {order.table?.displayName ?? 'Counter'} |{' '}
                         {order.customerName ?? 'Walk-in / guest'}
                       </p>
                     </div>
@@ -765,7 +765,7 @@ export function OutletOrdersPage() {
 
                   <div className="service-ticket-card__footer">
                     <span>
-                      {order.table?.tableCode ?? 'Counter'} ·{' '}
+                      {order.table?.tableCode ?? 'Counter'} |{' '}
                       {order.customerPhone ?? 'No phone'}
                     </span>
                     {nextStatusAction(order.status) ? (

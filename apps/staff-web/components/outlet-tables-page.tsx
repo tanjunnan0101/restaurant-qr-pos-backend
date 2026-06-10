@@ -483,17 +483,17 @@ export function OutletTablesPage() {
       ) : null}
 
       <section className="operations-stack floor-board-stack">
-        <section className="panel section-panel floor-command-deck">
-          <div className="section-header">
-            <div>
-              <p className="eyebrow">Floor controls</p>
-              <h2 className="section-title">Run the room from one board</h2>
+        <section className="panel section-panel floor-board-panel floor-board-panel--full">
+          <div className="floor-toolbar">
+            <div className="floor-toolbar__copy">
+              <p className="eyebrow">Table board</p>
+              <h2 className="section-title">Whole floor visibility</h2>
               <p className="supporting-copy">
-                Load the floor, filter by service pressure, and keep every zone visible from one
-                operational surface.
+                Search, filter, load tables, and operate the room from one board instead of a
+                separate setup screen.
               </p>
             </div>
-            <div className="support-card__actions">
+            <div className="floor-toolbar__actions">
               <span
                 className={`status-pill ${
                   realtimeStatus === 'connected'
@@ -511,8 +511,42 @@ export function OutletTablesPage() {
                 onClick={() => void handleLoadDemoFloor()}
                 type="button"
               >
-                {setupBusy ? 'Loading floor...' : zones.length === 0 ? 'Load tables' : 'Reload sample floor'}
+                {setupBusy
+                  ? 'Loading floor...'
+                  : zones.length === 0
+                    ? 'Load tables'
+                    : 'Reload sample floor'}
               </button>
+            </div>
+          </div>
+
+          <div className="floor-filter-row">
+            <div className="field">
+              <label htmlFor="table-search">Search tables</label>
+              <input
+                id="table-search"
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Zone, code, QR, shape"
+                value={searchTerm}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="table-status-filter">Table state</label>
+              <select
+                id="table-status-filter"
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as TableStatusFilter)
+                }
+                value={statusFilter}
+              >
+                {tableStatusFilters.map((status) => (
+                  <option key={status} value={status}>
+                    {status === 'ALL' ? 'All states' : formatEnum(status)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="floor-filter-row__actions">
               {selectedZoneId !== ALL_ZONES_FILTER ? (
                 <button
                   className="secondary-button"
@@ -524,58 +558,8 @@ export function OutletTablesPage() {
               ) : null}
             </div>
           </div>
-          <div className="floor-command-grid">
-            <article className="sub-panel surface-panel floor-command-card">
-              <span className="metric-label">Floor setup</span>
-              <strong className="scope-card-value">
-                {zones.length === 0 ? 'Not loaded' : `${summary.total} tables`}
-              </strong>
-              <p className="supporting-copy">
-                {canLoadDemoFloor
-                  ? 'Ready-to-use 10-table floor across two zones for demo, QR, and POS testing.'
-                  : 'This setup action needs table and QR manage access.'}
-              </p>
-              {zones.length === 0 ? (
-                <div className="support-inline-meta">
-                  <span>2 zones</span>
-                  <span>10 tables</span>
-                  <span>QR ready</span>
-                </div>
-              ) : null}
-            </article>
 
-            <div className="sub-panel surface-panel floor-control-rail">
-              <div className="form-grid floor-control-form">
-                <div className="field">
-                  <label htmlFor="table-search">Search tables</label>
-                  <input
-                    id="table-search"
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Zone, code, QR, shape"
-                    value={searchTerm}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="table-status-filter">Table state</label>
-                  <select
-                    id="table-status-filter"
-                    onChange={(event) =>
-                      setStatusFilter(event.target.value as TableStatusFilter)
-                    }
-                    value={statusFilter}
-                  >
-                    {tableStatusFilters.map((status) => (
-                      <option key={status} value={status}>
-                        {status === 'ALL' ? 'All states' : formatEnum(status)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="detail-overview-grid floor-summary-grid">
+          <div className="floor-stat-strip">
             <article className="sub-panel surface-panel">
               <span className="metric-label">Tables</span>
               <strong className="scope-card-value">{summary.total}</strong>
@@ -599,9 +583,7 @@ export function OutletTablesPage() {
               <p className="supporting-copy">Active QR coverage.</p>
             </article>
           </div>
-        </section>
 
-        <section className="panel section-panel floor-board-panel">
           {busy ? (
             <div className="empty-state">
               <h3>Loading table board...</h3>
