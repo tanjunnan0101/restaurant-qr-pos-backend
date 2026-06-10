@@ -605,15 +605,10 @@ export function OutletOrdersPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Service queue</p>
-              <h2 className="section-title">Run the live ticket board</h2>
+              <h2 className="section-title">Active orders</h2>
               <p className="supporting-copy">
-                Payment recovery, service progression, and table follow-up stay in one lane here.
+                Live service lane for unpaid, in-progress, and follow-up tickets.
               </p>
-              {focusedTable ? (
-                <p className="supporting-copy">
-                  Focused on {focusedTable.displayName} ({focusedTable.tableCode}).
-                </p>
-              ) : null}
             </div>
             <div className="inline-actions">
               <span
@@ -633,6 +628,19 @@ export function OutletOrdersPage() {
                 </Link>
               ) : null}
             </div>
+          </div>
+
+          <div className="support-inline-meta support-inline-meta--board">
+            <span>
+              {requestedTableId && focusedTable
+                ? `Focused on ${focusedTable.displayName} (${focusedTable.tableCode})`
+                : `${filteredOrders.length} tickets in view`}
+            </span>
+            <span>
+              {oldestVisibleOrder
+                ? `Oldest visible #${oldestVisibleOrder.orderNumber}`
+                : 'No active selection'}
+            </span>
           </div>
 
           <div className="form-grid service-board-filters">
@@ -664,26 +672,22 @@ export function OutletOrdersPage() {
             </div>
           </div>
 
-          <div className="detail-overview-grid floor-summary-grid">
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">Visible</span>
-              <strong className="scope-card-value">{liveQueueCount}</strong>
-              <p className="supporting-copy">Tickets in this current view.</p>
+          <div className="terminal-board-strip service-queue-metrics">
+            <article className="terminal-board-chip">
+              <span>Visible</span>
+              <strong>{liveQueueCount}</strong>
             </article>
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">Action now</span>
-              <strong className="scope-card-value">{actionNowCount}</strong>
-              <p className="supporting-copy">Ready for the next service move.</p>
+            <article className="terminal-board-chip">
+              <span>Action now</span>
+              <strong>{actionNowCount}</strong>
             </article>
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">Payments</span>
-              <strong className="scope-card-value">{paymentAttentionCount}</strong>
-              <p className="supporting-copy">Still waiting on settlement attention.</p>
+            <article className="terminal-board-chip">
+              <span>Payments</span>
+              <strong>{paymentAttentionCount}</strong>
             </article>
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">Drafts</span>
-              <strong className="scope-card-value">{draftCount}</strong>
-              <p className="supporting-copy">Held tickets waiting to be resumed.</p>
+            <article className="terminal-board-chip">
+              <span>Drafts</span>
+              <strong>{draftCount}</strong>
             </article>
           </div>
 
@@ -713,7 +717,7 @@ export function OutletOrdersPage() {
               </p>
             </div>
           ) : (
-            <div className="service-ticket-list">
+            <div className="service-ticket-list service-ticket-list--grid">
               {filteredOrders.map((order) => (
                 <article
                   className={
@@ -760,7 +764,7 @@ export function OutletOrdersPage() {
                       </div>
                       <div className="metric-inline">
                         <span>Kitchen</span>
-                        <strong>{order.kitchenTickets.length} tickets</strong>
+                        <strong>{order.kitchenTickets.length}</strong>
                       </div>
                       <div className="metric-inline">
                         <span>Updated</span>
@@ -810,7 +814,7 @@ export function OutletOrdersPage() {
             <>
               <div className="service-inspector__hero">
                 <div>
-                  <p className="eyebrow">Selected ticket</p>
+                  <p className="eyebrow">Selected order</p>
                   <h2 className="section-title">#{selectedOrder.orderNumber}</h2>
                   <p className="supporting-copy">
                     {selectedOrder.table?.zone?.name ?? 'No zone'} |{' '}
@@ -836,7 +840,7 @@ export function OutletOrdersPage() {
 
               <div className="detail-overview-grid service-inspector__overview">
                 <article className="sub-panel surface-panel">
-                  <span className="metric-label">Total</span>
+                  <span className="metric-label">Total due</span>
                   <strong className="scope-card-value">
                     {formatMoney(
                       selectedOrder.currency,
@@ -848,7 +852,7 @@ export function OutletOrdersPage() {
                   </p>
                 </article>
                 <article className="sub-panel surface-panel">
-                  <span className="metric-label">Payment</span>
+                  <span className="metric-label">Settlement</span>
                   <strong className="scope-card-value">
                     {formatEnum(selectedOrder.paymentStatus)}
                   </strong>
@@ -878,33 +882,19 @@ export function OutletOrdersPage() {
                 </article>
               </div>
 
-              <div className="service-inspector__priority">
-                <article className="sub-panel surface-panel">
-                  <h3>Priority now</h3>
-                  <div className="stack-list">
-                    <div className="metric-inline">
-                      <span>Current lane</span>
-                      <strong>{formatEnum(selectedOrder.status)}</strong>
-                    </div>
-                    <div className="metric-inline">
-                      <span>Payment lane</span>
-                      <strong>{formatEnum(selectedOrder.paymentStatus)}</strong>
-                    </div>
-                    <div className="metric-inline">
-                      <span>Oldest visible</span>
-                      <strong>
-                        {oldestVisibleOrder
-                          ? `#${oldestVisibleOrder.orderNumber}`
-                          : 'None'}
-                      </strong>
-                    </div>
-                  </div>
-                </article>
-              </div>
-
               <div className="detail-grid service-inspector__details">
                 <article className="sub-panel surface-panel">
-                  <h3>Items in this ticket</h3>
+                  <div className="section-header">
+                    <div>
+                      <h3>Ticket contents</h3>
+                      <p className="supporting-copy">
+                        What the guest actually ordered.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {selectedOrder.items.length} line{selectedOrder.items.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
                   <div className="stack-list">
                     {selectedOrder.items.map((item) => (
                       <div className="stack-row" key={item.id}>
@@ -944,7 +934,17 @@ export function OutletOrdersPage() {
                 </article>
 
                 <article className="sub-panel surface-panel">
-                  <h3>Payments and kitchen handoff</h3>
+                  <div className="section-header">
+                    <div>
+                      <h3>Settlement and kitchen</h3>
+                      <p className="supporting-copy">
+                        Payment records and released station tickets.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {selectedOrder.payments.length + selectedOrder.kitchenTickets.length} records
+                    </span>
+                  </div>
                   <div className="stack-list">
                     {selectedOrder.payments.map((payment) => (
                       <div className="stack-row" key={payment.id}>
@@ -990,13 +990,19 @@ export function OutletOrdersPage() {
 
               <div className="service-inspector__actions-grid">
                 <article className="sub-panel surface-panel">
-                  <h3>Next service action</h3>
+                  <div className="section-header">
+                    <div>
+                      <h3>Move the order forward</h3>
+                      <p className="supporting-copy">
+                        Advance the service state from this one control.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {nextAction ? formatEnum(nextAction.status) : 'Complete'}
+                    </span>
+                  </div>
                   {nextAction ? (
                     <form className="form-grid" onSubmit={submitNextStatus}>
-                      <p className="supporting-copy">
-                        Move this order to{' '}
-                        <strong>{formatEnum(nextAction.status)}</strong>.
-                      </p>
                       <div className="field">
                         <label htmlFor="reason">Reason</label>
                         <textarea
@@ -1023,12 +1029,19 @@ export function OutletOrdersPage() {
                 </article>
 
                 <article className="sub-panel surface-panel">
-                  <h3>Payment actions</h3>
+                  <div className="section-header">
+                    <div>
+                      <h3>Payment recovery</h3>
+                      <p className="supporting-copy">
+                        Reopen checkout or confirm manual settlement.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {formatEnum(selectedOrder.paymentStatus)}
+                    </span>
+                  </div>
                   {supportsOnlineCheckout ? (
                     <div className="form-grid">
-                      <p className="supporting-copy">
-                        Create or reopen the hosted HitPay checkout for this guest.
-                      </p>
                       <button
                         className="primary-button"
                         disabled={checkoutBusy}

@@ -690,86 +690,287 @@ export function OutletMenusPage() {
         </section>
       ) : (
         <>
+          <section className="menu-actions-strip">
+            <article className="panel section-panel menu-action-card">
+              <div>
+                <p className="eyebrow">Quick action</p>
+                <h2 className="section-title">Create menu</h2>
+                <p className="supporting-copy">
+                  Start a new QR, POS, or shared menu from one entry point.
+                </p>
+              </div>
+              <a className="primary-button" href="#menu-launchpad">
+                Open menu builder
+              </a>
+            </article>
+
+            <article className="panel section-panel menu-action-card menu-action-card--soft">
+              <div>
+                <p className="eyebrow">Quick action</p>
+                <h2 className="section-title">Add item</h2>
+                <p className="supporting-copy">
+                  Drop a new selling item into the active draft without leaving the floor.
+                </p>
+              </div>
+              <a className="secondary-button" href="#menu-quick-add-item">
+                Open quick add
+              </a>
+            </article>
+          </section>
+
           {canManageMenus ? (
-            <section className="panel section-panel menu-launchpad" id="menu-launchpad">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Create menu</p>
-                  <h2 className="section-title">Launch a new menu without hunting for the form</h2>
-                  <p className="supporting-copy">
-                    Start a QR, POS, or shared menu right here, then jump straight into quick item
-                    entry and draft editing.
-                  </p>
+            <section className="menu-launchpad-shell">
+              <article className="panel section-panel menu-launchpad" id="menu-launchpad">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Step 1</p>
+                    <h2 className="section-title">Create a menu</h2>
+                    <p className="supporting-copy">
+                      Start a QR, POS, or shared menu here. The system creates a draft-ready menu so
+                      the floor team can add items immediately.
+                    </p>
+                  </div>
+                  <div className="support-card__actions">
+                    <span className="status-pill info">New menu</span>
+                    {canPublishMenus && hasDraft ? (
+                      <button
+                        className="primary-button"
+                        disabled={actionBusyId === 'publish-menu'}
+                        onClick={() => void handlePublish()}
+                        type="button"
+                      >
+                        {actionBusyId === 'publish-menu' ? 'Publishing...' : 'Publish open draft'}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="support-card__actions">
-                  <span className="status-pill info">Draft first</span>
-                  <a className="secondary-button" href="#menu-quick-add-item">
-                    Add first item
-                  </a>
-                  {canPublishMenus && hasDraft ? (
+
+                <div className="support-inline-meta">
+                  <span>1. Create menu</span>
+                  <span>2. Add item</span>
+                  <span>3. Review draft</span>
+                  <span>4. Publish to service</span>
+                </div>
+
+                <div className="form-grid">
+                  <div className="field">
+                    <label htmlFor="menu-launchpad-name">Menu name</label>
+                    <input
+                      id="menu-launchpad-name"
+                      onChange={(event) => {
+                        const nextName = event.target.value;
+                        setNewMenuName(nextName);
+                        if (!newMenuSlug.trim()) {
+                          setNewMenuSlug(slugifyMenuName(nextName));
+                        }
+                      }}
+                      placeholder="Breakfast menu"
+                      value={newMenuName}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="menu-launchpad-slug">Menu slug</label>
+                    <input
+                      id="menu-launchpad-slug"
+                      onChange={(event) => setNewMenuSlug(event.target.value)}
+                      placeholder="breakfast-menu"
+                      value={newMenuSlug}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="menu-launchpad-channel">Channel</label>
+                    <select
+                      id="menu-launchpad-channel"
+                      onChange={(event) =>
+                        setNewMenuChannel(event.target.value as 'QR' | 'POS' | 'BOTH')
+                      }
+                      value={newMenuChannel}
+                    >
+                      <option value="BOTH">QR + POS</option>
+                      <option value="QR">QR only</option>
+                      <option value="POS">POS only</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Action</label>
                     <button
                       className="primary-button"
-                      disabled={actionBusyId === 'publish-menu'}
-                      onClick={() => void handlePublish()}
+                      disabled={actionBusyId === 'create-menu'}
+                      onClick={() => void handleCreateMenu()}
                       type="button"
                     >
-                      {actionBusyId === 'publish-menu' ? 'Publishing...' : 'Publish draft'}
+                      {actionBusyId === 'create-menu' ? 'Creating...' : 'Create menu'}
                     </button>
-                  ) : null}
+                  </div>
                 </div>
-              </div>
+              </article>
 
-              <div className="form-grid">
-                <div className="field">
-                  <label htmlFor="menu-launchpad-name">Menu name</label>
-                  <input
-                    id="menu-launchpad-name"
-                    onChange={(event) => {
-                      const nextName = event.target.value;
-                      setNewMenuName(nextName);
-                      if (!newMenuSlug.trim()) {
-                        setNewMenuSlug(slugifyMenuName(nextName));
+              <article className="panel section-panel menu-launchpad menu-launchpad--accent" id="menu-quick-add-item">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Step 2</p>
+                    <h2 className="section-title">Add an item fast</h2>
+                    <p className="supporting-copy">
+                      Use this when the cashier needs something selling now. Choose a draft, pick a
+                      category, and drop the item straight into service prep.
+                    </p>
+                  </div>
+                  <div className="support-card__actions">
+                    <span
+                      className={`status-pill ${
+                        editableVersion?.status === 'DRAFT' ? 'success' : 'warning'
+                      }`}
+                    >
+                      {editableVersion?.status === 'DRAFT' ? 'Draft loaded' : 'Draft required'}
+                    </span>
+                    {!hasDraft && hasPublished ? (
+                      <button
+                        className="secondary-button"
+                        disabled={actionBusyId === 'clone-draft'}
+                        onClick={() => void handleCloneDraft()}
+                        type="button"
+                      >
+                        {actionBusyId === 'clone-draft' ? 'Creating draft...' : 'Create draft first'}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="form-grid">
+                  <div className="field">
+                    <label htmlFor="quick-category-mode">Target category</label>
+                    <select
+                      id="quick-category-mode"
+                      onChange={(event) =>
+                        setQuickCategoryMode(event.target.value as QuickCategoryMode)
                       }
-                    }}
-                    placeholder="Breakfast menu"
-                    value={newMenuName}
-                  />
+                      value={quickCategoryMode}
+                    >
+                      <option value="EXISTING">Use existing</option>
+                      <option value="NEW">Create new</option>
+                    </select>
+                  </div>
+                  {quickCategoryMode === 'EXISTING' ? (
+                    <div className="field">
+                      <label htmlFor="quick-category-id">Category</label>
+                      <select
+                        id="quick-category-id"
+                        onChange={(event) => setQuickCategoryId(event.target.value)}
+                        value={quickCategoryId}
+                      >
+                        <option value="">Select category</option>
+                        {(editableVersion?.categories ?? []).map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="field">
+                      <label htmlFor="quick-category-name">New category</label>
+                      <input
+                        id="quick-category-name"
+                        onChange={(event) => setQuickCategoryName(event.target.value)}
+                        placeholder="Seasonal specials"
+                        value={quickCategoryName}
+                      />
+                    </div>
+                  )}
+                  <div className="field">
+                    <label htmlFor="quick-item-name">Item name</label>
+                    <input
+                      id="quick-item-name"
+                      onChange={(event) => setQuickItemName(event.target.value)}
+                      placeholder="Grilled seabass"
+                      value={quickItemName}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="quick-item-price">Price</label>
+                    <input
+                      id="quick-item-price"
+                      inputMode="decimal"
+                      onChange={(event) => setQuickItemPrice(event.target.value)}
+                      placeholder="18.90"
+                      value={quickItemPrice}
+                    />
+                  </div>
                 </div>
-                <div className="field">
-                  <label htmlFor="menu-launchpad-slug">Menu slug</label>
-                  <input
-                    id="menu-launchpad-slug"
-                    onChange={(event) => setNewMenuSlug(event.target.value)}
-                    placeholder="breakfast-menu"
-                    value={newMenuSlug}
-                  />
+
+                <div className="form-grid">
+                  <div className="field">
+                    <label htmlFor="quick-item-sku">SKU</label>
+                    <input
+                      id="quick-item-sku"
+                      onChange={(event) => setQuickItemSku(event.target.value)}
+                      placeholder="FISH-SEA-001"
+                      value={quickItemSku}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="quick-item-station">Prep station</label>
+                    <input
+                      id="quick-item-station"
+                      onChange={(event) => setQuickItemStation(event.target.value)}
+                      placeholder="main-kitchen"
+                      value={quickItemStation}
+                    />
+                  </div>
+                  <div className="field field--full">
+                    <label htmlFor="quick-item-description">Description</label>
+                    <textarea
+                      id="quick-item-description"
+                      onChange={(event) => setQuickItemDescription(event.target.value)}
+                      placeholder="Short guest-facing description"
+                      rows={3}
+                      value={quickItemDescription}
+                    />
+                  </div>
                 </div>
-                <div className="field">
-                  <label htmlFor="menu-launchpad-channel">Channel</label>
-                  <select
-                    id="menu-launchpad-channel"
-                    onChange={(event) =>
-                      setNewMenuChannel(event.target.value as 'QR' | 'POS' | 'BOTH')
-                    }
-                    value={newMenuChannel}
-                  >
-                    <option value="BOTH">QR + POS</option>
-                    <option value="QR">QR only</option>
-                    <option value="POS">POS only</option>
-                  </select>
+
+                <div className="support-toggle-row">
+                  <label className="checkbox-row">
+                    <input
+                      checked={quickItemTaxable}
+                      onChange={(event) => setQuickItemTaxable(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>Taxable</span>
+                  </label>
+                  <label className="checkbox-row">
+                    <input
+                      checked={quickItemServiceChargeable}
+                      onChange={(event) => setQuickItemServiceChargeable(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>Service chargeable</span>
+                  </label>
+                  <label className="checkbox-row">
+                    <input
+                      checked={quickItemActive}
+                      onChange={(event) => setQuickItemActive(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>Visible</span>
+                  </label>
                 </div>
-                <div className="field">
-                  <label>Action</label>
+
+                <div className="support-card__actions">
                   <button
                     className="primary-button"
-                    disabled={actionBusyId === 'create-menu'}
-                    onClick={() => void handleCreateMenu()}
+                    disabled={actionBusyId === 'quick-add-item' || !canManageMenus}
+                    onClick={() => void handleQuickAddItem()}
                     type="button"
                   >
-                    {actionBusyId === 'create-menu' ? 'Creating...' : 'Create menu'}
+                    {actionBusyId === 'quick-add-item' ? 'Saving...' : 'Add item to draft'}
                   </button>
                 </div>
-              </div>
+
+                {!canManageMenus ? (
+                  <p className="support-note">This action needs menu manage access.</p>
+                ) : null}
+              </article>
             </section>
           ) : null}
 
@@ -830,10 +1031,10 @@ export function OutletMenusPage() {
                     </button>
                   ) : null}
                   <a className="secondary-button" href="#menu-launchpad">
-                    Add menu
+                    Create menu
                   </a>
                   <a className="secondary-button" href="#menu-quick-add-item">
-                    Add item
+                    Quick add item
                   </a>
                 </div>
               </article>
@@ -911,164 +1112,36 @@ export function OutletMenusPage() {
                   </select>
                 </div>
                 <p className="support-note">
-                  Service should read from published versions. Use drafts for
-                  edits, then publish when the floor is ready.
+                  Service reads from published versions. Build in draft, review, then publish when the floor is ready.
                 </p>
               </article>
 
-              <article className="support-config-card" id="menu-quick-add-item">
-                  <div className="support-config-card__header">
-                    <div>
-                      <p className="eyebrow">Quick add</p>
-                      <h3>Drop in a missing item</h3>
-                    </div>
-                    <span
-                      className={`status-pill ${
-                        editableVersion?.status === 'DRAFT'
-                          ? 'success'
-                          : 'warning'
-                      }`}
-                    >
-                      {editableVersion?.status === 'DRAFT'
-                        ? 'Editing draft'
-                        : 'Draft needed'}
-                    </span>
+              <article className="support-config-card menu-library-card">
+                <div className="support-config-card__header">
+                  <div>
+                    <p className="eyebrow">Menu library</p>
+                    <h3>Jump between menus</h3>
                   </div>
-                  <div className="field">
-                    <label htmlFor="quick-category-mode">Target category</label>
-                    <select
-                      id="quick-category-mode"
-                      onChange={(event) =>
-                        setQuickCategoryMode(event.target.value as QuickCategoryMode)
-                      }
-                      value={quickCategoryMode}
-                    >
-                      <option value="EXISTING">Use existing</option>
-                      <option value="NEW">Create new</option>
-                    </select>
-                  </div>
-                  {quickCategoryMode === 'EXISTING' ? (
-                    <div className="field">
-                      <label htmlFor="quick-category-id">Category</label>
-                      <select
-                        id="quick-category-id"
-                        onChange={(event) => setQuickCategoryId(event.target.value)}
-                        value={quickCategoryId}
-                      >
-                        <option value="">Select category</option>
-                        {(editableVersion?.categories ?? []).map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="field">
-                      <label htmlFor="quick-category-name">New category</label>
-                      <input
-                        id="quick-category-name"
-                        onChange={(event) => setQuickCategoryName(event.target.value)}
-                        placeholder="Seasonal specials"
-                        value={quickCategoryName}
-                      />
-                    </div>
-                  )}
-                  <div className="form-grid">
-                    <div className="field">
-                      <label htmlFor="quick-item-name">Item name</label>
-                      <input
-                        id="quick-item-name"
-                        onChange={(event) => setQuickItemName(event.target.value)}
-                        placeholder="Grilled seabass"
-                        value={quickItemName}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="quick-item-price">Price</label>
-                      <input
-                        id="quick-item-price"
-                        inputMode="decimal"
-                        onChange={(event) => setQuickItemPrice(event.target.value)}
-                        placeholder="18.90"
-                        value={quickItemPrice}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="quick-item-sku">SKU</label>
-                      <input
-                        id="quick-item-sku"
-                        onChange={(event) => setQuickItemSku(event.target.value)}
-                        placeholder="FISH-SEA-001"
-                        value={quickItemSku}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="quick-item-station">Prep station</label>
-                      <input
-                        id="quick-item-station"
-                        onChange={(event) => setQuickItemStation(event.target.value)}
-                        placeholder="main-kitchen"
-                        value={quickItemStation}
-                      />
-                    </div>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="quick-item-description">Description</label>
-                    <textarea
-                      id="quick-item-description"
-                      onChange={(event) => setQuickItemDescription(event.target.value)}
-                      placeholder="Short guest-facing description"
-                      rows={3}
-                      value={quickItemDescription}
-                    />
-                  </div>
-                  <div className="support-toggle-row">
-                    <label className="checkbox-row">
-                      <input
-                        checked={quickItemTaxable}
-                        onChange={(event) => setQuickItemTaxable(event.target.checked)}
-                        type="checkbox"
-                      />
-                      <span>Taxable</span>
-                    </label>
-                    <label className="checkbox-row">
-                      <input
-                        checked={quickItemServiceChargeable}
-                        onChange={(event) =>
-                          setQuickItemServiceChargeable(event.target.checked)
-                        }
-                        type="checkbox"
-                      />
-                      <span>Service chargeable</span>
-                    </label>
-                    <label className="checkbox-row">
-                      <input
-                        checked={quickItemActive}
-                        onChange={(event) => setQuickItemActive(event.target.checked)}
-                        type="checkbox"
-                      />
-                      <span>Visible</span>
-                    </label>
-                  </div>
-                  <div className="support-card__actions">
+                  <span className="status-pill neutral">{menus.length} records</span>
+                </div>
+                <div className="menu-library-grid">
+                  {menus.map((menu) => (
                     <button
-                      className="primary-button"
-                      disabled={actionBusyId === 'quick-add-item' || !canManageMenus}
-                      onClick={() => void handleQuickAddItem()}
+                      className={
+                        selectedMenuId === menu.id
+                          ? 'menu-library-tile active'
+                          : 'menu-library-tile'
+                      }
+                      key={menu.id}
+                      onClick={() => setSelectedMenuId(menu.id)}
                       type="button"
                     >
-                      {actionBusyId === 'quick-add-item'
-                        ? 'Saving...'
-                        : 'Add to draft'}
+                      <strong>{menu.name}</strong>
+                      <span>{menu.channel} {menu.isDefault ? '| Default' : ''}</span>
                     </button>
-                  </div>
-                  {!canManageMenus ? (
-                    <p className="support-note">
-                      This item add action needs menu manage access.
-                    </p>
-                  ) : null}
-                </article>
+                  ))}
+                </div>
+              </article>
             </aside>
 
             <div className="support-board-panel">

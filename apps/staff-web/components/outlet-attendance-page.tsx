@@ -376,7 +376,7 @@ export function OutletAttendancePage() {
           <section className="panel section-panel attendance-hero">
             <div className="attendance-hero__copy">
               <p className="eyebrow">Shared shift station</p>
-              <h2 className="section-title">Tap the shift, then clock in</h2>
+              <h2 className="section-title">Tap your shift, take a photo, and clock in</h2>
               <p className="supporting-copy">
                 Staff select themselves from today&apos;s roster, take a proof photo
                 on the iPad, and clock in or out from one shared station.
@@ -394,9 +394,52 @@ export function OutletAttendancePage() {
             </div>
           </section>
 
+          <section className="panel section-panel attendance-kiosk-strip">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Step 1</p>
+                <h2 className="section-title">Who is clocking?</h2>
+                <p className="supporting-copy">
+                  Tap the scheduled shift first. If there is no timetable entry, choose the employee
+                  manually from the fallback roster.
+                </p>
+              </div>
+              <div className="support-card__actions">
+                <span className="status-pill success">1. Select shift</span>
+                <span className="status-pill warning">2. Take photo</span>
+                <span className="status-pill neutral">3. Clock action</span>
+              </div>
+            </div>
+
+            <div className="attendance-station-prompt">
+              <article className="sub-panel surface-panel">
+                <span className="metric-label">Selected employee</span>
+                <strong className="scope-card-value">
+                  {selectedShift ? selectedShift.user.fullName : selectedUser.fullName}
+                </strong>
+                <p className="supporting-copy">
+                  {selectedShift
+                    ? `${selectedShift.title} | ${formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}`
+                    : 'No timetable shift selected yet.'}
+                </p>
+              </article>
+              <article className="sub-panel surface-panel">
+                <span className="metric-label">Clock status</span>
+                <strong className="scope-card-value">
+                  {currentSession ? 'On shift' : 'Ready'}
+                </strong>
+                <p className="supporting-copy">
+                  {currentSession
+                    ? `Active since ${formatDateTime(currentSession.clockInAt)}`
+                    : 'Move to the camera station after selection.'}
+                </p>
+              </article>
+            </div>
+          </section>
+
           <section className="panel section-panel attendance-station-callout">
             <div>
-              <p className="eyebrow">Shared iPad flow</p>
+              <p className="eyebrow">Step 2</p>
               <h2 className="section-title">
                 {selectedShift ? selectedShift.user.fullName : selectedUser.fullName}
               </h2>
@@ -407,11 +450,8 @@ export function OutletAttendancePage() {
               </p>
             </div>
             <div className="support-card__actions">
-              <span className="status-pill success">1. Select shift</span>
-              <span className="status-pill warning">2. Take photo</span>
-              <span className="status-pill neutral">3. Clock action</span>
               <a className="primary-button" href="#attendance-capture-station">
-                Go to camera station
+                Open camera station
               </a>
             </div>
           </section>
@@ -658,6 +698,9 @@ export function OutletAttendancePage() {
                   </div>
                   <span className="supporting-copy">{staffRoster.length} staff</span>
                 </div>
+                <p className="supporting-copy">
+                  Only use this roster when the manager has not placed the employee on the timetable yet.
+                </p>
                 <div className="attendance-quick-roster">
                   {staffRoster.map((entry) => {
                     const active = entry.id === selectedUser.id && !selectedShift;
@@ -1082,7 +1125,7 @@ async function compressImageForAttendance(file: File) {
   const source = await readFileAsDataUrl(file);
   const image = await loadImage(source);
   const canvas = document.createElement('canvas');
-  const maxEdge = 960;
+  const maxEdge = 720;
   const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
   canvas.width = Math.max(1, Math.round(image.width * scale));
   canvas.height = Math.max(1, Math.round(image.height * scale));
@@ -1096,12 +1139,12 @@ async function compressImageForAttendance(file: File) {
 
   let quality = 0.82;
   let output = canvas.toDataURL('image/jpeg', quality);
-  while (output.length > 95000 && quality > 0.38) {
+  while (output.length > 70000 && quality > 0.34) {
     quality -= 0.08;
     output = canvas.toDataURL('image/jpeg', quality);
   }
 
-  if (output.length > 95000) {
+  if (output.length > 70000) {
     throw new Error(
       'The captured photo is still too large. Move closer and retake a tighter shot.',
     );

@@ -1,18 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import {
-  ClipboardList,
-  Package,
-  Printer,
-  ScanLine,
-  SquareTerminal,
-  Store,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { ClipboardList, ScanLine, SquareTerminal, Store } from 'lucide-react';
 import { getOutlets } from '@/lib/api';
 import type { OutletSummary } from '@/lib/types';
 import { StaffPageFrame } from './staff-page-frame';
@@ -23,14 +13,7 @@ const primaryNavItems = [
   { href: 'orders', label: 'Orders', icon: ClipboardList },
   { href: 'tables', label: 'Tables', icon: Store },
   { href: 'kds', label: 'Kitchen', icon: ScanLine },
-];
-
-const supportNavItems = [
   { href: 'menus', label: 'Menus', icon: ClipboardList },
-  { href: 'inventory', label: 'Inventory', icon: Package },
-  { href: 'attendance', label: 'Attendance', icon: Users },
-  { href: 'staff', label: 'Team', icon: Users },
-  { href: 'printing', label: 'Printing', icon: Printer },
 ];
 
 export function useOutletContext() {
@@ -103,6 +86,9 @@ export function OutletPageLayout({
 
 export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
   const pathname = usePathname();
+  const activeWorkspace =
+    primaryNavItems.find((item) => pathname.endsWith(`/${item.href}`)) ?? null;
+  const ActiveWorkspaceIcon = activeWorkspace?.icon;
 
   return (
     <section className="outlet-terminal-bar">
@@ -133,70 +119,24 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
       </div>
 
       <div className="outlet-terminal-bar__nav">
-        <div className="outlet-terminal-bar__group">
-          <span className="terminal-mini-label">Core flow</span>
-          <nav className="workspace-pill-list" aria-label="Primary outlet pages">
-            {primaryNavItems.map((item) => (
-              <OutletNavLink
-                currentPath={pathname}
-                href={`/outlets/${outlet.id}/${item.href}`}
-                icon={item.icon}
-                key={item.href}
-                label={item.label}
-              />
-            ))}
-          </nav>
-        </div>
-
-        <div className="outlet-terminal-bar__group">
-          <span className="terminal-mini-label">Support</span>
-          <nav className="workspace-pill-list" aria-label="Support outlet pages">
-            {supportNavItems.map((item) => (
-              <OutletNavLink
-                compact
-                currentPath={pathname}
-                href={`/outlets/${outlet.id}/${item.href}`}
-                icon={item.icon}
-                key={item.href}
-                label={item.label}
-              />
-            ))}
-          </nav>
+        <span className="terminal-mini-label">Current workspace</span>
+        <div className="outlet-terminal-bar__active-workspace">
+          {activeWorkspace && ActiveWorkspaceIcon ? (
+            <span className="workspace-pill workspace-pill--terminal current compact">
+              <ActiveWorkspaceIcon aria-hidden="true" size={16} />
+              <span>{activeWorkspace.label}</span>
+            </span>
+          ) : (
+            <span className="workspace-pill workspace-pill--terminal compact">
+              <SquareTerminal aria-hidden="true" size={16} />
+              <span>Outlet tools</span>
+            </span>
+          )}
+          <span className="outlet-terminal-bar__hint">
+            Switch stations from the left rail.
+          </span>
         </div>
       </div>
     </section>
-  );
-}
-
-function OutletNavLink({
-  currentPath,
-  href,
-  label,
-  icon: Icon,
-  compact = false,
-}: {
-  currentPath: string;
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  compact?: boolean;
-}) {
-  const current = currentPath === href || currentPath.startsWith(`${href}/`);
-  return (
-    <Link
-      className={
-        current
-          ? compact
-            ? 'workspace-pill workspace-pill--terminal current compact'
-            : 'workspace-pill workspace-pill--terminal current'
-          : compact
-            ? 'workspace-pill workspace-pill--terminal compact'
-            : 'workspace-pill workspace-pill--terminal'
-      }
-      href={href}
-    >
-      <Icon aria-hidden="true" size={16} />
-      <span>{label}</span>
-    </Link>
   );
 }

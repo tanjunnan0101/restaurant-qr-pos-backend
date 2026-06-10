@@ -573,7 +573,7 @@ button {
 }
 
 .pos-layout {
-  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr);
   align-items: start;
 }
 
@@ -1592,7 +1592,7 @@ body {
 
 .staff-content {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .staff-command-header {
@@ -1603,8 +1603,8 @@ body {
   position: sticky;
   top: 12px;
   z-index: 5;
-  padding: 18px 22px;
-  border-radius: 26px;
+  padding: 14px 18px;
+  border-radius: 22px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(16px);
@@ -1620,9 +1620,9 @@ body {
   margin: 0;
   color: var(--terminal-ink);
   font-family: var(--font-body);
-  font-size: clamp(2rem, 3.4vw, 3.35rem);
+  font-size: clamp(1.7rem, 2.8vw, 2.75rem);
   font-weight: 800;
-  line-height: 0.95;
+  line-height: 0.98;
   letter-spacing: -0.05em;
 }
 
@@ -1636,9 +1636,9 @@ body {
 .command-pill {
   display: grid;
   gap: 2px;
-  min-width: 112px;
-  padding: 10px 12px;
-  border-radius: 16px;
+  min-width: 98px;
+  padding: 8px 10px;
+  border-radius: 14px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(248, 250, 251, 0.92);
   color: var(--terminal-ink);
@@ -1663,13 +1663,15 @@ body {
 .staff-page-intro {
   margin-top: -4px;
   padding: 0 2px;
+  max-width: 780px;
 }
 
 .staff-page-intro p {
   margin: 0;
   max-width: 70ch;
   color: var(--terminal-ink-soft);
-  line-height: 1.5;
+  font-size: 0.98rem;
+  line-height: 1.45;
 }
 
 .terminal-loading-card {
@@ -1680,9 +1682,9 @@ body {
 
 .outlet-terminal-bar {
   display: grid;
-  gap: 16px;
-  padding: 18px 20px;
-  border-radius: 24px;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 20px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(255, 255, 255, 0.96);
   color: var(--terminal-ink);
@@ -1698,7 +1700,7 @@ body {
 
 .outlet-terminal-bar__title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   color: var(--terminal-ink);
 }
 
@@ -1718,19 +1720,35 @@ body {
   gap: 10px;
 }
 
+.outlet-terminal-bar__active-workspace {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.outlet-terminal-bar__hint {
+  color: var(--terminal-ink-soft);
+  font-size: 0.9rem;
+}
+
 .workspace-pill-list {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
+.workspace-pill-list--core {
+  gap: 8px;
+}
+
 .workspace-pill--terminal {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 42px;
-  padding: 10px 14px;
-  border-radius: 16px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 14px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(248, 250, 251, 0.94);
   color: var(--terminal-ink);
@@ -1881,7 +1899,7 @@ body {
 
 .service-board-layout,
 .kitchen-station-layout {
-  grid-template-columns: minmax(0, 1.14fr) minmax(360px, 0.86fr);
+  grid-template-columns: minmax(400px, 0.88fr) minmax(0, 1.12fr);
   align-items: start;
 }
 
@@ -1921,7 +1939,12 @@ body {
 
 .service-board-filters,
 .kitchen-board-filters {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.support-inline-meta--board {
+  margin-top: -4px;
+  font-size: 0.9rem;
 }
 
 .support-summary-grid {
@@ -1938,9 +1961,38 @@ body {
   gap: 18px;
 }
 
+.menu-actions-strip {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.menu-action-card {
+  display: grid;
+  gap: 14px;
+  align-content: space-between;
+}
+
+.menu-action-card--soft {
+  background:
+    linear-gradient(180deg, rgba(244, 250, 250, 0.98), rgba(249, 252, 253, 0.98));
+}
+
+.menu-launchpad-shell {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .menu-launchpad {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 251, 0.98));
+}
+
+.menu-launchpad--accent {
+  border-color: rgba(30, 109, 115, 0.18);
+  background:
+    linear-gradient(180deg, rgba(244, 250, 250, 0.98), rgba(249, 252, 253, 0.98));
 }
 
 .support-card-grid {
@@ -2029,6 +2081,11 @@ body {
   gap: 18px;
 }
 
+.attendance-kiosk-strip {
+  display: grid;
+  gap: 18px;
+}
+
 .attendance-hero__copy,
 .attendance-hero__meta {
   display: grid;
@@ -2046,6 +2103,12 @@ body {
   border-radius: 22px;
   border: 1px solid rgba(216, 202, 179, 0.88);
   background: rgba(255, 251, 245, 0.98);
+}
+
+.attendance-station-prompt {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .attendance-station-grid {
@@ -2182,6 +2245,10 @@ body {
   background: rgba(30, 109, 115, 0.12);
 }
 
+.attendance-quick-roster--hero {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .attendance-board-empty {
   min-height: 240px;
 }
@@ -2237,6 +2304,32 @@ body {
   padding: 14px 16px;
   border-radius: 18px;
   background: rgba(29, 23, 18, 0.04);
+}
+
+.menu-library-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.menu-library-tile {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 255, 255, 0.78);
+  text-align: left;
+}
+
+.menu-library-tile span {
+  color: var(--terminal-ink-soft);
+  font-size: 0.9rem;
+}
+
+.menu-library-tile.active {
+  border-color: rgba(30, 109, 115, 0.36);
+  background: rgba(30, 109, 115, 0.12);
+  box-shadow: 0 0 0 3px rgba(30, 109, 115, 0.08);
 }
 
 .table-shell {
@@ -2346,6 +2439,10 @@ body {
   gap: 10px;
   align-items: end;
   justify-content: flex-end;
+}
+
+.floor-toolbar__actions .primary-button {
+  min-width: 230px;
 }
 
 .floor-filter-row {
@@ -2794,19 +2891,53 @@ body {
 }
 
 .service-ticket-list {
-  max-height: 60vh;
+  grid-template-columns: 1fr;
+  max-height: 72vh;
   overflow: auto;
   padding-right: 4px;
+}
+
+.service-queue-metrics,
+.kitchen-lane-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.terminal-board-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.terminal-board-chip {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(24, 33, 38, 0.08);
+  background: rgba(248, 250, 251, 0.94);
+}
+
+.terminal-board-chip span {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--terminal-ink-soft);
+}
+
+.terminal-board-chip strong {
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--terminal-ink);
 }
 
 .service-ticket-card,
 .kitchen-ticket-card {
   width: 100%;
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
   text-align: left;
-  border-radius: 18px;
+  border-radius: 16px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 18px rgba(12, 18, 20, 0.04);
@@ -2816,7 +2947,7 @@ body {
 .kitchen-ticket-card__select {
   width: 100%;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -2855,7 +2986,7 @@ body {
 .service-inspector__details,
 .service-inspector__actions-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .service-inspector__overview,
@@ -2863,10 +2994,23 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.service-inspector__overview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .service-ticket-card__metrics,
 .kitchen-ticket-card__metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
+}
+
+.kitchen-ticket-card__metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.kitchen-ticket-card__station-copy {
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .service-ticket-card__footer,
@@ -2898,7 +3042,7 @@ body {
 
 .service-inspector__hero {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
 }
@@ -2911,18 +3055,18 @@ body {
 }
 
 .kitchen-lane-grid {
-  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
 }
 
 .kitchen-lane-card {
-  gap: 14px;
+  gap: 12px;
   align-content: start;
   min-width: 0;
 }
 
 .kitchen-lane-card .stack-list {
-  max-height: 58vh;
+  max-height: 62vh;
   overflow: auto;
   padding-right: 4px;
 }
@@ -2935,10 +3079,11 @@ body {
 .pos-payment-controls {
   display: grid;
   gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .pos-ticket-summary {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .pos-ticket-cart {
@@ -2961,29 +3106,44 @@ body {
   order: 5;
 }
 
-.pos-live-rail {
-  order: 6;
+.pos-ticket-builder,
+.pos-control-block,
+.pos-inline-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.pos-inline-panel {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(24, 33, 38, 0.03);
+}
+
+.pos-sidebar {
+  position: sticky;
+  top: 18px;
 }
 
 .metric-inline {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
-  padding: 8px 10px;
+  min-height: 0;
+  padding: 9px 10px;
   border-radius: 14px;
   background: rgba(24, 33, 38, 0.04);
 }
 
 .metric-inline span {
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #74685a;
 }
 
 .metric-inline strong {
-  font-size: 0.95rem;
-  line-height: 1.2;
+  font-size: 1rem;
+  line-height: 1.15;
   overflow-wrap: anywhere;
 }
 
@@ -3005,7 +3165,7 @@ body {
 .pos-shell-card {
   order: initial;
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .menu-toolbar {
@@ -3096,6 +3256,7 @@ body {
   overflow-wrap: anywhere;
 }
 
+.pos-live-board,
 .pos-live-rail,
 .pos-ticket-builder {
   display: grid;
@@ -3107,6 +3268,14 @@ body {
   padding-right: 4px;
 }
 
+.pos-live-order-list--grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-height: none;
+  padding-right: 0;
+}
+
 .pos-live-order-card {
   gap: 10px;
   padding: 12px;
@@ -3114,7 +3283,7 @@ body {
 }
 
 .cart-list {
-  max-height: 32vh;
+  max-height: 30vh;
   overflow: auto;
   padding-right: 4px;
 }
@@ -3162,6 +3331,7 @@ body {
   .support-station-layout,
   .attendance-board-layout,
   .attendance-station-grid,
+  .attendance-station-prompt,
   .floor-board-layout,
   .floor-workspace,
   .floor-toolbar,
@@ -3186,15 +3356,22 @@ body {
   .product-grid--terminal,
   .operations-summary-grid,
   .metric-board,
+  .service-ticket-list,
+  .menu-actions-strip,
   .table-grid,
   .table-grid--board,
   .operations-grid,
   .detail-overview-grid,
   .table-inspector__metrics--wide,
   .pos-ticket-launchpad__grid,
+  .pos-live-order-list--grid,
   .kitchen-lane-grid,
   .support-card-grid,
-  .floor-stat-strip {
+  .floor-stat-strip,
+  .service-queue-metrics,
+  .kitchen-lane-metrics,
+  .pos-ticket-setup,
+  .pos-payment-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -3212,11 +3389,15 @@ body {
   .table-grid--board,
   .operations-grid,
   .form-grid,
+  .service-ticket-list,
+  .menu-actions-strip,
+  .menu-launchpad-shell,
   .attendance-planner-form,
   .attendance-kiosk-grid,
   .attendance-action-row,
   .floor-summary-grid,
   .support-summary-grid,
+  .service-inspector__overview,
   .floor-stat-strip,
   .table-card__stats,
   .table-inspector__metrics,
@@ -3225,7 +3406,12 @@ body {
   .kitchen-ticket-card__metrics,
   .service-inspector__actions-grid,
   .support-card-grid,
+  .pos-live-order-list--grid,
   .pos-ticket-launchpad__grid,
+  .pos-ticket-setup,
+  .pos-payment-controls,
+  .service-queue-metrics,
+  .kitchen-lane-metrics,
   .queue-metrics,
   .detail-grid {
     grid-template-columns: 1fr;

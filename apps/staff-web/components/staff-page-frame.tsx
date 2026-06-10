@@ -261,7 +261,7 @@ export function StaffPageFrame({
         <section className="staff-content">
           <header className="staff-command-header">
             <div className="staff-command-header__title">
-              <p className="eyebrow">Service operations</p>
+              <p className="eyebrow">Staff terminal</p>
               <h1 className="page-title page-title--terminal">{title}</h1>
             </div>
             <div className="staff-command-header__meta">
@@ -271,7 +271,7 @@ export function StaffPageFrame({
               </div>
               {currentOutlet ? (
                 <div className="command-pill">
-                  <span>Outlet</span>
+                  <span>Station</span>
                   <strong>{currentOutlet.name}</strong>
                 </div>
               ) : null}
@@ -281,10 +281,6 @@ export function StaffPageFrame({
                   <strong>{currentOutlet.role}</strong>
                 </div>
               ) : null}
-              <div className="command-pill">
-                <span>Scope</span>
-                <strong>{session.user.outlets.length} linked</strong>
-              </div>
             </div>
           </header>
 

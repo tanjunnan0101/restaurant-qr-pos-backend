@@ -1599,143 +1599,169 @@ export function OutletPosPage() {
             </article>
 
             <div className="pos-payment-controls pos-ticket-section">
-              <div className="field">
-                <label>Payment method</label>
-              {canReadPaymentSettings ? (
-                <div className="sub-panel">
-                  <div className="section-header">
-                    <div>
-                      <strong>Online card checkout</strong>
-                      <p className="supporting-copy">
-                        Control whether this cashier POS can create HitPay card
-                        or wallet checkout links right now.
-                      </p>
-                    </div>
-                    <span
-                      className={`status-pill ${
-                        onlineCardEnabled ? 'success' : 'warning'
-                      }`}
-                    >
-                      {onlineCardEnabled ? 'On' : 'Off'}
-                    </span>
+              <article className="sub-panel surface-panel pos-control-block">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Payment station</p>
+                    <h3>How is the guest paying?</h3>
                   </div>
-                  {onlineCardSetting?.reason && !onlineCardEnabled ? (
-                    <p className="supporting-copy">
-                      Reason: {onlineCardSetting.reason}
-                    </p>
-                  ) : null}
-                  <div className="inline-actions">
-                    <button
-                      className={
-                        onlineCardEnabled
-                          ? 'secondary-button'
-                          : 'primary-button'
-                      }
-                      disabled={!canManagePaymentSettings || paymentToggleBusy}
-                      onClick={() => void toggleOnlineCardPayment()}
-                      type="button"
-                    >
-                      {paymentToggleBusy
-                        ? 'Updating...'
-                        : onlineCardEnabled
-                          ? 'Turn off online card'
-                          : 'Turn on online card'}
-                    </button>
-                    <span className="supporting-copy">
-                      {paymentSettingsLoading
-                        ? 'Refreshing payment controls...'
-                        : canManagePaymentSettings
-                          ? 'Updates the live outlet payment setting immediately.'
-                          : 'Your current staff access can view payment status but cannot change it.'}
-                    </span>
-                  </div>
+                  <span className="status-pill neutral">{paymentMethodLabel}</span>
                 </div>
-              ) : null}
-              <div className="payment-choice-list">
-                {enabledPaymentMethodOptions.length === 0 ? (
-                  <div className="alert error">
-                    No cashier payment methods are enabled for this outlet right
-                    now.
+                {canReadPaymentSettings ? (
+                  <div className="sub-panel pos-inline-panel">
+                    <div className="section-header">
+                      <div>
+                        <strong>Online card checkout</strong>
+                        <p className="supporting-copy">
+                          Control whether this cashier POS can create HitPay card
+                          or wallet checkout links right now.
+                        </p>
+                      </div>
+                      <span
+                        className={`status-pill ${
+                          onlineCardEnabled ? 'success' : 'warning'
+                        }`}
+                      >
+                        {onlineCardEnabled ? 'On' : 'Off'}
+                      </span>
+                    </div>
+                    {onlineCardSetting?.reason && !onlineCardEnabled ? (
+                      <p className="supporting-copy">
+                        Reason: {onlineCardSetting.reason}
+                      </p>
+                    ) : null}
+                    <div className="inline-actions">
+                      <button
+                        className={
+                          onlineCardEnabled
+                            ? 'secondary-button'
+                            : 'primary-button'
+                        }
+                        disabled={!canManagePaymentSettings || paymentToggleBusy}
+                        onClick={() => void toggleOnlineCardPayment()}
+                        type="button"
+                      >
+                        {paymentToggleBusy
+                          ? 'Updating...'
+                          : onlineCardEnabled
+                            ? 'Turn off online card'
+                            : 'Turn on online card'}
+                      </button>
+                      <span className="supporting-copy">
+                        {paymentSettingsLoading
+                          ? 'Refreshing payment controls...'
+                          : canManagePaymentSettings
+                            ? 'Updates the live outlet payment setting immediately.'
+                            : 'Your current staff access can view payment status but cannot change it.'}
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  enabledPaymentMethodOptions.map((option) => (
-                    <button
-                      className={
-                        paymentMethod === option.value
-                          ? 'payment-choice active'
-                          : 'payment-choice'
-                      }
-                      key={option.value}
-                      onClick={() => setPaymentMethod(option.value)}
-                      type="button"
-                    >
-                      <strong>{option.label}</strong>
-                      <span>{option.note}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-              </div>
+                ) : null}
+                <div className="payment-choice-list">
+                  {enabledPaymentMethodOptions.length === 0 ? (
+                    <div className="alert error">
+                      No cashier payment methods are enabled for this outlet right
+                      now.
+                    </div>
+                  ) : (
+                    enabledPaymentMethodOptions.map((option) => (
+                      <button
+                        className={
+                          paymentMethod === option.value
+                            ? 'payment-choice active'
+                            : 'payment-choice'
+                        }
+                        key={option.value}
+                        onClick={() => setPaymentMethod(option.value)}
+                        type="button"
+                      >
+                        <strong>{option.label}</strong>
+                        <span>{option.note}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </article>
 
               {paymentMethod === 'CASH' ? (
-                <div className="field">
-                  <label htmlFor="cashTendered">Cash received</label>
-                  <div className="cash-entry-grid">
-                    <input
-                      id="cashTendered"
-                      inputMode="decimal"
-                      onChange={(event) => setCashTendered(event.target.value)}
-                      placeholder={formatCurrencyInput(summary.grandTotalCents)}
-                      value={cashTendered}
-                    />
-                    <button
-                      className="secondary-button"
-                      onClick={() =>
-                        setCashTendered(formatCurrencyInput(summary.grandTotalCents))
-                      }
-                      type="button"
-                    >
-                      Exact cash
-                    </button>
-                  </div>
-                  <div className="cash-summary-grid">
-                    <div className="sub-panel">
-                      <span className="metric-label">Tendered</span>
-                      <strong>
-                        {cashTenderedCents === null
-                          ? '--'
-                          : formatMoney(
-                              outlet?.currency ?? 'SGD',
-                              cashTenderedCents,
-                            )}
-                      </strong>
+                <article className="sub-panel surface-panel pos-control-block">
+                  <div className="section-header">
+                    <div>
+                      <p className="eyebrow">Cash station</p>
+                      <h3>Count the cash</h3>
                     </div>
-                    <div className="sub-panel">
-                      <span className="metric-label">
-                        {cashChangeDueCents !== null && cashChangeDueCents < 0
-                          ? 'Still due'
-                          : 'Change due'}
-                      </span>
-                      <strong>
-                        {cashChangeDueCents === null
-                          ? '--'
-                          : formatMoney(
-                              outlet?.currency ?? 'SGD',
-                              Math.abs(cashChangeDueCents),
-                            )}
-                      </strong>
-                    </div>
+                    <span className="status-pill warning">Cash flow</span>
                   </div>
-                  <p className="supporting-copy">
-                    Enter the amount collected at the counter before finalizing
-                    this cash sale.
-                  </p>
-                </div>
+                  <div className="field">
+                    <label htmlFor="cashTendered">Cash received</label>
+                    <div className="cash-entry-grid">
+                      <input
+                        id="cashTendered"
+                        inputMode="decimal"
+                        onChange={(event) => setCashTendered(event.target.value)}
+                        placeholder={formatCurrencyInput(summary.grandTotalCents)}
+                        value={cashTendered}
+                      />
+                      <button
+                        className="secondary-button"
+                        onClick={() =>
+                          setCashTendered(formatCurrencyInput(summary.grandTotalCents))
+                        }
+                        type="button"
+                      >
+                        Exact cash
+                      </button>
+                    </div>
+                    <div className="cash-summary-grid">
+                      <div className="sub-panel">
+                        <span className="metric-label">Tendered</span>
+                        <strong>
+                          {cashTenderedCents === null
+                            ? '--'
+                            : formatMoney(
+                                outlet?.currency ?? 'SGD',
+                                cashTenderedCents,
+                              )}
+                        </strong>
+                      </div>
+                      <div className="sub-panel">
+                        <span className="metric-label">
+                          {cashChangeDueCents !== null && cashChangeDueCents < 0
+                            ? 'Still due'
+                            : 'Change due'}
+                        </span>
+                        <strong>
+                          {cashChangeDueCents === null
+                            ? '--'
+                            : formatMoney(
+                                outlet?.currency ?? 'SGD',
+                                Math.abs(cashChangeDueCents),
+                              )}
+                        </strong>
+                      </div>
+                    </div>
+                    <p className="supporting-copy">
+                      Enter the amount collected at the counter before finalizing
+                      this cash sale.
+                    </p>
+                  </div>
+                </article>
               ) : null}
             </div>
 
             <div className="pos-ticket-setup pos-ticket-section">
-              <div className="form-grid">
+              <article className="sub-panel surface-panel pos-control-block">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Ticket setup</p>
+                    <h3>Service and source</h3>
+                  </div>
+                  <span className="status-pill neutral">
+                    {serviceTypeOptions.find((option) => option.value === serviceType)
+                      ?.label ?? serviceType}
+                  </span>
+                </div>
+                <div className="form-grid">
                 <div className="field">
                   <label htmlFor="source">Source</label>
                   <select
@@ -1766,7 +1792,20 @@ export function OutletPosPage() {
                     ))}
                   </select>
                 </div>
+                </div>
+              </article>
 
+              <article className="sub-panel surface-panel pos-control-block">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Guest details</p>
+                    <h3>Table and customer</h3>
+                  </div>
+                  <span className="status-pill neutral">
+                    {selectedTable?.displayName ?? 'No table'}
+                  </span>
+                </div>
+                <div className="form-grid">
                 {serviceType === 'DINE_IN' ? (
                   <div className="field">
                     <label htmlFor="tableId">Table</label>
@@ -1804,7 +1843,20 @@ export function OutletPosPage() {
                     value={customerPhone}
                   />
                 </div>
+                </div>
+              </article>
 
+              <article className="sub-panel surface-panel pos-control-block">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Pricing</p>
+                    <h3>Discounts and overrides</h3>
+                  </div>
+                  <span className="status-pill neutral">
+                    {summary.discountTotalCents > 0 ? 'Discount active' : 'No discount'}
+                  </span>
+                </div>
+                <div className="form-grid">
                 <div className="field">
                   <label htmlFor="discountType">Order discount</label>
                   <select
@@ -1857,7 +1909,8 @@ export function OutletPosPage() {
                     </div>
                   </>
                 ) : null}
-              </div>
+                </div>
+              </article>
             </div>
 
             <div className="pos-action-stack">
@@ -1902,68 +1955,69 @@ export function OutletPosPage() {
             </div>
           </div>
 
-          <div className="pos-live-rail" id="pos-live-feed">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Live outlet feed</p>
-                <h2 className="section-title">QR and counter orders in play</h2>
-                <p className="supporting-copy">
-                  {qrAndCounterCount} live ticket
-                  {qrAndCounterCount === 1 ? '' : 's'} visible across cashier and QR flow.
-                </p>
-              </div>
-              <span
-                className={`status-pill ${
-                  realtimeStatus === 'connected'
-                    ? 'success'
-                    : realtimeStatus === 'error'
-                      ? 'danger'
-                      : 'warning'
-                }`}
-              >
-                {formatRealtimeStatus(realtimeStatus)}
-              </span>
-            </div>
-            <div className="pos-live-order-list">
-              {liveOrdersVisible.length === 0 ? (
-                <div className="empty-state">
-                  <h3>No active orders</h3>
-                  <p className="supporting-copy">
-                    New QR and cashier orders will appear here automatically.
-                  </p>
-                </div>
-              ) : (
-                liveOrdersVisible.map((order) => (
-                  <article className="pos-live-order-card" key={order.id}>
-                    <div className="section-header">
-                      <div>
-                        <strong>#{order.orderNumber}</strong>
-                        <p className="supporting-copy">
-                          {order.table?.displayName ?? 'Counter'} |{' '}
-                          {formatMoney(order.currency, order.grandTotalCents)}
-                        </p>
-                      </div>
-                      <span className={`status-pill ${toneForOrderStatus(order.status)}`}>
-                        {formatEnum(order.status)}
-                      </span>
-                    </div>
-                    <div className="inline-actions">
-                      <span className={`status-pill ${toneForPaymentStatus(order.paymentStatus)}`}>
-                        {formatEnum(order.paymentStatus)}
-                      </span>
-                      <Link
-                        className="ghost-button"
-                        href={`/outlets/${outletId}/orders?orderId=${encodeURIComponent(order.id)}`}
-                      >
-                        Open
-                      </Link>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
         </aside>
+      </section>
+
+      <section className="panel section-panel pos-live-board" id="pos-live-feed">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Live outlet feed</p>
+            <h2 className="section-title">QR and counter orders in play</h2>
+            <p className="supporting-copy">
+              {qrAndCounterCount} live ticket
+              {qrAndCounterCount === 1 ? '' : 's'} visible across cashier and QR flow.
+            </p>
+          </div>
+          <span
+            className={`status-pill ${
+              realtimeStatus === 'connected'
+                ? 'success'
+                : realtimeStatus === 'error'
+                  ? 'danger'
+                  : 'warning'
+            }`}
+          >
+            {formatRealtimeStatus(realtimeStatus)}
+          </span>
+        </div>
+        <div className="pos-live-order-list pos-live-order-list--grid">
+          {liveOrdersVisible.length === 0 ? (
+            <div className="empty-state">
+              <h3>No active orders</h3>
+              <p className="supporting-copy">
+                New QR and cashier orders will appear here automatically.
+              </p>
+            </div>
+          ) : (
+            liveOrdersVisible.map((order) => (
+              <article className="pos-live-order-card" key={order.id}>
+                <div className="section-header">
+                  <div>
+                    <strong>#{order.orderNumber}</strong>
+                    <p className="supporting-copy">
+                      {order.table?.displayName ?? 'Counter'} |{' '}
+                      {formatMoney(order.currency, order.grandTotalCents)}
+                    </p>
+                  </div>
+                  <span className={`status-pill ${toneForOrderStatus(order.status)}`}>
+                    {formatEnum(order.status)}
+                  </span>
+                </div>
+                <div className="inline-actions">
+                  <span className={`status-pill ${toneForPaymentStatus(order.paymentStatus)}`}>
+                    {formatEnum(order.paymentStatus)}
+                  </span>
+                  <Link
+                    className="ghost-button"
+                    href={`/outlets/${outletId}/orders?orderId=${encodeURIComponent(order.id)}`}
+                  >
+                    Open
+                  </Link>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
       </section>
 
       {customizing ? (

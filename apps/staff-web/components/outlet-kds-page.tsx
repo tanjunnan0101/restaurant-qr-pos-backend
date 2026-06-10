@@ -478,9 +478,9 @@ export function OutletKdsPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Kitchen board</p>
-              <h2 className="section-title">Run the line with clarity</h2>
+              <h2 className="section-title">Kitchen lanes</h2>
               <p className="supporting-copy">
-                New paid tickets land here, move into prep, then get pushed ready for handoff.
+                Move fresh tickets into prep, then push them ready for service handoff.
               </p>
             </div>
             <span
@@ -493,6 +493,15 @@ export function OutletKdsPage() {
               }`}
             >
               {formatRealtimeStatus(realtimeStatus)}
+            </span>
+          </div>
+
+          <div className="support-inline-meta support-inline-meta--board">
+            <span>{filteredOrders.length} tickets currently visible</span>
+            <span>
+              {stationFilter === 'ALL'
+                ? 'All stations in view'
+                : `Filtered to ${stationOptions.find((station) => station.id === stationFilter)?.name ?? 'station'}`}
             </span>
           </div>
 
@@ -540,34 +549,26 @@ export function OutletKdsPage() {
             </div>
           </div>
 
-          <div className="detail-overview-grid floor-summary-grid">
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">New</span>
-              <strong className="scope-card-value">{sentToKitchenCount}</strong>
-              <p className="supporting-copy">Fresh releases waiting for prep.</p>
+          <div className="terminal-board-strip kitchen-lane-metrics">
+            <article className="terminal-board-chip">
+              <span>New</span>
+              <strong>{sentToKitchenCount}</strong>
             </article>
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">Preparing</span>
-              <strong className="scope-card-value">{preparingCount}</strong>
-              <p className="supporting-copy">Tickets actively being worked on.</p>
+            <article className="terminal-board-chip">
+              <span>Preparing</span>
+              <strong>{preparingCount}</strong>
             </article>
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">Ready</span>
-              <strong className="scope-card-value">{readyCount}</strong>
-              <p className="supporting-copy">Waiting for pickup or service handoff.</p>
+            <article className="terminal-board-chip">
+              <span>Ready</span>
+              <strong>{readyCount}</strong>
             </article>
-            <article className="sub-panel surface-panel">
-              <span className="metric-label">Oldest wait</span>
-              <strong className="scope-card-value">
+            <article className="terminal-board-chip">
+              <span>Oldest wait</span>
+              <strong>
                 {oldestQueuedOrder
                   ? formatRelativeTime(oldestQueuedOrder.createdAt)
                   : 'None'}
               </strong>
-              <p className="supporting-copy">
-                {oldestQueuedOrder
-                  ? `#${oldestQueuedOrder.orderNumber} is the oldest live ticket.`
-                  : 'No active kitchen wait right now.'}
-              </p>
             </article>
           </div>
 
@@ -582,17 +583,17 @@ export function OutletKdsPage() {
               </p>
             </div>
           ) : (
-            <div className="operations-grid kitchen-lane-grid">
+            <div className="operations-grid kitchen-lane-grid kitchen-lane-grid--dense">
               {groupedOrders.map((entry) => (
                 <article className="sub-panel queue-column-card kitchen-lane-card" key={entry.status}>
                   <div className="section-header">
                     <div>
                       <h3>{formatEnum(entry.status)}</h3>
-                      <p className="supporting-copy">
-                        {entry.orders.length} ticket
-                        {entry.orders.length === 1 ? '' : 's'}
-                      </p>
+                      <p className="supporting-copy">{kitchenCopyForStatus(entry.status)}</p>
                     </div>
+                    <span className="status-pill neutral">
+                      {entry.orders.length} ticket{entry.orders.length === 1 ? '' : 's'}
+                    </span>
                   </div>
 
                   <div className="stack-list">
@@ -622,7 +623,7 @@ export function OutletKdsPage() {
                                   {order.table?.displayName ?? 'No table'} |{' '}
                                   {order.customerName ?? 'Walk-in / guest'}
                                 </p>
-                                <p className="supporting-copy">
+                                <p className="supporting-copy kitchen-ticket-card__station-copy">
                                   {describeOrderStations(order, stationNameById)}
                                 </p>
                               </div>
@@ -745,7 +746,17 @@ export function OutletKdsPage() {
               </div>
 
               <article className="sub-panel surface-panel">
-                <h3>Items to prepare</h3>
+                <div className="section-header">
+                  <div>
+                    <h3>Prep list</h3>
+                    <p className="supporting-copy">
+                      Items and modifiers that need to be produced now.
+                    </p>
+                  </div>
+                  <span className="status-pill neutral">
+                    {selectedOrder.items.length} line{selectedOrder.items.length === 1 ? '' : 's'}
+                  </span>
+                </div>
                 <div className="stack-list">
                   {selectedOrder.items.map((item) => (
                     <div className="stack-row" key={item.id}>
@@ -778,7 +789,17 @@ export function OutletKdsPage() {
 
               <div className="service-inspector__actions-grid">
                 <article className="sub-panel surface-panel">
-                  <h3>Kitchen tickets</h3>
+                  <div className="section-header">
+                    <div>
+                      <h3>Station tickets</h3>
+                      <p className="supporting-copy">
+                        Which kitchen stations are attached to this order.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {selectedOrder.kitchenTickets.length} station{selectedOrder.kitchenTickets.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
                   <div className="stack-list">
                     {selectedOrder.kitchenTickets.map((ticket) => (
                       <div className="stack-row" key={ticket.id}>
@@ -797,13 +818,19 @@ export function OutletKdsPage() {
                 </article>
 
                 <article className="sub-panel surface-panel">
-                  <h3>Next kitchen action</h3>
+                  <div className="section-header">
+                    <div>
+                      <h3>Advance the ticket</h3>
+                      <p className="supporting-copy">
+                        Push the ticket to the next kitchen stage from one action rail.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {nextAction ? formatEnum(nextAction.status) : 'No action'}
+                    </span>
+                  </div>
                   {nextAction ? (
                     <form className="form-grid" onSubmit={submitKitchenAction}>
-                      <p className="supporting-copy">
-                        Move this ticket to{' '}
-                        <strong>{formatEnum(nextAction.status)}</strong>.
-                      </p>
                       <div className="field">
                         <label htmlFor="kds-reason">Reason</label>
                         <textarea

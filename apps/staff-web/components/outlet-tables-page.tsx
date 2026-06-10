@@ -492,6 +492,11 @@ export function OutletTablesPage() {
                 Search, filter, load tables, and operate the room from one board instead of a
                 separate setup screen.
               </p>
+              <div className="support-inline-meta">
+                <span>Sample floor target: 10 tables</span>
+                <span>2 zones</span>
+                <span>{summary.total} currently loaded</span>
+              </div>
             </div>
             <div className="floor-toolbar__actions">
               <span
@@ -514,11 +519,31 @@ export function OutletTablesPage() {
                 {setupBusy
                   ? 'Loading floor...'
                   : zones.length === 0
-                    ? 'Load tables'
-                    : 'Reload sample floor'}
+                    ? 'Load full demo floor'
+                    : summary.total < 10
+                      ? 'Load full demo floor (10 tables)'
+                      : 'Reload sample floor'}
               </button>
             </div>
           </div>
+
+          {zones.length > 0 && summary.total < 10 && canLoadDemoFloor ? (
+            <div className="alert error">
+              Only {summary.total} table{summary.total === 1 ? '' : 's'} are loaded right now.
+              Press <strong>Load full sample floor</strong> to populate the 10-table demo layout for
+              staff testing.
+              <div className="inline-actions">
+                <button
+                  className="primary-button"
+                  disabled={setupBusy}
+                  onClick={() => void handleLoadDemoFloor()}
+                  type="button"
+                >
+                  {setupBusy ? 'Loading floor...' : 'Load full demo floor now'}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="floor-filter-row">
             <div className="field">
