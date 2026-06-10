@@ -1947,14 +1947,39 @@ body {
 
 .operations-stack,
 .attendance-station,
+.attendance-board-layout,
+.attendance-planner-rail,
+.attendance-board-panel,
+.attendance-planner-card,
 .attendance-station-grid,
 .attendance-roster-grid,
 .attendance-kiosk-grid,
 .attendance-action-row,
 .attendance-photo-proof,
-.attendance-day-stack {
+.attendance-day-stack,
+.attendance-day-columns,
+.attendance-day-column,
+.attendance-shift-stack,
+.attendance-shift-card,
+.attendance-quick-roster {
   display: grid;
   gap: 18px;
+}
+
+.attendance-board-layout {
+  grid-template-columns: minmax(340px, 0.88fr) minmax(0, 1.12fr);
+  align-items: start;
+}
+
+.attendance-planner-card {
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 251, 245, 0.98);
+}
+
+.attendance-planner-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .attendance-day-panel {
@@ -1964,6 +1989,31 @@ body {
   border-radius: 24px;
   border: 1px solid rgba(216, 202, 179, 0.88);
   background: rgba(255, 253, 248, 0.92);
+}
+
+.attendance-day-columns {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+
+.attendance-day-column {
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(247, 241, 231, 0.98));
+}
+
+.attendance-day-column__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.attendance-day-column__header h3,
+.attendance-shift-card h4 {
+  margin: 0;
 }
 
 .attendance-hero {
@@ -2019,6 +2069,52 @@ body {
   box-shadow: 0 0 0 3px rgba(30, 109, 115, 0.1);
 }
 
+.attendance-shift-card {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(120, 87, 52, 0.16);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 12px 22px rgba(11, 19, 22, 0.06);
+}
+
+.attendance-shift-card.active {
+  border-color: rgba(30, 109, 115, 0.36);
+  background:
+    linear-gradient(180deg, rgba(242, 249, 247, 0.98), rgba(236, 245, 243, 0.98));
+  box-shadow: 0 0 0 3px rgba(30, 109, 115, 0.08);
+}
+
+.attendance-shift-card__top,
+.attendance-shift-card__actions {
+  display: grid;
+  gap: 12px;
+}
+
+.attendance-shift-card__top {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.attendance-shift-card__time {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(29, 23, 18, 0.05);
+}
+
+.attendance-shift-card__time span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.attendance-shift-card__actions {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
 .attendance-kiosk-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2047,6 +2143,32 @@ body {
 
 .attendance-action-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.attendance-quick-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 255, 255, 0.78);
+  text-align: left;
+}
+
+.attendance-quick-chip span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.attendance-quick-chip.active {
+  border-color: rgba(30, 109, 115, 0.36);
+  background: rgba(30, 109, 115, 0.12);
+}
+
+.attendance-board-empty {
+  min-height: 240px;
 }
 
 .support-card,
@@ -2837,6 +2959,7 @@ body {
   .service-board-layout,
   .kitchen-station-layout,
   .support-station-layout,
+  .attendance-board-layout,
   .attendance-station-grid,
   .floor-board-layout,
   .floor-workspace,
@@ -2881,6 +3004,7 @@ body {
   .table-grid--board,
   .operations-grid,
   .form-grid,
+  .attendance-planner-form,
   .attendance-kiosk-grid,
   .attendance-action-row,
   .floor-summary-grid,
@@ -2900,11 +3024,22 @@ body {
   .outlet-terminal-bar__identity,
   .workspace-hero__header,
   .attendance-hero,
+  .attendance-day-column__header,
   .floor-canvas__header,
   .floor-zone-section__header,
   .table-inspector__hero,
   .section-header {
     flex-direction: column;
+  }
+
+  .attendance-shift-card__top,
+  .attendance-shift-card__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-shift-card__time {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .staff-command-header__meta,
