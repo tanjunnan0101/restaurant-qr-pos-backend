@@ -69,6 +69,45 @@ const serviceTypeOptions: Array<{
   { value: 'COUNTER', label: 'Counter' },
 ];
 
+const sourceOptions: Array<{
+  value: 'POS' | 'WAITER';
+  label: string;
+  note: string;
+}> = [
+  {
+    value: 'POS',
+    label: 'Cashier',
+    note: 'Counter-created order',
+  },
+  {
+    value: 'WAITER',
+    label: 'Waiter',
+    note: 'Staff-assisted table order',
+  },
+];
+
+const discountModeOptions: Array<{
+  value: 'NONE' | 'PERCENT' | 'AMOUNT';
+  label: string;
+  note: string;
+}> = [
+  {
+    value: 'NONE',
+    label: 'No discount',
+    note: 'Standard pricing',
+  },
+  {
+    value: 'PERCENT',
+    label: 'Percent',
+    note: 'Apply percentage off',
+  },
+  {
+    value: 'AMOUNT',
+    label: 'Fixed amount',
+    note: 'Apply dollar discount',
+  },
+];
+
 const paymentMethodOptions: Array<{
   value: StaffPaymentMethod;
   label: string;
@@ -1782,37 +1821,44 @@ export function OutletPosPage() {
                       ?.label ?? serviceType}
                   </span>
                 </div>
-                <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="source">Source</label>
-                  <select
-                    id="source"
-                    onChange={(event) =>
-                      setSource(event.target.value as 'POS' | 'WAITER')
-                    }
-                    value={source}
-                  >
-                    <option value="POS">POS</option>
-                    <option value="WAITER">Waiter</option>
-                  </select>
+                  <label>Source</label>
+                  <div className="choice-grid choice-grid--compact">
+                    {sourceOptions.map((option) => (
+                      <button
+                        className={
+                          source === option.value ? 'choice-chip active' : 'choice-chip'
+                        }
+                        key={option.value}
+                        onClick={() => setSource(option.value)}
+                        type="button"
+                      >
+                        {option.label}
+                        <small>{option.note}</small>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="field">
-                  <label htmlFor="serviceType">Service type</label>
-                  <select
-                    id="serviceType"
-                    onChange={(event) =>
-                      setServiceType(event.target.value as StaffServiceType)
-                    }
-                    value={serviceType}
-                  >
+                  <label>Service type</label>
+                  <div className="choice-grid choice-grid--service">
                     {serviceTypeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
+                      <button
+                        className={
+                          serviceType === option.value
+                            ? 'choice-chip active'
+                            : 'choice-chip'
+                        }
+                        key={option.value}
+                        onClick={() => setServiceType(option.value)}
+                        type="button"
+                      >
                         {option.label}
-                      </option>
+                        <small>{serviceModeNote(option.value)}</small>
+                      </button>
                     ))}
-                  </select>
-                </div>
+                  </div>
                 </div>
               </article>
 
@@ -1826,6 +1872,22 @@ export function OutletPosPage() {
                     {selectedTable?.displayName ?? 'No table'}
                   </span>
                 </div>
+                {serviceType === 'DINE_IN' ? (
+                  <div className="inline-actions">
+                    <Link className="ghost-button" href={`/outlets/${outletId}/tables`}>
+                      Open tables board
+                    </Link>
+                    {selectedTable ? (
+                      <button
+                        className="ghost-button"
+                        onClick={() => setTableId('')}
+                        type="button"
+                      >
+                        Clear linked table
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="form-grid">
                 {serviceType === 'DINE_IN' ? (
                   <div className="field">
@@ -1877,30 +1939,34 @@ export function OutletPosPage() {
                     {summary.discountTotalCents > 0 ? 'Discount active' : 'No discount'}
                   </span>
                 </div>
-                <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="discountType">Order discount</label>
-                  <select
-                    id="discountType"
-                    value={discountType}
-                    onChange={(event) => {
-                      const nextType = event.target.value as
-                        | 'NONE'
-                        | 'PERCENT'
-                        | 'AMOUNT';
-                      setDiscountType(nextType);
-                      if (nextType === 'NONE') {
-                        setDiscountValue('');
-                        setDiscountReason('');
-                      }
-                    }}
-                  >
-                    <option value="NONE">No discount</option>
-                    <option value="PERCENT">Percentage</option>
-                    <option value="AMOUNT">Fixed amount</option>
-                  </select>
+                  <label>Discount mode</label>
+                  <div className="choice-grid choice-grid--compact">
+                    {discountModeOptions.map((option) => (
+                      <button
+                        className={
+                          discountType === option.value
+                            ? 'choice-chip active'
+                            : 'choice-chip'
+                        }
+                        key={option.value}
+                        onClick={() => {
+                          setDiscountType(option.value);
+                          if (option.value === 'NONE') {
+                            setDiscountValue('');
+                            setDiscountReason('');
+                          }
+                        }}
+                        type="button"
+                      >
+                        {option.label}
+                        <small>{option.note}</small>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
+                <div className="form-grid">
                 {discountType !== 'NONE' ? (
                   <>
                     <div className="field">
@@ -2288,6 +2354,21 @@ function parseCurrencyInputToCents(value: string) {
 
 function formatCurrencyInput(cents: number) {
   return (cents / 100).toFixed(2);
+}
+
+function serviceModeNote(value: StaffServiceType) {
+  switch (value) {
+    case 'DINE_IN':
+      return 'Seat to table';
+    case 'TAKEAWAY':
+      return 'Guest takes now';
+    case 'PICKUP':
+      return 'Collect later';
+    case 'COUNTER':
+      return 'Counter handoff';
+    default:
+      return 'Service flow';
+  }
 }
 
 function formatEnum(value: string) {

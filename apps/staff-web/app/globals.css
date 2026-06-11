@@ -814,6 +814,14 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.choice-grid--compact {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.choice-grid--service {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
 .choice-chip {
   border-radius: 16px;
   padding: 12px 14px;
@@ -3197,7 +3205,7 @@ body {
 .pos-ticket-workspace {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   align-items: start;
 }
 
@@ -3230,6 +3238,8 @@ body {
 
 .pos-action-stack {
   order: 5;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .pos-ticket-builder,
@@ -3327,7 +3337,7 @@ body {
 }
 
 .product-grid--terminal {
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
 }
 
 .product-card--terminal {
@@ -3413,9 +3423,13 @@ body {
 }
 
 .cart-list {
-  max-height: 34vh;
+  max-height: 42vh;
   overflow: auto;
   padding-right: 4px;
+}
+
+.pos-action-stack > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .pos-ticket-section {
