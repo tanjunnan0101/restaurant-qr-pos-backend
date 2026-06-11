@@ -454,7 +454,7 @@ export function OutletKdsPage() {
   return (
     <OutletPageLayout
       title="Kitchen"
-      subtitle="Live production board for new tickets, prep flow, and ready handoff."
+      subtitle="Production lanes for new, preparing, and ready tickets."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -483,7 +483,7 @@ export function OutletKdsPage() {
               <p className="eyebrow">Kitchen board</p>
               <h2 className="section-title">Kitchen lanes</h2>
               <p className="supporting-copy">
-                Move fresh tickets into prep, then push them ready for service handoff.
+                Move fresh tickets into prep, then hand them back to service.
               </p>
             </div>
             <span
@@ -749,10 +749,10 @@ export function OutletKdsPage() {
               <article className="sub-panel surface-panel">
                 <div className="section-header">
                   <div>
-                    <h3>Prep list</h3>
-                    <p className="supporting-copy">
-                      Items and modifiers that need to be produced now.
-                    </p>
+                      <h3>Prep list</h3>
+                      <p className="supporting-copy">
+                        Items and modifiers to produce now.
+                      </p>
                   </div>
                   <span className="status-pill neutral">
                     {selectedOrder.items.length} line{selectedOrder.items.length === 1 ? '' : 's'}
@@ -794,7 +794,7 @@ export function OutletKdsPage() {
                     <div>
                       <h3>Station tickets</h3>
                       <p className="supporting-copy">
-                        Which kitchen stations are attached to this order.
+                        Stations attached to this order.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -823,7 +823,7 @@ export function OutletKdsPage() {
                     <div>
                       <h3>Advance the ticket</h3>
                       <p className="supporting-copy">
-                        Push the ticket to the next kitchen stage from one control rail.
+                        Push this ticket to the next kitchen stage.
                       </p>
                     </div>
                     <span className="status-pill neutral">

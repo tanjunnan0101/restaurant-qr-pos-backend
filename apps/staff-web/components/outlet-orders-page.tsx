@@ -583,7 +583,7 @@ export function OutletOrdersPage() {
   return (
     <OutletPageLayout
       title="Orders"
-      subtitle="Action board for live tickets, payment recovery, and service status handoff."
+      subtitle="Queue, payments, and service handoff in one operator lane."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -610,9 +610,9 @@ export function OutletOrdersPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Service queue</p>
-              <h2 className="section-title">Active orders</h2>
+              <h2 className="section-title">Ticket queue</h2>
               <p className="supporting-copy">
-                Live service lane for unpaid, in-progress, and follow-up tickets.
+                Unpaid, in-progress, and follow-up tickets in one list.
               </p>
             </div>
             <div className="inline-actions">
@@ -895,7 +895,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Ticket contents</h3>
                       <p className="supporting-copy">
-                        What the guest actually ordered.
+                        Ordered items and notes.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -945,7 +945,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Settlement and kitchen</h3>
                       <p className="supporting-copy">
-                        Payment records and released station tickets.
+                        Payment records and released kitchen tickets.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -1001,7 +1001,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Service control</h3>
                       <p className="supporting-copy">
-                        Advance the order from one operator lane.
+                        Push the ticket to the next service stage.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -1044,7 +1044,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Payment recovery</h3>
                       <p className="supporting-copy">
-                        Reopen checkout or confirm manual settlement from the floor.
+                        Reopen checkout or confirm manual settlement.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -1135,7 +1135,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Edit or void</h3>
                       <p className="supporting-copy">
-                        Use POS for ticket changes, or void before kitchen release.
+                        Edit in POS, or void before kitchen release.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -1188,7 +1188,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Bill summary</h3>
                       <p className="supporting-copy">
-                        Final charges confirmed by the backend for this ticket.
+                        Final backend-confirmed charges.
                       </p>
                     </div>
                     <span className="status-pill neutral">

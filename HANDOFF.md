@@ -852,24 +852,37 @@ npm run build
 1. Use `docs/runbooks/staging-rollout.md` and
    `docs/runbooks/production-readiness.md` as the operational checklist, plus
    `docs/runbooks/backup-restore-drill.md` for restore rehearsal.
-2. Do not block continuation on printer validation.
-3. Validate one real Windows printer-agent machine against the target thermal
+2. Read `docs/runbooks/staff-terminal-qa-2026-06-11.md` before doing the next
+   staff-web cycle. It is the current reality check for `staff.sakorio.com`
+   and separates backend completeness from terminal usability readiness.
+3. Read `docs/design/staff-sakorio-ui-ux-redesign-brief.md` together with the
+   QA document above. The redesign brief defines the target operating model,
+   while the QA document captures what still breaks that model in practice.
+4. Do not block continuation on printer validation.
+5. Validate one real Windows printer-agent machine against the target thermal
    printer later, including the new customer-receipt output.
-4. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
+6. Decide whether to do a deeper schema cleanup of legacy internal `stripe_*`
    column names after staging is stable.
-5. Continue from the current owner-web and staff-web baselines rather than
+7. Continue from the current owner-web and staff-web baselines rather than
    scaffolding from scratch.
-6. The owner-web and staff-web UI baseline is now good enough for continued
-   product work; do not spend the next cycle redoing the shell again unless the
-   product direction changes materially.
-7. If staging visuals look outdated, verify Render has redeployed owner-web and
+8. The owner-web baseline is stable for continued product work. The staff-web
+   baseline is functionally usable in staging, but it is still not shop-floor
+   ready from a UX standpoint. The next cycle should improve operator density,
+   table flow, orders scanning, KDS readability, and attendance clarity rather
+   than re-scaffolding the app.
+9. If staging visuals look outdated, verify Render has redeployed owner-web and
    staff-web to commit `461c525`.
-8. Next frontend priorities:
+10. Next frontend priorities:
+   - execute the fixes listed in
+     `docs/runbooks/staff-terminal-qa-2026-06-11.md`
    - refine the new KDS mode with station filters, expo handling, and deeper
      kitchen ergonomics
+   - make Tables behave like a real room-first floor board
+   - compress POS and Orders so they work as dense service terminals rather
+     than analytics dashboards
    - decide later whether KDS should stay inside staff-web or split into its
      own dedicated app
-9. Note on cashier permissions:
+11. Note on cashier permissions:
    - newly provisioned cashier roles now include `payment.settings.manage`
    - existing tenants are covered by Prisma migration
      `20260608170000_backfill_cashier_payment_settings_manage`

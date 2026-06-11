@@ -883,6 +883,14 @@ This brief is ready for developer handoff because it:
 - includes testable use cases
 - includes acceptance criteria and QA prompts
 
+Required companion:
+
+- `docs/runbooks/staff-terminal-qa-2026-06-11.md`
+
+The redesign brief defines the intended terminal. The QA runbook defines the
+current gaps still preventing `staff.sakorio.com` from feeling shop-floor
+ready. Future staff-web work should read both together.
+
 ## 15. Source Notes
 
 This brief is based on:

@@ -1062,7 +1062,7 @@ export function OutletPosPage() {
   return (
     <OutletPageLayout
       title="Staff POS"
-      subtitle="Run counter, waiter, and QR-linked tickets from one terminal."
+      subtitle="Cashier terminal for walk-ins, waiter orders, and QR-linked tickets."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -1225,10 +1225,10 @@ export function OutletPosPage() {
           <div className="workspace-hero__copy">
             <p className="eyebrow">Cashier terminal</p>
             <h2 className="section-title">
-              Close sales fast without losing the floor view
+              Build and close tickets fast
             </h2>
             <p className="supporting-copy">
-              Build the ticket, settle it, and keep QR orders visible from the same station.
+              Add items, settle payment, and keep live outlet orders in view.
             </p>
           </div>
           <div className="workspace-pill-grid">
@@ -1278,10 +1278,9 @@ export function OutletPosPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Menu station</p>
-                <h2 className="section-title">Build a ticket fast</h2>
+              <h2 className="section-title">Build a ticket fast</h2>
               <p className="supporting-copy">
-                Choose the sales menu, jump into a category, and add items with
-                minimal clicks.
+                Choose a menu, jump to a category, and add items with minimal clicks.
               </p>
             </div>
             <div className="menu-toolbar">
@@ -1304,6 +1303,9 @@ export function OutletPosPage() {
                 placeholder="Search items, categories, or stations"
                 value={menuSearch}
               />
+              <Link className="secondary-button" href={`/outlets/${outletId}/menus`}>
+                Add / edit items
+              </Link>
               <a className="secondary-button" href="#pos-live-feed">
                 Live orders
               </a>
@@ -1499,7 +1501,7 @@ export function OutletPosPage() {
                   <div className="empty-state">
                     <h3>Cart is empty</h3>
                     <p className="supporting-copy">
-                      Add items from the published POS menu to begin the ticket.
+                      Add items from the menu to begin the ticket.
                     </p>
                   </div>
                 ) : (

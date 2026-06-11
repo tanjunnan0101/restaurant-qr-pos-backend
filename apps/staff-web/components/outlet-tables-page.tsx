@@ -465,7 +465,7 @@ export function OutletTablesPage() {
   return (
     <OutletPageLayout
       title="Tables"
-      subtitle="Live floor board for seating, guest help, QR coverage, and direct handoff into POS."
+      subtitle="Operate tables, seating, QR, and guest help from one floor board."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -492,10 +492,9 @@ export function OutletTablesPage() {
           <div className="floor-toolbar">
             <div className="floor-toolbar__copy">
               <p className="eyebrow">Floor board</p>
-              <h2 className="section-title">Run the room from one board</h2>
+              <h2 className="section-title">Operate the floor fast</h2>
               <p className="supporting-copy">
-                Scan the floor, pick a table, and hand off straight into cashier or live order
-                follow-up without leaving the room board.
+                Scan the room, tap a table, and jump straight into service actions.
               </p>
               <div className="support-inline-meta support-inline-meta--board">
                 <span>{summary.total} tables currently loaded</span>
@@ -535,10 +534,10 @@ export function OutletTablesPage() {
                 {setupBusy
                   ? 'Loading floor...'
                   : zones.length === 0
-                    ? 'Load tables (10-table sample floor)'
+                    ? 'Load demo floor (10 tables)'
                     : summary.total < 10
-                      ? 'Load missing sample tables'
-                      : 'Reload sample floor'}
+                      ? 'Finish demo floor'
+                      : 'Reload demo floor'}
               </button>
             </div>
           </div>
@@ -550,8 +549,7 @@ export function OutletTablesPage() {
                 <h3 className="section-title">Expand this outlet to the full 10-table demo</h3>
                 <p className="supporting-copy">
                   {summary.total} table{summary.total === 1 ? '' : 's'} are loaded right now.
-                  Add the remaining {missingDemoTableCount} so the floor board, cashier flow, and
-                  order routing are easier to test properly.
+                  Add the remaining {missingDemoTableCount} so the board behaves like a real room.
                 </p>
               </div>
               <div className="inline-actions">
@@ -561,7 +559,7 @@ export function OutletTablesPage() {
                   onClick={() => void handleLoadDemoFloor()}
                   type="button"
                 >
-                  {setupBusy ? 'Loading floor...' : 'Load missing tables now'}
+                    {setupBusy ? 'Loading floor...' : 'Load missing tables now'}
                 </button>
               </div>
             </div>
@@ -616,8 +614,8 @@ export function OutletTablesPage() {
                   {setupBusy
                     ? 'Loading floor...'
                     : summary.total < 10
-                      ? 'Load sample floor'
-                      : 'Reload sample floor'}
+                      ? 'Load demo floor'
+                      : 'Reload demo floor'}
                 </button>
               ) : null}
               {(searchTerm || statusFilter !== 'ALL') && (
@@ -696,8 +694,7 @@ export function OutletTablesPage() {
                     {activeZone ? activeZone.name : 'Whole floor'}
                   </h2>
                   <p className="supporting-copy">
-                    Pick a table, then move directly into seating, QR, cashier, or guest-help
-                    action from the same board.
+                    Pick a table, then move straight into seating, QR, cashier, or guest-help action.
                   </p>
                 </div>
                 <div className="support-inline-meta">
@@ -749,8 +746,7 @@ export function OutletTablesPage() {
                       <h3 className="section-title">Tap a table to operate</h3>
                     </div>
                     <p className="supporting-copy">
-                      The floor stays full width so the team can sweep the room visually first,
-                      then jump into the selected table controls below.
+                      Full-room view first, table actions second.
                     </p>
                   </div>
 
@@ -907,8 +903,7 @@ export function OutletTablesPage() {
                           <p className="eyebrow">Service handoff</p>
                           <h4 className="table-inspector__section-title">Move this table forward</h4>
                           <p className="supporting-copy">
-                            Use cashier when guests are ordering or paying, and use the queue when
-                            you need ticket history or service follow-up.
+                            Open POS for ordering or payment, or open the queue for ticket follow-up.
                           </p>
                         </div>
 
@@ -917,7 +912,7 @@ export function OutletTablesPage() {
                             className="primary-button"
                             href={`/outlets/${outletId}/pos?tableId=${selectedTable.id}`}
                           >
-                            Open cashier
+                            Open POS
                           </Link>
                           <Link
                             className="secondary-button"
