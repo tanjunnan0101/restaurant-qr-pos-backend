@@ -656,7 +656,7 @@ export function OutletMenusPage() {
   return (
     <OutletPageLayout
       title="Menus"
-      subtitle="Control sold-out state, drafts, and quick menu edits without leaving service."
+      subtitle="Run service menu operations from one rail: create a menu, add a live item, review the draft, and publish it to the floor."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -715,6 +715,30 @@ export function OutletMenusPage() {
               <a className="secondary-button" href="#menu-quick-add-item">
                 Open quick add
               </a>
+            </article>
+
+            <article className="panel section-panel menu-action-card menu-action-card--soft">
+              <div>
+                <p className="eyebrow">Quick action</p>
+                <h2 className="section-title">Publish service menu</h2>
+                <p className="supporting-copy">
+                  Review the active draft and push the updated selling menu live for QR and POS.
+                </p>
+              </div>
+              {canPublishMenus && hasDraft ? (
+                <button
+                  className="primary-button"
+                  disabled={actionBusyId === 'publish-menu'}
+                  onClick={() => void handlePublish()}
+                  type="button"
+                >
+                  {actionBusyId === 'publish-menu' ? 'Publishing...' : 'Publish open draft'}
+                </button>
+              ) : (
+                <a className="secondary-button" href="#menu-control-rail">
+                  Open service rail
+                </a>
+              )}
             </article>
           </section>
 
@@ -976,20 +1000,19 @@ export function OutletMenusPage() {
 
           <section className="operations-layout support-station-layout">
             <aside className="panel section-panel support-control-rail">
-              <article className="support-config-card">
+              <article className="support-config-card" id="menu-control-rail">
                 <div className="support-config-card__header">
                   <div>
                     <p className="eyebrow">Menu station</p>
-                    <h2 className="section-title">Control deck</h2>
+                    <h2 className="section-title">Service rail</h2>
                   </div>
                   <span className="status-pill success">
                     {formatRealtimeStatus(status)}
                   </span>
                 </div>
                 <p className="supporting-copy">
-                  Run live menu control from one rail: select the selling
-                  version, open a draft, publish updates, and react to item
-                  availability without losing floor pace.
+                  Pick the selling menu, refresh the current state, open a draft, publish updates,
+                  and jump straight into quick-add when the floor needs a new item.
                 </p>
                 <div className="support-inline-meta">
                   <span>{menus.length} menus</span>
@@ -1110,6 +1133,15 @@ export function OutletMenusPage() {
                     <option value="AVAILABLE">Available only</option>
                     <option value="SOLD_OUT">Sold out only</option>
                   </select>
+                </div>
+                <div className="support-inline-meta support-inline-meta--board">
+                  <span>
+                    {menuDetail
+                      ? `${menuDetail.channel} channel${menuDetail.channel === 'BOTH' ? 's' : ''}`
+                      : 'Choose a menu'}
+                  </span>
+                  <span>{menuDetail?.isDefault ? 'Default menu' : 'Non-default menu'}</span>
+                  <span>{hasDraft ? 'Draft available' : 'No open draft'}</span>
                 </div>
                 <p className="support-note">
                   Service reads from published versions. Build in draft, review, then publish when the floor is ready.
@@ -1259,6 +1291,29 @@ export function OutletMenusPage() {
                           {selectedVersion.categories.length} categories
                         </span>
                       </div>
+                    </div>
+                    <div className="support-card__actions">
+                      <button
+                        className="secondary-button"
+                        disabled={busy || detailBusy}
+                        onClick={() => setRefreshTick((current) => current + 1)}
+                        type="button"
+                      >
+                        {busy || detailBusy ? 'Refreshing...' : 'Refresh version'}
+                      </button>
+                      <a className="secondary-button" href="#menu-quick-add-item">
+                        Add item
+                      </a>
+                      {canPublishMenus && hasDraft ? (
+                        <button
+                          className="primary-button"
+                          disabled={actionBusyId === 'publish-menu'}
+                          onClick={() => void handlePublish()}
+                          type="button"
+                        >
+                          {actionBusyId === 'publish-menu' ? 'Publishing...' : 'Publish draft'}
+                        </button>
+                      ) : null}
                     </div>
                   </article>
 

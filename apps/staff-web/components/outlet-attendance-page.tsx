@@ -20,7 +20,7 @@ import {
 } from './outlet-page-base';
 
 const PHOTO_REQUIRED_MESSAGE =
-  'A clock photo is required on this station before continuing.';
+  'This outlet requires a clock photo before continuing.';
 
 export function OutletAttendancePage() {
   const {
@@ -142,6 +142,8 @@ export function OutletAttendancePage() {
     shiftBoard.find((entry) => entry.user.id === selectedUser?.id) ??
     null;
   const activeStaffCount = staffRoster.filter((entry) => entry.activeSession).length;
+  const photoRequired = settings?.requirePhoto ?? true;
+  const manualClockingAllowed = settings?.allowManualClockIn ?? true;
   const groupedShifts = useMemo(
     () => groupShiftsByDay(shiftBoard),
     [shiftBoard],
@@ -199,7 +201,7 @@ export function OutletAttendancePage() {
     if (!session?.accessToken || !selectedUser) {
       return;
     }
-    if (!photoDataUrl) {
+    if (photoRequired && !photoDataUrl) {
       setError(PHOTO_REQUIRED_MESSAGE);
       return;
     }
@@ -349,7 +351,7 @@ export function OutletAttendancePage() {
   return (
     <OutletPageLayout
       title="Attendance"
-      subtitle="Shared-device clocking with employee selection and mandatory photo proof."
+      subtitle="Shared-device shift clocking with timetable selection, optional manual fallback, and photo-proof policy."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -378,8 +380,8 @@ export function OutletAttendancePage() {
               <p className="eyebrow">Shared shift station</p>
               <h2 className="section-title">Tap your shift, take a photo, and clock in</h2>
               <p className="supporting-copy">
-                Staff select themselves from today&apos;s roster, take a proof photo
-                on the iPad, and clock in or out from one shared station.
+                Staff select themselves from today&apos;s timetable, confirm the station capture,
+                and clock in or out from one shared iPad.
               </p>
               <div className="attendance-hero__actions">
                 <a className="primary-button" href="#attendance-shift-board">
@@ -402,7 +404,12 @@ export function OutletAttendancePage() {
               <span className="status-pill success">
                 {activeStaffCount} on shift
               </span>
-              <span className="status-pill warning">Photo required</span>
+              <span className={`status-pill ${photoRequired ? 'warning' : 'neutral'}`}>
+                {photoRequired ? 'Photo required' : 'Photo optional'}
+              </span>
+              <span className={`status-pill ${manualClockingAllowed ? 'success' : 'neutral'}`}>
+                {manualClockingAllowed ? 'Manual fallback on' : 'Roster only'}
+              </span>
               <span className="status-pill neutral">{deviceLabel}</span>
             </div>
           </section>
@@ -413,8 +420,9 @@ export function OutletAttendancePage() {
                 <p className="eyebrow">Step 1</p>
                 <h2 className="section-title">Who is clocking?</h2>
                 <p className="supporting-copy">
-                  Tap the scheduled shift first. If there is no timetable entry, choose the employee
-                  manually from the fallback roster.
+                  Tap the scheduled shift first. {manualClockingAllowed
+                    ? 'If there is no timetable entry, use the fallback employee roster below.'
+                    : 'This outlet only allows clocking from scheduled shifts.'}
                 </p>
               </div>
               <div className="support-card__actions">
@@ -433,7 +441,9 @@ export function OutletAttendancePage() {
                 <p className="supporting-copy">
                   {selectedShift
                     ? `${selectedShift.title} | ${formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}`
-                    : 'No timetable shift selected yet.'}
+                    : manualClockingAllowed
+                      ? 'No timetable shift selected yet. Manual fallback is available below.'
+                      : 'No timetable shift selected yet.'}
                 </p>
               </article>
               <article className="sub-panel surface-panel">
@@ -456,10 +466,12 @@ export function OutletAttendancePage() {
               <h2 className="section-title">
                 {selectedShift ? selectedShift.user.fullName : selectedUser.fullName}
               </h2>
-              <p className="supporting-copy">
-                {selectedShift
-                  ? `${selectedShift.title} | ${formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}`
-                  : 'Use the timetable first. If a shift was not scheduled, choose the employee manually.'}
+                <p className="supporting-copy">
+                  {selectedShift
+                    ? `${selectedShift.title} | ${formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}`
+                    : manualClockingAllowed
+                      ? 'Use the timetable first. If a shift was not scheduled, choose the employee manually.'
+                      : 'Use the timetable first, then move to the clock station.'}
               </p>
             </div>
             <div className="support-card__actions">
@@ -717,25 +729,33 @@ export function OutletAttendancePage() {
                   </div>
                   <span className="supporting-copy">{staffRoster.length} staff</span>
                 </div>
-                <p className="supporting-copy">
-                  Only use this roster when the manager has not placed the employee on the timetable yet.
-                </p>
-                <div className="attendance-quick-roster">
-                  {staffRoster.map((entry) => {
-                    const active = entry.id === selectedUser.id && !selectedShift;
-                    return (
-                      <button
-                        className={active ? 'attendance-quick-chip active' : 'attendance-quick-chip'}
-                        key={entry.id}
-                        onClick={() => selectManualStaff(entry.id)}
-                        type="button"
-                      >
-                        <strong>{entry.fullName}</strong>
-                        <span>{entry.roleName}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                {manualClockingAllowed ? (
+                  <>
+                    <p className="supporting-copy">
+                      Only use this roster when the manager has not placed the employee on the timetable yet.
+                    </p>
+                    <div className="attendance-quick-roster">
+                      {staffRoster.map((entry) => {
+                        const active = entry.id === selectedUser.id && !selectedShift;
+                        return (
+                          <button
+                            className={active ? 'attendance-quick-chip active' : 'attendance-quick-chip'}
+                            key={entry.id}
+                            onClick={() => selectManualStaff(entry.id)}
+                            type="button"
+                          >
+                            <strong>{entry.fullName}</strong>
+                            <span>{entry.roleName}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="soft-note">
+                    Manual clocking is disabled for this outlet. Staff must tap a scheduled shift from the timetable board.
+                  </div>
+                )}
               </article>
             </aside>
 
@@ -810,7 +830,9 @@ export function OutletAttendancePage() {
                 </article>
                 <article className="terminal-board-chip">
                   <span>Photo</span>
-                  <strong>{photoDataUrl ? 'Captured' : 'Required'}</strong>
+                  <strong>
+                    {photoDataUrl ? 'Captured' : photoRequired ? 'Required' : 'Optional'}
+                  </strong>
                 </article>
                 <article className="terminal-board-chip">
                   <span>Action</span>
@@ -837,7 +859,13 @@ export function OutletAttendancePage() {
 
               <div className="support-inline-meta support-inline-meta--board">
                 <span>{selectedShift ? 'Shift selected from timetable' : 'Manual fallback selection'}</span>
-                <span>{photoDataUrl ? 'Photo ready for upload' : 'Capture required before save'}</span>
+                <span>
+                  {photoDataUrl
+                    ? 'Photo ready for upload'
+                    : photoRequired
+                      ? 'Capture required before save'
+                      : 'Photo can be skipped if needed'}
+                </span>
                 <span>{currentSession ? 'Ending active shift' : 'Starting new shift'}</span>
               </div>
 
@@ -852,7 +880,9 @@ export function OutletAttendancePage() {
                   <div className="empty-state attendance-photo-empty">
                     <strong>No photo captured yet</strong>
                     <p className="supporting-copy">
-                      A selfie is required before clocking in or out.
+                      {photoRequired
+                        ? 'A selfie is required before clocking in or out.'
+                        : 'Take a selfie if the shift needs proof for handoff or review.'}
                     </p>
                   </div>
                 )}
@@ -866,7 +896,7 @@ export function OutletAttendancePage() {
                 {!currentSession ? (
                   <button
                     className="primary-button"
-                    disabled={actionBusy || photoBusy || !photoDataUrl}
+                    disabled={actionBusy || photoBusy || (photoRequired && !photoDataUrl)}
                     onClick={() => void handleSubmitClock('in')}
                     type="button"
                   >
@@ -875,7 +905,7 @@ export function OutletAttendancePage() {
                 ) : (
                   <button
                     className="primary-button"
-                    disabled={actionBusy || photoBusy || !photoDataUrl}
+                    disabled={actionBusy || photoBusy || (photoRequired && !photoDataUrl)}
                     onClick={() => void handleSubmitClock('out')}
                     type="button"
                   >
@@ -946,7 +976,9 @@ export function OutletAttendancePage() {
                 </article>
                 <article className="sub-panel surface-panel">
                   <span className="metric-label">Photo policy</span>
-                  <strong className="scope-card-value">Required</strong>
+                  <strong className="scope-card-value">
+                    {photoRequired ? 'Required' : 'Optional'}
+                  </strong>
                 </article>
                 <article className="sub-panel surface-panel">
                   <span className="metric-label">Recent sessions</span>
@@ -1173,7 +1205,7 @@ async function compressImageForAttendance(file: File) {
   const source = await readFileAsDataUrl(file);
   const image = await loadImage(source);
   const canvas = document.createElement('canvas');
-  const maxEdge = 560;
+  const maxEdge = 420;
   const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
   canvas.width = Math.max(1, Math.round(image.width * scale));
   canvas.height = Math.max(1, Math.round(image.height * scale));
@@ -1185,14 +1217,14 @@ async function compressImageForAttendance(file: File) {
 
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  let quality = 0.76;
+  let quality = 0.72;
   let output = canvas.toDataURL('image/jpeg', quality);
-  while (output.length > 45000 && quality > 0.28) {
+  while (output.length > 32000 && quality > 0.24) {
     quality -= 0.08;
     output = canvas.toDataURL('image/jpeg', quality);
   }
 
-  if (output.length > 45000) {
+  if (output.length > 32000) {
     throw new Error(
       'The captured photo is still too large. Move closer and retake a tighter shot.',
     );

@@ -1973,13 +1973,14 @@ body {
 .menu-actions-strip {
   display: grid;
   gap: 18px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .menu-action-card {
   display: grid;
   gap: 14px;
   align-content: space-between;
+  min-height: 210px;
 }
 
 .menu-action-card--soft {
