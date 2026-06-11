@@ -2967,6 +2967,34 @@ body {
   gap: 14px;
 }
 
+.queue-scope-bar {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.queue-scope-chip {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid rgba(24, 33, 38, 0.08);
+  background: rgba(248, 250, 251, 0.94);
+  color: var(--terminal-ink);
+}
+
+.queue-scope-chip small {
+  color: var(--terminal-ink-soft);
+}
+
+.queue-scope-chip.active {
+  border-color: rgba(30, 109, 115, 0.42);
+  background: rgba(30, 109, 115, 0.12);
+  box-shadow: 0 0 0 3px rgba(30, 109, 115, 0.08);
+}
+
 .service-board-filters__actions {
   display: flex;
   flex-wrap: wrap;
@@ -3507,6 +3535,7 @@ body {
   .operations-summary-grid,
   .metric-board,
   .service-ticket-list,
+  .queue-scope-bar,
   .menu-actions-strip,
   .table-grid,
   .table-grid--board,
@@ -3544,6 +3573,7 @@ body {
   .operations-grid,
   .form-grid,
   .service-ticket-list,
+  .queue-scope-bar,
   .menu-actions-strip,
   .menu-launchpad-shell,
   .attendance-planner-form,

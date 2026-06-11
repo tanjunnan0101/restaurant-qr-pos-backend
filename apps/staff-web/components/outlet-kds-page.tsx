@@ -607,9 +607,14 @@ export function OutletKdsPage() {
                       <h3>{formatEnum(entry.status)}</h3>
                       <p className="supporting-copy">{kitchenCopyForStatus(entry.status)}</p>
                     </div>
-                    <span className="status-pill neutral">
-                      {entry.orders.length} ticket{entry.orders.length === 1 ? '' : 's'}
-                    </span>
+                    <div className="support-inline-meta">
+                      {entry.orders[0] ? (
+                        <span>Lead {formatRelativeTime(entry.orders[0].createdAt)}</span>
+                      ) : null}
+                      <span className="status-pill neutral">
+                        {entry.orders.length} ticket{entry.orders.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="stack-list">
@@ -643,9 +648,14 @@ export function OutletKdsPage() {
                                   {describeOrderStations(order, stationNameById)}
                                 </p>
                               </div>
-                              <span className={`status-pill ${statusTone(order.status)}`}>
-                                {formatEnum(order.status)}
-                              </span>
+                              <div className="service-ticket-card__badges">
+                                {entry.orders[0]?.id === order.id ? (
+                                  <span className="mini-badge">Next up</span>
+                                ) : null}
+                                <span className={`status-pill ${statusTone(order.status)}`}>
+                                  {formatEnum(order.status)}
+                                </span>
+                              </div>
                             </div>
                             <div className="kitchen-ticket-card__metrics">
                               <div className="metric-inline">

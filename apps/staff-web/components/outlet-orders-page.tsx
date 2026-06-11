@@ -47,6 +47,8 @@ const statusFilters: Array<StaffOrderStatus | 'ALL'> = [
   'CANCELLED',
 ];
 
+type QueueMode = 'ACTION' | 'PAYMENTS' | 'OPEN' | 'ALL';
+
 export function OutletOrdersPage() {
   const {
     session,
@@ -62,6 +64,9 @@ export function OutletOrdersPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
   const [filter, setFilter] = useState<StaffOrderStatus | 'ALL'>('ALL');
+  const [queueMode, setQueueMode] = useState<QueueMode>(
+    requestedTableId ? 'ALL' : 'ACTION',
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [busy, setBusy] = useState(true);
   const [detailBusy, setDetailBusy] = useState(false);
@@ -250,6 +255,22 @@ export function OutletOrdersPage() {
     () =>
       orders
         .filter((order) => {
+          if (queueMode === 'ACTION' && !nextStatusAction(order.status)) {
+            return false;
+          }
+          if (
+            queueMode === 'PAYMENTS' &&
+            order.status !== 'PENDING_PAYMENT' &&
+            order.status !== 'PAYMENT_PROCESSING'
+          ) {
+            return false;
+          }
+          if (
+            queueMode === 'OPEN' &&
+            ['COMPLETED', 'CANCELLED'].includes(order.status)
+          ) {
+            return false;
+          }
           if (!normalizedSearch) {
             return true;
           }
@@ -280,9 +301,15 @@ export function OutletOrdersPage() {
             new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
           );
         }),
-    [normalizedSearch, orders],
+    [normalizedSearch, orders, queueMode],
   );
   const focusedTable = tableFocusedOrders[0]?.table ?? null;
+
+  useEffect(() => {
+    if (requestedTableId) {
+      setQueueMode('ALL');
+    }
+  }, [requestedTableId]);
 
   useEffect(() => {
     setSelectedOrderId((current) =>
@@ -665,6 +692,41 @@ export function OutletOrdersPage() {
             </span>
           </div>
 
+          <div className="queue-scope-bar">
+            <button
+              className={queueMode === 'ACTION' ? 'queue-scope-chip active' : 'queue-scope-chip'}
+              onClick={() => setQueueMode('ACTION')}
+              type="button"
+            >
+              Action now
+              <small>{actionNowCount} tickets</small>
+            </button>
+            <button
+              className={queueMode === 'PAYMENTS' ? 'queue-scope-chip active' : 'queue-scope-chip'}
+              onClick={() => setQueueMode('PAYMENTS')}
+              type="button"
+            >
+              Payment issues
+              <small>{paymentAttentionCount} tickets</small>
+            </button>
+            <button
+              className={queueMode === 'OPEN' ? 'queue-scope-chip active' : 'queue-scope-chip'}
+              onClick={() => setQueueMode('OPEN')}
+              type="button"
+            >
+              Open tickets
+              <small>{orders.filter((order) => !['COMPLETED', 'CANCELLED'].includes(order.status)).length}</small>
+            </button>
+            <button
+              className={queueMode === 'ALL' ? 'queue-scope-chip active' : 'queue-scope-chip'}
+              onClick={() => setQueueMode('ALL')}
+              type="button"
+            >
+              All records
+              <small>{orders.length} total</small>
+            </button>
+          </div>
+
           <div className="form-grid service-board-filters">
             <div className="field">
               <label htmlFor="orders-search">Find an order</label>
@@ -707,6 +769,15 @@ export function OutletOrdersPage() {
                       Clear filters
                     </button>
                   )}
+                  {queueMode !== 'ACTION' && !requestedTableId ? (
+                    <button
+                      className="ghost-button"
+                      onClick={() => setQueueMode('ACTION')}
+                      type="button"
+                    >
+                      Back to action lane
+                    </button>
+                  ) : null}
                   {requestedTableId ? (
                     <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
                       Leave table focus
