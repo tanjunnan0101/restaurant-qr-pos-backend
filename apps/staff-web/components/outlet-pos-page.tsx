@@ -1253,28 +1253,22 @@ export function OutletPosPage() {
             </div>
           </div>
         </div>
-        <div className="pos-summary-grid">
-          <article className="pos-summary-card">
-            <span className="metric-label">Ticket</span>
+        <div className="terminal-board-strip pos-summary-strip">
+          <article className="terminal-board-chip">
+            <span>Ticket lines</span>
             <strong>{cart.length}</strong>
-            <p className="supporting-copy">Open cart lines at the counter.</p>
           </article>
-          <article className="pos-summary-card">
-            <span className="metric-label">Live orders</span>
+          <article className="terminal-board-chip">
+            <span>Live orders</span>
             <strong>{qrAndCounterCount}</strong>
-            <p className="supporting-copy">QR and cashier tickets still in play.</p>
           </article>
-          <article className="pos-summary-card">
-            <span className="metric-label">Awaiting payment</span>
+          <article className="terminal-board-chip">
+            <span>Awaiting payment</span>
             <strong>{unpaidCount}</strong>
-            <p className="supporting-copy">
-              Tickets still waiting to be paid or finalized.
-            </p>
           </article>
-          <article className="pos-summary-card">
-            <span className="metric-label">Kitchen flow</span>
+          <article className="terminal-board-chip">
+            <span>Kitchen flow</span>
             <strong>{kitchenCount}</strong>
-            <p className="supporting-copy">Orders already moving through service.</p>
           </article>
         </div>
       </section>
@@ -1439,166 +1433,191 @@ export function OutletPosPage() {
             <h2 className="section-title">Current ticket</h2>
 
             <div className="detail-overview-grid detail-overview-grid--ticket pos-ticket-summary">
-              <article className="sub-panel surface-panel">
-                <span className="metric-label">Lines</span>
-                <strong className="scope-card-value">{cart.length}</strong>
-                <p className="supporting-copy">
-                  {itemCount} item{itemCount === 1 ? '' : 's'} in this ticket.
-                </p>
+              <article className="terminal-board-chip">
+                <span>Lines</span>
+                <strong>{cart.length}</strong>
               </article>
-              <article className="sub-panel surface-panel">
-                <span className="metric-label">Service</span>
-                <strong className="scope-card-value">
+              <article className="terminal-board-chip">
+                <span>Items</span>
+                <strong>{itemCount}</strong>
+              </article>
+              <article className="terminal-board-chip">
+                <span>Service</span>
+                <strong>
                   {serviceTypeOptions.find((option) => option.value === serviceType)
                     ?.label ?? serviceType}
                 </strong>
-                <p className="supporting-copy">
-                  {selectedTable
-                    ? `${selectedTable.zoneName} | ${selectedTable.displayName}`
-                    : 'No table linked yet.'}
-                </p>
               </article>
-              <article className="sub-panel surface-panel">
-                <span className="metric-label">Payment</span>
-                <strong className="scope-card-value">{paymentMethodLabel}</strong>
-                <p className="supporting-copy">
-                  {source === 'WAITER'
-                    ? 'Waiter-assisted order source.'
-                    : 'Counter-created order source.'}
-                </p>
+              <article className="terminal-board-chip">
+                <span>Payment</span>
+                <strong>{paymentMethodLabel}</strong>
               </article>
-              <article className="sub-panel surface-panel">
-                <span className="metric-label">Total</span>
-                <strong className="scope-card-value">
+              <article className="terminal-board-chip">
+                <span>Total</span>
+                <strong>
                   {formatMoney(outlet?.currency ?? 'SGD', summary.grandTotalCents)}
                 </strong>
-                <p className="supporting-copy">Running estimated amount.</p>
               </article>
             </div>
 
-            <div className="cart-list pos-ticket-section pos-ticket-cart">
-            {cart.length === 0 ? (
-              <div className="empty-state">
-                <h3>Cart is empty</h3>
-                <p className="supporting-copy">
-                  Add items from the published POS menu to begin the ticket.
-                </p>
+            <div className="support-inline-meta support-inline-meta--board">
+              <span>
+                {selectedTable
+                  ? `${selectedTable.zoneName} | ${selectedTable.displayName}`
+                  : 'No table linked yet'}
+              </span>
+              <span>
+                {source === 'WAITER'
+                  ? 'Waiter-assisted order source'
+                  : 'Counter-created order source'}
+              </span>
+            </div>
+
+            <div className="pos-ticket-jumpbar">
+              <a className="ghost-button" href="#ticket-payment">
+                Jump to payment
+              </a>
+              <a className="ghost-button" href="#ticket-setup">
+                Guest and service
+              </a>
+              <a className="ghost-button" href="#pos-live-feed">
+                Live orders
+              </a>
+              {selectedTable ? (
+                <Link
+                  className="ghost-button"
+                  href={`/outlets/${outletId}/orders?tableId=${selectedTable.id}`}
+                >
+                  Table orders
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="pos-ticket-workspace">
+              <div className="cart-list pos-ticket-section pos-ticket-cart">
+                {cart.length === 0 ? (
+                  <div className="empty-state">
+                    <h3>Cart is empty</h3>
+                    <p className="supporting-copy">
+                      Add items from the published POS menu to begin the ticket.
+                    </p>
+                  </div>
+                ) : (
+                  cart.map((item) => (
+                    <article className="cart-card cart-card--dense" key={item.id}>
+                      <div className="section-header">
+                        <div>
+                          <strong>{item.itemName}</strong>
+                          <p className="supporting-copy">
+                            {item.variantName ? `${item.variantName} | ` : ''}
+                            {item.modifierLabels.join(', ') || 'No modifiers'}
+                          </p>
+                          {item.remarks ? (
+                            <p className="supporting-copy">Note: {item.remarks}</p>
+                          ) : null}
+                        </div>
+                        <strong>
+                          {formatMoney(
+                            outlet?.currency ?? 'SGD',
+                            item.lineTotalCents,
+                          )}
+                        </strong>
+                      </div>
+                      <div className="cart-item-controls">
+                        <button
+                          className="quantity-button"
+                          onClick={() => updateCartQuantity(item.id, -1)}
+                          type="button"
+                        >
+                          -
+                        </button>
+                        <span className="quantity-value">{item.quantity}</span>
+                        <button
+                          className="quantity-button"
+                          onClick={() => updateCartQuantity(item.id, 1)}
+                          type="button"
+                        >
+                          +
+                        </button>
+                        <button
+                          className="secondary-button"
+                          onClick={() => startEditingCartItem(item)}
+                          type="button"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="ghost-button"
+                          onClick={() => removeCartItem(item.id)}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                )}
               </div>
-            ) : (
-              cart.map((item) => (
-                <article className="cart-card cart-card--dense" key={item.id}>
-                  <div className="section-header">
-                    <div>
-                      <strong>{item.itemName}</strong>
-                      <p className="supporting-copy">
-                        {item.variantName ? `${item.variantName} | ` : ''}
-                        {item.modifierLabels.join(', ') || 'No modifiers'}
-                      </p>
-                      {item.remarks ? (
-                        <p className="supporting-copy">Note: {item.remarks}</p>
-                      ) : null}
-                    </div>
+
+              <article className="sub-panel bill-card totals-hero pos-ticket-totals">
+                <h3>Estimated totals</h3>
+                <div className="stack-list">
+                  <div className="stack-row">
+                    <span>Subtotal</span>
                     <strong>
                       {formatMoney(
                         outlet?.currency ?? 'SGD',
-                        item.lineTotalCents,
+                        summary.subtotalCents,
                       )}
                     </strong>
                   </div>
-                  <div className="cart-item-controls">
-                    <button
-                      className="quantity-button"
-                      onClick={() => updateCartQuantity(item.id, -1)}
-                      type="button"
-                    >
-                      -
-                    </button>
-                    <span className="quantity-value">{item.quantity}</span>
-                    <button
-                      className="quantity-button"
-                      onClick={() => updateCartQuantity(item.id, 1)}
-                      type="button"
-                    >
-                      +
-                    </button>
-                    <button
-                      className="secondary-button"
-                      onClick={() => startEditingCartItem(item)}
-                      type="button"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="ghost-button"
-                      onClick={() => removeCartItem(item.id)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
+                  {summary.discountTotalCents > 0 ? (
+                    <div className="stack-row">
+                      <span>Discount</span>
+                      <strong>
+                        -
+                        {formatMoney(
+                          outlet?.currency ?? 'SGD',
+                          summary.discountTotalCents,
+                        )}
+                      </strong>
+                    </div>
+                  ) : null}
+                  <div className="stack-row">
+                    <span>Service charge</span>
+                    <strong>
+                      {formatMoney(
+                        outlet?.currency ?? 'SGD',
+                        summary.serviceChargeTotalCents,
+                      )}
+                    </strong>
                   </div>
-                </article>
-              ))
-            )}
-            </div>
-
-            <article className="sub-panel bill-card totals-hero pos-ticket-totals">
-            <h3>Estimated totals</h3>
-            <div className="stack-list">
-              <div className="stack-row">
-                <span>Subtotal</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.subtotalCents,
-                  )}
-                </strong>
-              </div>
-              {summary.discountTotalCents > 0 ? (
-                <div className="stack-row">
-                  <span>Discount</span>
-                  <strong>
-                    -
-                    {formatMoney(
-                      outlet?.currency ?? 'SGD',
-                      summary.discountTotalCents,
-                    )}
-                  </strong>
+                  <div className="stack-row">
+                    <span>GST</span>
+                    <strong>
+                      {formatMoney(
+                        outlet?.currency ?? 'SGD',
+                        summary.gstTotalCents,
+                      )}
+                    </strong>
+                  </div>
+                  <div className="stack-row">
+                    <span>Total</span>
+                    <strong>
+                      {formatMoney(
+                        outlet?.currency ?? 'SGD',
+                        summary.grandTotalCents,
+                      )}
+                    </strong>
+                  </div>
                 </div>
-              ) : null}
-              <div className="stack-row">
-                <span>Service charge</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.serviceChargeTotalCents,
-                  )}
-                </strong>
-              </div>
-              <div className="stack-row">
-                <span>GST</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.gstTotalCents,
-                  )}
-                </strong>
-              </div>
-              <div className="stack-row">
-                <span>Total</span>
-                <strong>
-                  {formatMoney(
-                    outlet?.currency ?? 'SGD',
-                    summary.grandTotalCents,
-                  )}
-                </strong>
-              </div>
+                <p className="supporting-copy">
+                  Final totals are confirmed by the backend when the order is saved.
+                </p>
+              </article>
             </div>
-            <p className="supporting-copy">
-              Final totals are confirmed by the backend when the order is saved.
-            </p>
-            </article>
 
-            <div className="pos-payment-controls pos-ticket-section">
+            <div className="pos-payment-controls pos-ticket-section" id="ticket-payment">
               <article className="sub-panel surface-panel pos-control-block">
                 <div className="section-header">
                   <div>
@@ -1749,7 +1768,7 @@ export function OutletPosPage() {
               ) : null}
             </div>
 
-            <div className="pos-ticket-setup pos-ticket-section">
+            <div className="pos-ticket-setup pos-ticket-section" id="ticket-setup">
               <article className="sub-panel surface-panel pos-control-block">
                 <div className="section-header">
                   <div>

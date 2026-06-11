@@ -447,6 +447,9 @@ export function OutletKdsPage() {
     groupedOrders.find((entry) => entry.status === 'PREPARING')?.orders.length ?? 0;
   const readyCount =
     groupedOrders.find((entry) => entry.status === 'READY')?.orders.length ?? 0;
+  const selectedOrderTableLabel = selectedOrder?.table
+    ? `${selectedOrder.table.zone?.name ?? 'No zone'} | ${selectedOrder.table.displayName}`
+    : 'Counter / no table';
 
   return (
     <OutletPageLayout
@@ -546,6 +549,21 @@ export function OutletKdsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="service-board-filters__actions">
+              {(searchTerm || stageFilter !== 'ALL' || stationFilter !== 'ALL') ? (
+                <button
+                  className="ghost-button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStageFilter('ALL');
+                    setStationFilter('ALL');
+                  }}
+                  type="button"
+                >
+                  Clear filters
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -687,13 +705,12 @@ export function OutletKdsPage() {
             <>
               <div className="service-inspector__hero">
                 <div>
-                  <p className="eyebrow">Ticket detail</p>
+                  <p className="eyebrow">Selected ticket</p>
                   <h2 className="section-title">
                     #{selectedOrder.orderNumber}
                   </h2>
                   <p className="supporting-copy">
-                    {selectedOrder.table?.zone?.name ?? 'No zone'} |{' '}
-                    {selectedOrder.table?.displayName ?? 'No table'} |{' '}
+                    {selectedOrderTableLabel} |{' '}
                     {formatRelativeTime(selectedOrder.createdAt)}
                   </p>
                 </div>
@@ -710,38 +727,22 @@ export function OutletKdsPage() {
                 </div>
               </div>
 
-              <div className="detail-overview-grid service-inspector__overview">
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Current lane</span>
-                  <strong className="scope-card-value">
-                    {formatEnum(selectedOrder.status)}
-                  </strong>
-                  <p className="supporting-copy">
-                    Active production stage for this ticket.
-                  </p>
+              <div className="terminal-board-strip service-inspector__summary-strip">
+                <article className="terminal-board-chip">
+                  <span>Current lane</span>
+                  <strong>{formatEnum(selectedOrder.status)}</strong>
                 </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Stations</span>
-                  <strong className="scope-card-value">
-                    {selectedOrder.kitchenTickets.length}
-                  </strong>
-                  <p className="supporting-copy">Stations attached to this order.</p>
+                <article className="terminal-board-chip">
+                  <span>Stations</span>
+                  <strong>{selectedOrder.kitchenTickets.length}</strong>
                 </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Table</span>
-                  <strong className="scope-card-value">
-                    {selectedOrder.table?.displayName ?? 'Counter'}
-                  </strong>
-                  <p className="supporting-copy">
-                    {selectedOrder.table?.zone?.name ?? 'No floor zone'}
-                  </p>
+                <article className="terminal-board-chip">
+                  <span>Table</span>
+                  <strong>{selectedOrder.table?.displayName ?? 'Counter'}</strong>
                 </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Wait age</span>
-                  <strong className="scope-card-value">
-                    {formatRelativeTime(selectedOrder.createdAt)}
-                  </strong>
-                  <p className="supporting-copy">How long this ticket has been in flow.</p>
+                <article className="terminal-board-chip">
+                  <span>Wait age</span>
+                  <strong>{formatRelativeTime(selectedOrder.createdAt)}</strong>
                 </article>
               </div>
 
@@ -822,15 +823,19 @@ export function OutletKdsPage() {
                     <div>
                       <h3>Advance the ticket</h3>
                       <p className="supporting-copy">
-                        Push the ticket to the next kitchen stage from one action rail.
+                        Push the ticket to the next kitchen stage from one control rail.
                       </p>
                     </div>
                     <span className="status-pill neutral">
                       {nextAction ? formatEnum(nextAction.status) : 'No action'}
                     </span>
                   </div>
+                  <div className="support-inline-meta support-inline-meta--board">
+                    <span>{selectedOrderTableLabel}</span>
+                    <span>{describeStationsFromDetail(selectedOrder)}</span>
+                  </div>
                   {nextAction ? (
-                    <form className="form-grid" onSubmit={submitKitchenAction}>
+                    <form className="form-grid service-control-form" onSubmit={submitKitchenAction}>
                       <div className="field">
                         <label htmlFor="kds-reason">Reason</label>
                         <textarea
@@ -975,6 +980,22 @@ function describeOrderStations(
   return uniqueStations
     .map((stationId) => stationNameById[stationId] ?? shortStationLabel(stationId))
     .join(', ');
+}
+
+function describeStationsFromDetail(order: OrderDetail) {
+  const labels = Array.from(
+    new Set(
+      order.kitchenTickets.map(
+        (ticket) => ticket.station?.name ?? shortStationLabel(ticket.stationId),
+      ),
+    ),
+  );
+
+  if (labels.length === 0) {
+    return 'No kitchen station assigned';
+  }
+
+  return labels.join(', ');
 }
 
 function shortStationLabel(stationId: string) {

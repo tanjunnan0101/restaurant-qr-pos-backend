@@ -381,6 +381,19 @@ export function OutletAttendancePage() {
                 Staff select themselves from today&apos;s roster, take a proof photo
                 on the iPad, and clock in or out from one shared station.
               </p>
+              <div className="attendance-hero__actions">
+                <a className="primary-button" href="#attendance-shift-board">
+                  Open shift board
+                </a>
+                <a className="secondary-button" href="#attendance-capture-station">
+                  Open camera station
+                </a>
+                {canManageSchedule ? (
+                  <a className="ghost-button" href="#attendance-manager-planner">
+                    Open planner
+                  </a>
+                ) : null}
+              </div>
             </div>
             <div className="attendance-hero__meta">
               <span className="status-pill neutral">
@@ -457,7 +470,10 @@ export function OutletAttendancePage() {
           </section>
 
           <section className="attendance-board-layout">
-            <section className="panel section-panel attendance-board-panel">
+            <section
+              className="panel section-panel attendance-board-panel"
+              id="attendance-shift-board"
+            >
               <div className="section-header">
                 <div>
                   <p className="eyebrow">Timetable</p>
@@ -577,7 +593,10 @@ export function OutletAttendancePage() {
               )}
             </section>
 
-            <aside className="panel section-panel attendance-planner-rail">
+            <aside
+              className="panel section-panel attendance-planner-rail"
+              id="attendance-manager-planner"
+            >
               <article className="attendance-planner-card">
                 <div className="section-header">
                   <div>
@@ -776,6 +795,29 @@ export function OutletAttendancePage() {
                 </div>
               </div>
 
+              <div className="terminal-board-strip attendance-capture-strip">
+                <article className="terminal-board-chip">
+                  <span>Employee</span>
+                  <strong>{selectedUser.fullName}</strong>
+                </article>
+                <article className="terminal-board-chip">
+                  <span>Shift</span>
+                  <strong>
+                    {selectedShift
+                      ? formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)
+                      : 'Manual'}
+                  </strong>
+                </article>
+                <article className="terminal-board-chip">
+                  <span>Photo</span>
+                  <strong>{photoDataUrl ? 'Captured' : 'Required'}</strong>
+                </article>
+                <article className="terminal-board-chip">
+                  <span>Action</span>
+                  <strong>{currentSession ? 'Clock out' : 'Clock in'}</strong>
+                </article>
+              </div>
+
               <div className="field">
                 <label htmlFor="attendance-photo">Take employee photo</label>
                 <input
@@ -791,6 +833,12 @@ export function OutletAttendancePage() {
                   Use the front camera on the iPad. The image is compressed
                   before upload so the shift can be saved reliably.
                 </p>
+              </div>
+
+              <div className="support-inline-meta support-inline-meta--board">
+                <span>{selectedShift ? 'Shift selected from timetable' : 'Manual fallback selection'}</span>
+                <span>{photoDataUrl ? 'Photo ready for upload' : 'Capture required before save'}</span>
+                <span>{currentSession ? 'Ending active shift' : 'Starting new shift'}</span>
               </div>
 
               <div className="attendance-photo-proof">
@@ -1125,7 +1173,7 @@ async function compressImageForAttendance(file: File) {
   const source = await readFileAsDataUrl(file);
   const image = await loadImage(source);
   const canvas = document.createElement('canvas');
-  const maxEdge = 720;
+  const maxEdge = 560;
   const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
   canvas.width = Math.max(1, Math.round(image.width * scale));
   canvas.height = Math.max(1, Math.round(image.height * scale));
@@ -1137,14 +1185,14 @@ async function compressImageForAttendance(file: File) {
 
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  let quality = 0.82;
+  let quality = 0.76;
   let output = canvas.toDataURL('image/jpeg', quality);
-  while (output.length > 70000 && quality > 0.34) {
+  while (output.length > 45000 && quality > 0.28) {
     quality -= 0.08;
     output = canvas.toDataURL('image/jpeg', quality);
   }
 
-  if (output.length > 70000) {
+  if (output.length > 45000) {
     throw new Error(
       'The captured photo is still too large. Move closer and retake a tighter shot.',
     );

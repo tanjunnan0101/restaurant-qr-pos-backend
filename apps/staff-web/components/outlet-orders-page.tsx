@@ -311,6 +311,11 @@ export function OutletOrdersPage() {
   ).length;
   const draftCount = orders.filter((order) => order.status === 'DRAFT').length;
   const oldestVisibleOrder = filteredOrders[0] ?? null;
+  const selectedOrderTableLabel = selectedOrder?.table
+    ? `${selectedOrder.table.zone?.name ?? 'No zone'} | ${selectedOrder.table.displayName}`
+    : 'Counter / no table';
+  const selectedOrderGuestLabel =
+    selectedOrder?.customerName ?? selectedOrder?.customerPhone ?? 'Walk-in / guest';
 
   useEffect(() => {
     setCheckoutResult(null);
@@ -670,6 +675,29 @@ export function OutletOrdersPage() {
                 ))}
               </select>
             </div>
+            <div className="service-board-filters__actions">
+              {(searchTerm || filter !== 'ALL' || requestedTableId) ? (
+                <>
+                  {(searchTerm || filter !== 'ALL') && (
+                    <button
+                      className="ghost-button"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setFilter('ALL');
+                      }}
+                      type="button"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                  {requestedTableId ? (
+                    <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
+                      Leave table focus
+                    </Link>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
           </div>
 
           <div className="terminal-board-strip service-queue-metrics">
@@ -814,13 +842,12 @@ export function OutletOrdersPage() {
             <>
               <div className="service-inspector__hero">
                 <div>
-                  <p className="eyebrow">Selected order</p>
+                  <p className="eyebrow">Selected ticket</p>
                   <h2 className="section-title">#{selectedOrder.orderNumber}</h2>
                   <p className="supporting-copy">
-                    {selectedOrder.table?.zone?.name ?? 'No zone'} |{' '}
-                    {selectedOrder.table?.displayName ?? 'No table'} |{' '}
+                    {selectedOrderTableLabel} |{' '}
                     {new Date(selectedOrder.createdAt).toLocaleString()} |{' '}
-                    {selectedOrder.customerName ?? 'Walk-in / guest'}
+                    {selectedOrderGuestLabel}
                   </p>
                 </div>
                 <div className="service-inspector__actions">
@@ -838,47 +865,27 @@ export function OutletOrdersPage() {
                 </div>
               </div>
 
-              <div className="detail-overview-grid service-inspector__overview">
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Total due</span>
-                  <strong className="scope-card-value">
+              <div className="terminal-board-strip service-inspector__summary-strip">
+                <article className="terminal-board-chip">
+                  <span>Total due</span>
+                  <strong>
                     {formatMoney(
                       selectedOrder.currency,
                       selectedOrder.grandTotalCents,
                     )}
                   </strong>
-                  <p className="supporting-copy">
-                    Current payable amount for this ticket.
-                  </p>
                 </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Settlement</span>
-                  <strong className="scope-card-value">
-                    {formatEnum(selectedOrder.paymentStatus)}
-                  </strong>
-                  <p className="supporting-copy">
-                    {currentPayment
-                      ? formatEnum(currentPayment.method)
-                      : 'No payment record attached yet.'}
-                  </p>
+                <article className="terminal-board-chip">
+                  <span>Settlement</span>
+                  <strong>{formatEnum(selectedOrder.paymentStatus)}</strong>
                 </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Kitchen</span>
-                  <strong className="scope-card-value">
-                    {selectedOrder.kitchenTickets.length}
-                  </strong>
-                  <p className="supporting-copy">
-                    Ticket{selectedOrder.kitchenTickets.length === 1 ? '' : 's'} already created for stations.
-                  </p>
+                <article className="terminal-board-chip">
+                  <span>Kitchen tickets</span>
+                  <strong>{selectedOrder.kitchenTickets.length}</strong>
                 </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Next move</span>
-                  <strong className="scope-card-value">
-                    {nextAction ? nextAction.label : 'No action'}
-                  </strong>
-                  <p className="supporting-copy">
-                    The next fastest service action from this state.
-                  </p>
+                <article className="terminal-board-chip">
+                  <span>Next move</span>
+                  <strong>{nextAction ? nextAction.label : 'No action'}</strong>
                 </article>
               </div>
 
@@ -992,17 +999,21 @@ export function OutletOrdersPage() {
                 <article className="sub-panel surface-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Move the order forward</h3>
+                      <h3>Service control</h3>
                       <p className="supporting-copy">
-                        Advance the service state from this one control.
+                        Advance the order from one operator lane.
                       </p>
                     </div>
                     <span className="status-pill neutral">
                       {nextAction ? formatEnum(nextAction.status) : 'Complete'}
                     </span>
                   </div>
+                  <div className="support-inline-meta support-inline-meta--board">
+                    <span>{selectedOrderTableLabel}</span>
+                    <span>{selectedOrderGuestLabel}</span>
+                  </div>
                   {nextAction ? (
-                    <form className="form-grid" onSubmit={submitNextStatus}>
+                    <form className="form-grid service-control-form" onSubmit={submitNextStatus}>
                       <div className="field">
                         <label htmlFor="reason">Reason</label>
                         <textarea
@@ -1033,15 +1044,23 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Payment recovery</h3>
                       <p className="supporting-copy">
-                        Reopen checkout or confirm manual settlement.
+                        Reopen checkout or confirm manual settlement from the floor.
                       </p>
                     </div>
                     <span className="status-pill neutral">
                       {formatEnum(selectedOrder.paymentStatus)}
                     </span>
                   </div>
+                  <div className="support-inline-meta support-inline-meta--board">
+                    <span>
+                      {currentPayment
+                        ? formatEnum(currentPayment.method)
+                        : 'No payment record yet'}
+                    </span>
+                    <span>{formatMoney(selectedOrder.currency, selectedOrder.grandTotalCents)}</span>
+                  </div>
                   {supportsOnlineCheckout ? (
-                    <div className="form-grid">
+                    <div className="form-grid service-control-form">
                       <button
                         className="primary-button"
                         disabled={checkoutBusy}
@@ -1062,7 +1081,7 @@ export function OutletOrdersPage() {
                       ) : null}
                     </div>
                   ) : supportsManualVerification ? (
-                    <form className="form-grid" onSubmit={handleVerifyManualPayment}>
+                    <form className="form-grid service-control-form" onSubmit={handleVerifyManualPayment}>
                       <div className="field">
                         <label htmlFor="manual-amount">Verified amount</label>
                         <input
@@ -1112,7 +1131,17 @@ export function OutletOrdersPage() {
                 </article>
 
                 <article className="sub-panel surface-panel">
-                  <h3>Edit or void</h3>
+                  <div className="section-header">
+                    <div>
+                      <h3>Edit or void</h3>
+                      <p className="supporting-copy">
+                        Use POS for ticket changes, or void before kitchen release.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {supportsCancellation ? 'Void available' : 'Read only'}
+                    </span>
+                  </div>
                   <div className="stack-list">
                     {supportsAmendment ? (
                       <Link
@@ -1155,8 +1184,18 @@ export function OutletOrdersPage() {
                 </article>
 
                 <article className="sub-panel surface-panel">
-                  <h3>Bill summary</h3>
-                  <div className="queue-metrics">
+                  <div className="section-header">
+                    <div>
+                      <h3>Bill summary</h3>
+                      <p className="supporting-copy">
+                        Final charges confirmed by the backend for this ticket.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {selectedOrder.currency}
+                    </span>
+                  </div>
+                  <div className="queue-metrics service-bill-grid">
                     <div className="metric-inline">
                       <span>Subtotal</span>
                       <strong>
