@@ -650,52 +650,217 @@ export function OutletAttendancePage() {
                 </div>
               </article>
 
-              <article className="attendance-planner-card">
+              <article
+                className="attendance-planner-card attendance-capture-card attendance-capture-card--rail"
+                id="attendance-capture-station"
+              >
                 <div className="section-header">
                   <div>
-                    <p className="eyebrow">Fallback</p>
-                    <h3 className="section-title">No scheduled shift?</h3>
-                  </div>
-                  <span className="supporting-copy">{staffRoster.length} staff</span>
-                </div>
-                {manualClockingAllowed ? (
-                  <>
+                    <p className="eyebrow">Clock action</p>
+                    <h2 className="section-title">{selectedUser.fullName}</h2>
                     <p className="supporting-copy">
-                      Only use this roster when the manager has not placed the employee on the timetable yet.
+                      {selectedUser.roleName} | {selectedUser.email}
                     </p>
-                    <div className="attendance-quick-roster">
-                      {staffRoster.map((entry) => {
-                        const active = entry.id === selectedUser.id && !selectedShift;
-                        return (
-                          <button
-                            className={active ? 'attendance-quick-chip active' : 'attendance-quick-chip'}
-                            key={entry.id}
-                            onClick={() => selectManualStaff(entry.id)}
-                            type="button"
-                          >
-                            <strong>{entry.fullName}</strong>
-                            <span>{entry.roleName}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <div className="soft-note">
-                    Manual clocking is disabled for this outlet. Staff must tap a scheduled shift from the timetable board.
+                    {selectedShift ? (
+                      <div className="support-inline-meta">
+                        <span>{selectedShift.title}</span>
+                        <span>{formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}</span>
+                        <span>{selectedShift.stationLabel ?? 'Shared station'}</span>
+                      </div>
+                    ) : manualSelection ? (
+                      <div className="support-inline-meta">
+                        <span>Manual selection</span>
+                        <span>No scheduled shift selected</span>
+                      </div>
+                    ) : null}
                   </div>
-                )}
+                  <span className={`status-pill ${currentSession ? 'warning' : 'neutral'}`}>
+                    {currentSession ? 'On shift' : 'Off shift'}
+                  </span>
+                </div>
+
+                <div className="attendance-kiosk-grid attendance-kiosk-grid--rail">
+                  <div className="field">
+                    <label htmlFor="attendance-device">Station label</label>
+                    <input
+                      id="attendance-device"
+                      onChange={(event) => setDeviceLabel(event.target.value)}
+                      value={deviceLabel}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="attendance-note">Shift note</label>
+                    <input
+                      id="attendance-note"
+                      onChange={(event) => setNote(event.target.value)}
+                      placeholder="Opening, handover, closing, etc."
+                      value={note}
+                    />
+                  </div>
+                </div>
+
+                <div className="terminal-board-strip attendance-capture-strip">
+                  <article className="terminal-board-chip">
+                    <span>Employee</span>
+                    <strong>{selectedUser.fullName}</strong>
+                  </article>
+                  <article className="terminal-board-chip">
+                    <span>Shift</span>
+                    <strong>
+                      {selectedShift
+                        ? formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)
+                        : 'Manual'}
+                    </strong>
+                  </article>
+                  <article className="terminal-board-chip">
+                    <span>Photo</span>
+                    <strong>
+                      {photoDataUrl ? 'Captured' : photoRequired ? 'Required' : 'Optional'}
+                    </strong>
+                  </article>
+                  <article className="terminal-board-chip">
+                    <span>Action</span>
+                    <strong>{currentSession ? 'Clock out' : 'Clock in'}</strong>
+                  </article>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="attendance-photo">Take proof photo</label>
+                  <input
+                    accept="image/*"
+                    capture="user"
+                    id="attendance-photo"
+                    onChange={(event) =>
+                      void handlePhotoChange(event.target.files?.[0] ?? null)
+                    }
+                    type="file"
+                  />
+                  <p className="supporting-copy">
+                    Use the front camera on the iPad. The image is compressed before upload so the
+                    shift can be saved reliably.
+                  </p>
+                </div>
+
+                <div className="support-inline-meta support-inline-meta--board">
+                  <span>{selectedShift ? 'Shift selected from timetable' : 'Manual fallback selection'}</span>
+                  <span>
+                    {photoDataUrl
+                      ? 'Photo ready for upload'
+                      : photoRequired
+                        ? 'Capture required before save'
+                        : 'Photo can be skipped if needed'}
+                  </span>
+                  <span>{currentSession ? 'Ending active shift' : 'Starting new shift'}</span>
+                </div>
+
+                <div className="attendance-photo-proof">
+                  {photoDataUrl ? (
+                    <img
+                      alt="Attendance proof preview"
+                      className="attendance-photo-preview"
+                      src={photoDataUrl}
+                    />
+                  ) : (
+                    <div className="empty-state attendance-photo-empty">
+                      <strong>No photo captured yet</strong>
+                      <p className="supporting-copy">
+                        {photoRequired
+                          ? 'A selfie is required before clocking in or out.'
+                          : 'Take a selfie if the shift needs proof for handoff or review.'}
+                      </p>
+                    </div>
+                  )}
+                  <div className="support-inline-meta">
+                    <span>{photoName ?? 'Waiting for camera capture'}</span>
+                    <span>{photoBusy ? 'Preparing image...' : 'Ready for upload'}</span>
+                  </div>
+                </div>
+
+                <div className="attendance-action-row">
+                  {!currentSession ? (
+                    <button
+                      className="primary-button"
+                      disabled={actionBusy || photoBusy || (photoRequired && !photoDataUrl)}
+                      onClick={() => void handleSubmitClock('in')}
+                      type="button"
+                    >
+                      {actionBusy ? 'Saving...' : `Clock in ${selectedUser.fullName}`}
+                    </button>
+                  ) : (
+                    <button
+                      className="primary-button"
+                      disabled={actionBusy || photoBusy || (photoRequired && !photoDataUrl)}
+                      onClick={() => void handleSubmitClock('out')}
+                      type="button"
+                    >
+                      {actionBusy ? 'Saving...' : `Clock out ${selectedUser.fullName}`}
+                    </button>
+                  )}
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      setPhotoDataUrl(undefined);
+                      setPhotoName(null);
+                      setError(null);
+                    }}
+                    type="button"
+                  >
+                    Retake photo
+                  </button>
+                </div>
+              </article>
+
+              <article className="attendance-planner-card">
+                <details className="attendance-planner-details">
+                  <summary className="attendance-planner-summary attendance-planner-summary--compact">
+                    <div>
+                      <p className="eyebrow">Fallback</p>
+                      <h3 className="section-title">No scheduled shift?</h3>
+                      <p className="supporting-copy">
+                        Open only when the employee is not on the shift board yet.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">{staffRoster.length} staff</span>
+                  </summary>
+                  {manualClockingAllowed ? (
+                    <>
+                      <p className="supporting-copy">
+                        Use this roster only when the manager has not placed the employee on the timetable yet.
+                      </p>
+                      <div className="attendance-quick-roster">
+                        {staffRoster.map((entry) => {
+                          const active = entry.id === selectedUser.id && !selectedShift;
+                          return (
+                            <button
+                              className={active ? 'attendance-quick-chip active' : 'attendance-quick-chip'}
+                              key={entry.id}
+                              onClick={() => selectManualStaff(entry.id)}
+                              type="button"
+                            >
+                              <strong>{entry.fullName}</strong>
+                              <span>{entry.roleName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="soft-note">
+                      Manual clocking is disabled for this outlet. Staff must tap a scheduled shift from the timetable board.
+                    </div>
+                  )}
+                </details>
               </article>
 
               {canManageSchedule ? (
                 <article className="attendance-planner-card">
-                  <details className="attendance-planner-details" open={shiftBoard.length === 0}>
-                    <summary className="attendance-planner-summary">
+                  <details className="attendance-planner-details">
+                    <summary className="attendance-planner-summary attendance-planner-summary--compact">
                       <div>
                         <p className="eyebrow">Planner</p>
                         <h3 className="section-title">Manager shift builder</h3>
                         <p className="supporting-copy">
-                          Keep this collapsed during service. Open it only when the roster needs a change.
+                          Keep this closed during service. Open it only when the roster needs a change.
                         </p>
                       </div>
                       <span className="status-pill success">Manager mode</span>
@@ -795,312 +960,141 @@ export function OutletAttendancePage() {
                 </article>
               ) : null}
             </aside>
-
           </section>
 
-          <section className="attendance-station-grid">
-            <section
-              className="panel section-panel attendance-capture-card"
-              id="attendance-capture-station"
-            >
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Clock action</p>
-                  <h2 className="section-title">{selectedUser.fullName}</h2>
-                  <p className="supporting-copy">
-                    {selectedUser.roleName} | {selectedUser.email}
-                  </p>
-                  {selectedShift ? (
-                    <div className="support-inline-meta">
-                      <span>{selectedShift.title}</span>
-                      <span>{formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}</span>
-                      <span>{selectedShift.stationLabel ?? 'Shared station'}</span>
-                    </div>
-                  ) : manualSelection ? (
-                    <div className="support-inline-meta">
-                      <span>Manual selection</span>
-                      <span>No scheduled shift selected</span>
-                    </div>
-                  ) : null}
-                </div>
-                <span
-                  className={`status-pill ${
-                    currentSession ? 'warning' : 'neutral'
-                  }`}
-                >
-                  {currentSession ? 'On shift' : 'Off shift'}
-                </span>
-              </div>
-
-              <div className="attendance-kiosk-grid">
-                <div className="field">
-                  <label htmlFor="attendance-device">Station label</label>
-                  <input
-                    id="attendance-device"
-                    onChange={(event) => setDeviceLabel(event.target.value)}
-                    value={deviceLabel}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="attendance-note">Shift note</label>
-                  <input
-                    id="attendance-note"
-                    onChange={(event) => setNote(event.target.value)}
-                    placeholder="Opening, handover, closing, etc."
-                    value={note}
-                  />
-                </div>
-              </div>
-
-              <div className="terminal-board-strip attendance-capture-strip">
-                <article className="terminal-board-chip">
-                  <span>Employee</span>
-                  <strong>{selectedUser.fullName}</strong>
-                </article>
-                <article className="terminal-board-chip">
-                  <span>Shift</span>
-                  <strong>
-                    {selectedShift
-                      ? formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)
-                      : 'Manual'}
-                  </strong>
-                </article>
-                <article className="terminal-board-chip">
-                  <span>Photo</span>
-                  <strong>
-                    {photoDataUrl ? 'Captured' : photoRequired ? 'Required' : 'Optional'}
-                  </strong>
-                </article>
-                <article className="terminal-board-chip">
-                  <span>Action</span>
-                  <strong>{currentSession ? 'Clock out' : 'Clock in'}</strong>
-                </article>
-              </div>
-
-              <div className="field">
-                <label htmlFor="attendance-photo">Take proof photo</label>
-                <input
-                  accept="image/*"
-                  capture="user"
-                  id="attendance-photo"
-                  onChange={(event) =>
-                    void handlePhotoChange(event.target.files?.[0] ?? null)
-                  }
-                  type="file"
-                />
+          <section className="panel section-panel attendance-bottom-summary">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Service summary</p>
+                <h2 className="section-title">Status and recent shifts</h2>
                 <p className="supporting-copy">
-                  Use the front camera on the iPad. The image is compressed before upload so the
-                  shift can be saved reliably.
+                  Keep station state visible without pushing the main clocking controls down the page.
                 </p>
               </div>
+              <span className="status-pill neutral">{recentSessions.length} recent</span>
+            </div>
 
-              <div className="support-inline-meta support-inline-meta--board">
-                <span>{selectedShift ? 'Shift selected from timetable' : 'Manual fallback selection'}</span>
-                <span>
-                  {photoDataUrl
-                    ? 'Photo ready for upload'
-                    : photoRequired
-                      ? 'Capture required before save'
-                      : 'Photo can be skipped if needed'}
-                </span>
-                <span>{currentSession ? 'Ending active shift' : 'Starting new shift'}</span>
-              </div>
+            <div className="attendance-summary-grid">
+              <article className="attendance-status-card attendance-status-card--compact">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Shift status</p>
+                    <h3 className="section-title">
+                      {currentSession ? 'Currently clocked in' : 'Ready to start'}
+                    </h3>
+                  </div>
+                  <span className="status-pill neutral">
+                    {settings.maxShiftHours}h max shift
+                  </span>
+                </div>
 
-              <div className="attendance-photo-proof">
-                {photoDataUrl ? (
-                  <img
-                    alt="Attendance proof preview"
-                    className="attendance-photo-preview"
-                    src={photoDataUrl}
-                  />
-                ) : (
-                  <div className="empty-state attendance-photo-empty">
-                    <strong>No photo captured yet</strong>
+                {currentSession ? (
+                  <div className="soft-note">
+                    <strong>Started {formatDateTime(currentSession.clockInAt)}</strong>
                     <p className="supporting-copy">
-                      {photoRequired
-                        ? 'A selfie is required before clocking in or out.'
-                        : 'Take a selfie if the shift needs proof for handoff or review.'}
+                      Live duration: {currentDuration ?? 'Calculating...'}
+                    </p>
+                    {currentSession.clockInDeviceLabel ? (
+                      <p className="supporting-copy">
+                        Device: {currentSession.clockInDeviceLabel}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="soft-note">
+                    <strong>{selectedUser.fullName} is off shift</strong>
+                    <p className="supporting-copy">
+                      Select the employee, confirm any proof capture, then start the shift from this station.
                     </p>
                   </div>
                 )}
-                <div className="support-inline-meta">
-                  <span>{photoName ?? 'Waiting for camera capture'}</span>
-                  <span>{photoBusy ? 'Preparing image...' : 'Ready for upload'}</span>
+
+                <div className="detail-overview-grid floor-summary-grid">
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Role</span>
+                    <strong className="scope-card-value">{selectedUser.roleName}</strong>
+                  </article>
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Shift window</span>
+                    <strong className="scope-card-value">
+                      {selectedShift
+                        ? formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)
+                        : 'Manual'}
+                    </strong>
+                  </article>
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Photo policy</span>
+                    <strong className="scope-card-value">
+                      {photoRequired ? 'Required' : 'Optional'}
+                    </strong>
+                  </article>
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Recent sessions</span>
+                    <strong className="scope-card-value">{recentSessions.length}</strong>
+                  </article>
                 </div>
-              </div>
 
-              <div className="attendance-action-row">
-                {!currentSession ? (
-                  <button
-                    className="primary-button"
-                    disabled={actionBusy || photoBusy || (photoRequired && !photoDataUrl)}
-                    onClick={() => void handleSubmitClock('in')}
-                    type="button"
-                  >
-                    {actionBusy ? 'Saving...' : `Clock in ${selectedUser.fullName}`}
-                  </button>
-                ) : (
-                  <button
-                    className="primary-button"
-                    disabled={actionBusy || photoBusy || (photoRequired && !photoDataUrl)}
-                    onClick={() => void handleSubmitClock('out')}
-                    type="button"
-                  >
-                    {actionBusy ? 'Saving...' : `Clock out ${selectedUser.fullName}`}
-                  </button>
-                )}
-                <button
-                  className="secondary-button"
-                  onClick={() => {
-                    setPhotoDataUrl(undefined);
-                    setPhotoName(null);
-                    setError(null);
-                  }}
-                  type="button"
-                >
-                  Retake photo
-                </button>
-              </div>
-            </section>
+                {selectedRosterEntry?.activeSession ? (
+                  <div className="support-note">
+                    <strong>Open shift detected</strong>
+                    <span>
+                      Clocked in {formatDateTime(selectedRosterEntry.activeSession.clockInAt)}
+                    </span>
+                  </div>
+                ) : null}
+              </article>
 
-            <aside className="panel section-panel attendance-status-card">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Shift status</p>
-                  <h2 className="section-title">
-                    {currentSession ? 'Currently clocked in' : 'Ready to start'}
-                  </h2>
-                </div>
-                <span className="status-pill neutral">
-                  {settings.maxShiftHours}h max shift
-                </span>
-              </div>
-
-              {currentSession ? (
-                <div className="soft-note">
-                  <strong>Started {formatDateTime(currentSession.clockInAt)}</strong>
-                  <p className="supporting-copy">
-                    Live duration: {currentDuration ?? 'Calculating...'}
-                  </p>
-                  {currentSession.clockInDeviceLabel ? (
-                    <p className="supporting-copy">
-                      Device: {currentSession.clockInDeviceLabel}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="soft-note">
-                  <strong>{selectedUser.fullName} is off shift</strong>
-                  <p className="supporting-copy">
-                    Select the employee, confirm any proof capture, then start the shift from this station.
-                  </p>
-                </div>
-              )}
-
-              <div className="detail-overview-grid floor-summary-grid">
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Role</span>
-                  <strong className="scope-card-value">{selectedUser.roleName}</strong>
-                </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Shift window</span>
-                  <strong className="scope-card-value">
-                    {selectedShift
-                      ? formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)
-                      : 'Manual'}
-                  </strong>
-                </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Photo policy</span>
-                  <strong className="scope-card-value">
-                    {photoRequired ? 'Required' : 'Optional'}
-                  </strong>
-                </article>
-                <article className="sub-panel surface-panel">
-                  <span className="metric-label">Recent sessions</span>
-                  <strong className="scope-card-value">
-                    {recentSessions.length}
-                  </strong>
-                </article>
-              </div>
-
-              {selectedRosterEntry?.activeSession ? (
-                <div className="support-note">
-                  <strong>Open shift detected</strong>
-                  <span>
-                    Clocked in {formatDateTime(selectedRosterEntry.activeSession.clockInAt)}
+              <article className="attendance-history-card">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Shift timeline</p>
+                    <h3 className="section-title">Recent sessions</h3>
+                  </div>
+                  <span className="status-pill neutral">
+                    {recentSessions.length} entries
                   </span>
                 </div>
-              ) : null}
-            </aside>
-          </section>
-
-          <section className="panel section-panel">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Shift timeline</p>
-                <h2 className="section-title">Recent sessions</h2>
-              </div>
-              <span className="status-pill neutral">
-                {recentSessions.length} entries
-              </span>
+                {recentSessions.length === 0 ? (
+                  <div className="empty-state">
+                    <strong>No attendance records yet.</strong>
+                  </div>
+                ) : (
+                  <div className="attendance-session-list">
+                    {recentSessions.slice(0, 4).map((entry) => (
+                      <article className="attendance-session-row" key={entry.id}>
+                        <div className="attendance-session-row__top">
+                          <div>
+                            <strong>{formatDateTime(entry.clockInAt)}</strong>
+                            <p className="supporting-copy">
+                              {entry.status === 'CLOCKED_IN' ? 'Open shift' : 'Completed shift'}
+                            </p>
+                          </div>
+                          <div className="tag-row">
+                            <span className={`status-pill ${statusTone(entry.status)}`}>
+                              {formatEnum(entry.status)}
+                            </span>
+                            <span
+                              className={`status-pill ${approvalTone(entry.approvalStatus)}`}
+                            >
+                              {formatEnum(entry.approvalStatus)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="support-inline-meta">
+                          <span>Worked {formatDuration(entry.workedMinutes)}</span>
+                          <span>
+                            Clock-out {formatDateTime(entry.clockOutAt) || 'Still on shift'}
+                          </span>
+                        </div>
+                        {entry.reviewReason ? (
+                          <div className="alert error">{entry.reviewReason}</div>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </article>
             </div>
-            {recentSessions.length === 0 ? (
-              <div className="empty-state">
-                <strong>No attendance records yet.</strong>
-              </div>
-            ) : (
-              <div className="list-block">
-                {recentSessions.map((entry) => (
-                  <article className="list-item" key={entry.id}>
-                    <div className="support-list-card__header">
-                      <div>
-                        <h3>{formatDateTime(entry.clockInAt)}</h3>
-                        <p className="supporting-copy">
-                          {entry.status === 'CLOCKED_IN'
-                            ? 'Open shift'
-                            : 'Completed shift'}
-                        </p>
-                      </div>
-                      <div className="tag-row">
-                        <span className={`status-pill ${statusTone(entry.status)}`}>
-                          {formatEnum(entry.status)}
-                        </span>
-                        <span
-                          className={`status-pill ${approvalTone(entry.approvalStatus)}`}
-                        >
-                          {formatEnum(entry.approvalStatus)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="support-inline-meta">
-                      <span>Worked {formatDuration(entry.workedMinutes)}</span>
-                      <span>
-                        Clock-out {formatDateTime(entry.clockOutAt) || 'Still on shift'}
-                      </span>
-                    </div>
-                    {entry.reviewReason ? (
-                      <div className="alert error">{entry.reviewReason}</div>
-                    ) : null}
-                    {entry.photos.length > 0 ? (
-                      <div className="tag-row">
-                        {entry.photos.map((photo) => (
-                          <a
-                            className="tag"
-                            href={photo.photoUrl}
-                            key={photo.id}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            {formatEnum(photo.type)} photo
-                          </a>
-                        ))}
-                      </div>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            )}
           </section>
         </section>
       ) : null}

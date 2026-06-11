@@ -2035,7 +2035,7 @@ body {
 }
 
 .attendance-board-layout {
-  grid-template-columns: minmax(340px, 0.88fr) minmax(0, 1.12fr);
+  grid-template-columns: minmax(340px, 0.92fr) minmax(380px, 1.08fr);
   align-items: start;
 }
 
@@ -2062,6 +2062,10 @@ body {
 
 .attendance-planner-summary::-webkit-details-marker {
   display: none;
+}
+
+.attendance-planner-summary--compact .section-title {
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
 }
 
 .attendance-planner-form {
@@ -2145,11 +2149,6 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.attendance-station-grid {
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-  align-items: start;
-}
-
 .attendance-roster-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -2231,8 +2230,16 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.attendance-kiosk-grid--rail {
+  grid-template-columns: 1fr;
+}
+
 .attendance-capture-strip {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.attendance-capture-card--rail {
+  gap: 16px;
 }
 
 .field--full {
@@ -2259,6 +2266,39 @@ body {
 
 .attendance-action-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.attendance-bottom-summary,
+.attendance-summary-grid,
+.attendance-history-card,
+.attendance-session-list,
+.attendance-session-row {
+  display: grid;
+  gap: 16px;
+}
+
+.attendance-summary-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  align-items: start;
+}
+
+.attendance-status-card--compact .detail-overview-grid {
+  gap: 10px;
+}
+
+.attendance-session-row {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(216, 202, 179, 0.88);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.attendance-session-row__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  flex-wrap: wrap;
 }
 
 .attendance-quick-chip {
@@ -3521,7 +3561,6 @@ body {
   .kitchen-station-layout,
   .support-station-layout,
   .attendance-board-layout,
-  .attendance-station-grid,
   .attendance-station-prompt,
   .floor-board-layout,
   .floor-workspace,
@@ -3598,6 +3637,7 @@ body {
   .attendance-planner-form,
   .attendance-kiosk-grid,
   .attendance-action-row,
+  .attendance-summary-grid,
   .floor-summary-grid,
   .support-summary-grid,
   .service-inspector__overview,
@@ -3633,6 +3673,7 @@ body {
   .workspace-hero__header,
   .attendance-hero,
   .attendance-planner-summary,
+  .attendance-session-row__top,
   .attendance-day-column__header,
   .floor-canvas__header,
   .floor-zone-section__header,

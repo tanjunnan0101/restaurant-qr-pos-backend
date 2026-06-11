@@ -38,7 +38,7 @@ export class UsersService {
           deletedAt: null,
         },
       },
-      orderBy: [{ user: { fullName: 'asc' } }, { createdAt: 'asc' }],
+      orderBy: [{ user: { fullName: 'asc' } }],
       include: {
         user: {
           include: {
