@@ -380,31 +380,40 @@ export function OutletKdsPage() {
       .map(([id, name]) => ({ id, name }))
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [orders, stationNameById]);
-  const filteredOrders = orders.filter((order) => {
-    if (stageFilter !== 'ALL' && order.status !== stageFilter) {
-      return false;
-    }
-    if (
-      stationFilter !== 'ALL' &&
-      !order.kitchenTickets.some((ticket) => ticket.stationId === stationFilter)
-    ) {
-      return false;
-    }
-    if (!normalizedSearch) {
-      return true;
-    }
-    const haystack = [
-      order.orderNumber,
-      order.customerName,
-      order.customerPhone,
-      order.table?.displayName,
-      order.table?.tableCode,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(normalizedSearch);
-  });
+  const filteredOrders = useMemo(
+    () =>
+      orders
+        .filter((order) => {
+          if (stageFilter !== 'ALL' && order.status !== stageFilter) {
+            return false;
+          }
+          if (
+            stationFilter !== 'ALL' &&
+            !order.kitchenTickets.some((ticket) => ticket.stationId === stationFilter)
+          ) {
+            return false;
+          }
+          if (!normalizedSearch) {
+            return true;
+          }
+          const haystack = [
+            order.orderNumber,
+            order.customerName,
+            order.customerPhone,
+            order.table?.displayName,
+            order.table?.tableCode,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(normalizedSearch);
+        })
+        .sort(
+          (left, right) =>
+            new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+        ),
+    [normalizedSearch, orders, stageFilter, stationFilter],
+  );
 
   useEffect(() => {
     if (
@@ -425,20 +434,9 @@ export function OutletKdsPage() {
 
   const groupedOrders = kitchenStatuses.map((status) => ({
     status,
-    orders: filteredOrders
-      .filter((order) => order.status === status)
-      .slice()
-      .sort(
-        (left, right) =>
-          new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
-      ),
+    orders: filteredOrders.filter((order) => order.status === status),
   }));
-  const oldestQueuedOrder = filteredOrders
-    .slice()
-    .sort(
-      (left, right) =>
-        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
-    )[0];
+  const oldestQueuedOrder = filteredOrders[0];
   const nextAction = selectedOrder ? nextKitchenAction(selectedOrder.status) : null;
   const sentToKitchenCount =
     groupedOrders.find((entry) => entry.status === 'SENT_TO_KITCHEN')?.orders.length ??

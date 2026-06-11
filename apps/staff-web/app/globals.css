@@ -1900,7 +1900,7 @@ body {
 
 .service-board-layout,
 .kitchen-station-layout {
-  grid-template-columns: minmax(380px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-columns: minmax(440px, 0.96fr) minmax(420px, 1.04fr);
   align-items: start;
 }
 
@@ -2495,7 +2495,7 @@ body {
 
 .floor-workspace {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.9fr);
   gap: 16px;
   align-items: start;
 }
@@ -2525,13 +2525,13 @@ body {
 }
 
 .floor-zone-board--wide {
-  gap: 20px;
+  gap: 16px;
 }
 
 .floor-zone-section {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border-radius: 20px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(248, 250, 252, 0.78);
@@ -2577,15 +2577,15 @@ body {
 
 .floor-tile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
+  gap: 10px;
 }
 
 .floor-tile {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 18px;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 16px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 251, 0.98));
   text-align: left;
@@ -2624,7 +2624,7 @@ body {
 }
 
 .floor-tile__surface {
-  min-height: 78px;
+  min-height: 64px;
   display: grid;
   place-items: center;
   border: 1px dashed rgba(29, 23, 18, 0.16);
@@ -2634,7 +2634,7 @@ body {
 }
 
 .floor-tile__surface strong {
-  font-size: 1.6rem;
+  font-size: 1.32rem;
   letter-spacing: -0.05em;
   font-family: var(--font-display);
 }
@@ -2648,26 +2648,26 @@ body {
 }
 
 .floor-tile__surface--round {
-  width: 120px;
-  min-height: 120px;
+  width: 98px;
+  min-height: 98px;
   margin-inline: auto;
   border-radius: 999px;
 }
 
 .floor-tile__copy {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .floor-tile__copy strong {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .floor-tile__copy span,
 .floor-tile__signals span,
 .floor-tile__footer span {
   color: var(--muted);
-  font-size: 0.83rem;
+  font-size: 0.76rem;
 }
 
 .floor-tile__signals {
@@ -2771,8 +2771,11 @@ body {
 
 .table-inspector--dock {
   gap: 16px;
-  position: static;
+  position: sticky;
+  top: 14px;
   align-content: start;
+  max-height: calc(100vh - 20px);
+  overflow: auto;
 }
 
 .table-inspector__hero {
@@ -2794,7 +2797,7 @@ body {
 
 .table-inspector__dock {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 16px;
   align-items: start;
 }
@@ -2810,11 +2813,11 @@ body {
 .table-state-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .table-action-grid--wide {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .table-inspector__main-actions,
@@ -3008,10 +3011,10 @@ body {
 .kitchen-ticket-card {
   width: 100%;
   display: grid;
-  gap: 7px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px;
   text-align: left;
-  border-radius: 15px;
+  border-radius: 14px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 18px rgba(12, 18, 20, 0.04);
@@ -3021,7 +3024,7 @@ body {
 .kitchen-ticket-card__select {
   width: 100%;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -3058,6 +3061,7 @@ body {
 .kitchen-ticket-card__header strong {
   display: block;
   line-height: 1.08;
+  font-size: 1rem;
 }
 
 .service-ticket-card__metrics,
@@ -3118,7 +3122,7 @@ body {
 .service-ticket-card__footer span,
 .kitchen-ticket-card__footer span {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   overflow-wrap: anywhere;
 }
 
@@ -3160,6 +3164,7 @@ body {
 .kitchen-lane-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
+  gap: 12px;
 }
 
 .kitchen-lane-card {
@@ -3169,7 +3174,7 @@ body {
 }
 
 .kitchen-lane-card .stack-list {
-  max-height: 60vh;
+  max-height: 56vh;
   overflow: auto;
   padding-right: 4px;
 }
@@ -3395,8 +3400,8 @@ body {
 
 .pos-live-order-list--grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: none;
   padding-right: 0;
 }

@@ -289,6 +289,8 @@ export function OutletTablesPage() {
   };
   const activeZoneCount = filteredZones.length;
   const missingDemoTableCount = Math.max(10 - summary.total, 0);
+  const needsDemoRoomSetup =
+    canLoadDemoFloor && zones.length > 0 && summary.total < 10;
 
   useEffect(() => {
     if (boardTables.length === 0) {
@@ -492,9 +494,9 @@ export function OutletTablesPage() {
           <div className="floor-toolbar">
             <div className="floor-toolbar__copy">
               <p className="eyebrow">Floor board</p>
-              <h2 className="section-title">Operate the floor fast</h2>
+              <h2 className="section-title">Operate the room fast</h2>
               <p className="supporting-copy">
-                Scan the room, tap a table, and jump straight into service actions.
+                Scan the floor, select a table, and jump straight into service.
               </p>
               <div className="support-inline-meta support-inline-meta--board">
                 <span>{summary.total} tables currently loaded</span>
@@ -532,24 +534,25 @@ export function OutletTablesPage() {
                 type="button"
               >
                 {setupBusy
-                  ? 'Loading floor...'
+                  ? 'Loading room...'
                   : zones.length === 0
-                    ? 'Load demo floor (10 tables)'
+                    ? 'Build demo room (10 tables)'
                     : summary.total < 10
-                      ? 'Finish demo floor'
-                      : 'Reload demo floor'}
+                      ? 'Finish demo room'
+                      : 'Refresh demo room'}
               </button>
             </div>
           </div>
 
-          {zones.length > 0 && summary.total < 10 && canLoadDemoFloor ? (
+          {needsDemoRoomSetup ? (
             <div className="floor-setup-callout">
               <div>
-                <p className="eyebrow">Sample floor setup</p>
-                <h3 className="section-title">Expand this outlet to the full 10-table demo</h3>
+                <p className="eyebrow">Staging utility</p>
+                <h3 className="section-title">Expand this outlet to the 10-table demo room</h3>
                 <p className="supporting-copy">
-                  {summary.total} table{summary.total === 1 ? '' : 's'} are loaded right now.
-                  Add the remaining {missingDemoTableCount} so the board behaves like a real room.
+                  {summary.total} table{summary.total === 1 ? '' : 's'} are live right
+                  now. Add the remaining {missingDemoTableCount} so this board behaves
+                  like a full room.
                 </p>
               </div>
               <div className="inline-actions">
@@ -559,15 +562,15 @@ export function OutletTablesPage() {
                   onClick={() => void handleLoadDemoFloor()}
                   type="button"
                 >
-                    {setupBusy ? 'Loading floor...' : 'Load missing tables now'}
+                  {setupBusy ? 'Loading room...' : 'Load missing tables now'}
                 </button>
               </div>
             </div>
           ) : null}
 
-          <div className="floor-command-strip">
-            <div className="field">
-              <label htmlFor="table-search">Search tables</label>
+            <div className="floor-command-strip">
+              <div className="field">
+                <label htmlFor="table-search">Search tables</label>
               <input
                 id="table-search"
                 onChange={(event) => setSearchTerm(event.target.value)}
@@ -591,37 +594,23 @@ export function OutletTablesPage() {
                 ))}
               </select>
             </div>
-            <div className="floor-command-strip__actions">
-              <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
-                Orders board
-              </Link>
-              {selectedZoneId !== ALL_ZONES_FILTER ? (
+              <div className="floor-command-strip__actions">
+                <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
+                  Orders board
+                </Link>
+                {selectedZoneId !== ALL_ZONES_FILTER ? (
                 <button
                   className="secondary-button"
                   onClick={() => setSelectedZoneId(ALL_ZONES_FILTER)}
                   type="button"
                 >
-                  Show whole floor
-                </button>
-              ) : null}
-              {canLoadDemoFloor ? (
-                <button
-                  className="secondary-button"
-                  disabled={setupBusy}
-                  onClick={() => void handleLoadDemoFloor()}
-                  type="button"
-                >
-                  {setupBusy
-                    ? 'Loading floor...'
-                    : summary.total < 10
-                      ? 'Load demo floor'
-                      : 'Reload demo floor'}
-                </button>
-              ) : null}
-              {(searchTerm || statusFilter !== 'ALL') && (
-                <button
-                  className="ghost-button"
-                  onClick={() => {
+                    Show whole floor
+                  </button>
+                ) : null}
+                {(searchTerm || statusFilter !== 'ALL') && (
+                  <button
+                    className="ghost-button"
+                    onClick={() => {
                     setSearchTerm('');
                     setStatusFilter('ALL');
                   }}
@@ -647,7 +636,7 @@ export function OutletTablesPage() {
               <strong>{summary.helpRequests}</strong>
             </article>
             <article className="terminal-board-chip">
-              <span>QR coverage</span>
+              <span>QR live</span>
               <strong>
                 {summary.total === 0 ? '0/0' : `${summary.withQr}/${summary.total}`}
               </strong>
@@ -673,7 +662,7 @@ export function OutletTablesPage() {
                     onClick={() => void handleLoadDemoFloor()}
                     type="button"
                   >
-                    {setupBusy ? 'Loading floor...' : 'Load sample floor'}
+                    {setupBusy ? 'Loading room...' : 'Build demo room'}
                   </button>
                 </div>
               ) : null}
@@ -694,7 +683,7 @@ export function OutletTablesPage() {
                     {activeZone ? activeZone.name : 'Whole floor'}
                   </h2>
                   <p className="supporting-copy">
-                    Pick a table, then move straight into seating, QR, cashier, or guest-help action.
+                    Pick a table, then act on seating, QR, guest help, or cashier flow.
                   </p>
                 </div>
                 <div className="support-inline-meta">
@@ -743,10 +732,10 @@ export function OutletTablesPage() {
                   <div className="floor-canvas__header">
                     <div>
                       <span className="metric-label">Floor map</span>
-                      <h3 className="section-title">Tap a table to operate</h3>
+                      <h3 className="section-title">Tap any table to operate</h3>
                     </div>
                     <p className="supporting-copy">
-                      Full-room view first, table actions second.
+                      Room first. Table actions stay docked on the right.
                     </p>
                   </div>
 
@@ -838,7 +827,7 @@ export function OutletTablesPage() {
                   <section className="sub-panel surface-panel table-inspector table-inspector--dock">
                     <div className="table-inspector__hero">
                       <div>
-                        <span className="metric-label">Operate table</span>
+                        <span className="metric-label">Selected table</span>
                         <h3 className="section-title">{selectedTable.displayName}</h3>
                         <p className="supporting-copy">
                           {selectedTable.tableCode} | {formatEnum(selectedTable.shape)} |{' '}
@@ -900,10 +889,10 @@ export function OutletTablesPage() {
                     <div className="table-inspector__dock">
                       <div className="table-inspector__main-actions">
                         <div>
-                          <p className="eyebrow">Service handoff</p>
+                          <p className="eyebrow">Primary actions</p>
                           <h4 className="table-inspector__section-title">Move this table forward</h4>
                           <p className="supporting-copy">
-                            Open POS for ordering or payment, or open the queue for ticket follow-up.
+                            Open POS, jump to the queue, or update the seating state.
                           </p>
                         </div>
 
@@ -974,11 +963,11 @@ export function OutletTablesPage() {
 
                       <div className="table-inspector__service-panel">
                         <div>
-                          <p className="eyebrow">Floor controls</p>
-                          <h4 className="table-inspector__section-title">Guest, QR, and table state</h4>
+                          <p className="eyebrow">Table controls</p>
+                          <h4 className="table-inspector__section-title">Guest help, QR, and floor state</h4>
                           <p className="supporting-copy">
-                            Clear help calls, rotate the QR, or change service state without leaving
-                            the selected table.
+                            Clear help calls, rotate the QR, or change floor state without
+                            leaving this table.
                           </p>
                         </div>
 

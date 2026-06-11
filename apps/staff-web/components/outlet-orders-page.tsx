@@ -7,6 +7,7 @@ import {
   MouseEvent,
   useEffect,
   useEffectEvent,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -245,26 +246,42 @@ export function OutletOrdersPage() {
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const tableFocusedOrders = requestedTableId ? orders : orders;
-  const filteredOrders = orders.filter((order) => {
-    if (!normalizedSearch) {
-      return true;
-    }
+  const filteredOrders = useMemo(
+    () =>
+      orders
+        .filter((order) => {
+          if (!normalizedSearch) {
+            return true;
+          }
 
-    const haystack = [
-      order.orderNumber,
-      order.customerName,
-      order.customerPhone,
-      order.table?.displayName,
-      order.table?.tableCode,
-      order.paymentStatus,
-      order.status,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+          const haystack = [
+            order.orderNumber,
+            order.customerName,
+            order.customerPhone,
+            order.table?.displayName,
+            order.table?.tableCode,
+            order.paymentStatus,
+            order.status,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
 
-    return haystack.includes(normalizedSearch);
-  });
+          return haystack.includes(normalizedSearch);
+        })
+        .sort((left, right) => {
+          const priorityDelta =
+            servicePriority(left.status, left.paymentStatus) -
+            servicePriority(right.status, right.paymentStatus);
+          if (priorityDelta !== 0) {
+            return priorityDelta;
+          }
+          return (
+            new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+          );
+        }),
+    [normalizedSearch, orders],
+  );
   const focusedTable = tableFocusedOrders[0]?.table ?? null;
 
   useEffect(() => {
@@ -310,7 +327,7 @@ export function OutletOrdersPage() {
       order.status === 'PAYMENT_PROCESSING',
   ).length;
   const draftCount = orders.filter((order) => order.status === 'DRAFT').length;
-  const oldestVisibleOrder = filteredOrders[0] ?? null;
+  const leadVisibleOrder = filteredOrders[0] ?? null;
   const selectedOrderTableLabel = selectedOrder?.table
     ? `${selectedOrder.table.zone?.name ?? 'No zone'} | ${selectedOrder.table.displayName}`
     : 'Counter / no table';
@@ -642,8 +659,8 @@ export function OutletOrdersPage() {
                 : `${filteredOrders.length} tickets in view`}
             </span>
             <span>
-              {oldestVisibleOrder
-                ? `Oldest visible #${oldestVisibleOrder.orderNumber}`
+              {leadVisibleOrder
+                ? `Lead ticket #${leadVisibleOrder.orderNumber}`
                 : 'No active selection'}
             </span>
           </div>
@@ -1265,6 +1282,40 @@ function defaultReasonForStatus(status: StaffOrderStatus) {
     return 'Progressing service workflow.';
   }
   return `Staff updated order to ${action.status.toLowerCase().replace('_', ' ')}.`;
+}
+
+function servicePriority(status: string, paymentStatus: string) {
+  if (status === 'PAYMENT_PROCESSING' || paymentStatus === 'PROCESSING') {
+    return 0;
+  }
+  if (status === 'PENDING_PAYMENT' || paymentStatus === 'PENDING') {
+    return 1;
+  }
+  if (status === 'READY') {
+    return 2;
+  }
+  if (status === 'PREPARING') {
+    return 3;
+  }
+  if (status === 'SENT_TO_KITCHEN') {
+    return 4;
+  }
+  if (status === 'DRAFT') {
+    return 5;
+  }
+  if (status === 'SERVED') {
+    return 6;
+  }
+  if (status === 'PAID') {
+    return 7;
+  }
+  if (status === 'COMPLETED') {
+    return 8;
+  }
+  if (status === 'CANCELLED') {
+    return 9;
+  }
+  return 10;
 }
 
 function formatMoney(currency: string, cents: number) {
