@@ -351,7 +351,7 @@ export function OutletAttendancePage() {
   return (
     <OutletPageLayout
       title="Attendance"
-      subtitle="Shared-device shift clocking with timetable selection, optional manual fallback, and photo-proof policy."
+      subtitle="Shared iPad shift clocking with timetable selection, optional manual fallback, and outlet photo policy."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -378,21 +378,21 @@ export function OutletAttendancePage() {
           <section className="panel section-panel attendance-hero">
             <div className="attendance-hero__copy">
               <p className="eyebrow">Shared shift station</p>
-              <h2 className="section-title">Tap your shift, take a photo, and clock in</h2>
+              <h2 className="section-title">Tap a shift, confirm the person, then clock</h2>
               <p className="supporting-copy">
-                Staff select themselves from today&apos;s timetable, confirm the station capture,
-                and clock in or out from one shared iPad.
+                Keep the shared iPad flow short: choose the shift, capture proof only when needed,
+                then clock in or out from one station card.
               </p>
               <div className="attendance-hero__actions">
                 <a className="primary-button" href="#attendance-shift-board">
-                  Open shift board
+                  Shift board
                 </a>
                 <a className="secondary-button" href="#attendance-capture-station">
-                  Open camera station
+                  Clock station
                 </a>
                 {canManageSchedule ? (
                   <a className="ghost-button" href="#attendance-manager-planner">
-                    Open planner
+                    Shift planner
                   </a>
                 ) : null}
               </div>
@@ -417,7 +417,7 @@ export function OutletAttendancePage() {
           <section className="panel section-panel attendance-kiosk-strip">
             <div className="section-header">
               <div>
-                <p className="eyebrow">Step 1</p>
+                <p className="eyebrow">Station flow</p>
                 <h2 className="section-title">Who is clocking?</h2>
                 <p className="supporting-copy">
                   Tap the scheduled shift first. {manualClockingAllowed
@@ -426,9 +426,9 @@ export function OutletAttendancePage() {
                 </p>
               </div>
               <div className="support-card__actions">
-                <span className="status-pill success">1. Select shift</span>
-                <span className="status-pill warning">2. Take photo</span>
-                <span className="status-pill neutral">3. Clock action</span>
+                <span className="status-pill success">1. Select</span>
+                <span className="status-pill warning">2. Proof</span>
+                <span className="status-pill neutral">3. Clock</span>
               </div>
             </div>
 
@@ -457,27 +457,17 @@ export function OutletAttendancePage() {
                     : 'Move to the camera station after selection.'}
                 </p>
               </article>
-            </div>
-          </section>
-
-          <section className="panel section-panel attendance-station-callout">
-            <div>
-              <p className="eyebrow">Step 2</p>
-              <h2 className="section-title">
-                {selectedShift ? selectedShift.user.fullName : selectedUser.fullName}
-              </h2>
+              <article className="sub-panel surface-panel">
+                <span className="metric-label">Proof policy</span>
+                <strong className="scope-card-value">
+                  {photoRequired ? 'Photo required' : 'Photo optional'}
+                </strong>
                 <p className="supporting-copy">
-                  {selectedShift
-                    ? `${selectedShift.title} | ${formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}`
-                    : manualClockingAllowed
-                      ? 'Use the timetable first. If a shift was not scheduled, choose the employee manually.'
-                      : 'Use the timetable first, then move to the clock station.'}
-              </p>
-            </div>
-            <div className="support-card__actions">
-              <a className="primary-button" href="#attendance-capture-station">
-                Open camera station
-              </a>
+                  {photoRequired
+                    ? 'Clock action stays locked until proof is captured.'
+                    : 'Staff can clock immediately, with optional proof when needed.'}
+                </p>
+              </article>
             </div>
           </section>
 
@@ -612,18 +602,105 @@ export function OutletAttendancePage() {
               <article className="attendance-planner-card">
                 <div className="section-header">
                   <div>
-                    <p className="eyebrow">Planner</p>
-                    <h2 className="section-title">Manager shift builder</h2>
+                    <p className="eyebrow">Selected at station</p>
+                    <h2 className="section-title">
+                      {selectedShift ? selectedShift.user.fullName : selectedUser.fullName}
+                    </h2>
                     <p className="supporting-copy">
-                      Build the timetable here. Staff should spend most of their time on the shift board, not in this form.
+                      {selectedShift
+                        ? `${selectedShift.title} | ${formatShiftRange(selectedShift.startsAt, selectedShift.endsAt)}`
+                        : manualClockingAllowed
+                          ? 'Use manual fallback only when there is no scheduled shift for the employee.'
+                          : 'This outlet expects the employee to start from a scheduled shift.'}
                     </p>
                   </div>
-                  <span className={`status-pill ${canManageSchedule ? 'success' : 'neutral'}`}>
-                    {canManageSchedule ? 'Manager mode' : 'View only'}
+                  <span className={`status-pill ${currentSession ? 'warning' : 'success'}`}>
+                    {currentSession ? 'On shift' : 'Ready'}
                   </span>
                 </div>
-                {canManageSchedule ? (
+                <div className="detail-overview-grid floor-summary-grid">
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Selected mode</span>
+                    <strong className="scope-card-value">
+                      {selectedShift ? 'Scheduled shift' : 'Manual fallback'}
+                    </strong>
+                  </article>
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Proof policy</span>
+                    <strong className="scope-card-value">
+                      {photoRequired ? 'Required' : 'Optional'}
+                    </strong>
+                  </article>
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Device</span>
+                    <strong className="scope-card-value">{deviceLabel}</strong>
+                  </article>
+                  <article className="sub-panel surface-panel">
+                    <span className="metric-label">Recent sessions</span>
+                    <strong className="scope-card-value">{recentSessions.length}</strong>
+                  </article>
+                </div>
+                <div className="support-card__actions">
+                  <a className="primary-button" href="#attendance-capture-station">
+                    Go to clock station
+                  </a>
+                  <a className="secondary-button" href="#attendance-shift-board">
+                    Back to shift board
+                  </a>
+                </div>
+              </article>
+
+              <article className="attendance-planner-card">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Fallback</p>
+                    <h3 className="section-title">No scheduled shift?</h3>
+                  </div>
+                  <span className="supporting-copy">{staffRoster.length} staff</span>
+                </div>
+                {manualClockingAllowed ? (
                   <>
+                    <p className="supporting-copy">
+                      Only use this roster when the manager has not placed the employee on the timetable yet.
+                    </p>
+                    <div className="attendance-quick-roster">
+                      {staffRoster.map((entry) => {
+                        const active = entry.id === selectedUser.id && !selectedShift;
+                        return (
+                          <button
+                            className={active ? 'attendance-quick-chip active' : 'attendance-quick-chip'}
+                            key={entry.id}
+                            onClick={() => selectManualStaff(entry.id)}
+                            type="button"
+                          >
+                            <strong>{entry.fullName}</strong>
+                            <span>{entry.roleName}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="soft-note">
+                    Manual clocking is disabled for this outlet. Staff must tap a scheduled shift from the timetable board.
+                  </div>
+                )}
+              </article>
+
+              {canManageSchedule ? (
+                <article className="attendance-planner-card">
+                  <details className="attendance-planner-details" open={shiftBoard.length === 0}>
+                    <summary className="attendance-planner-summary">
+                      <div>
+                        <p className="eyebrow">Planner</p>
+                        <h3 className="section-title">Manager shift builder</h3>
+                        <p className="supporting-copy">
+                          Keep this collapsed during service. Open it only when the roster needs a change.
+                        </p>
+                      </div>
+                      <span className="status-pill success">Manager mode</span>
+                    </summary>
+
                     <div className="form-grid attendance-planner-form">
                       <div className="field">
                         <label htmlFor="schedule-user">Employee</label>
@@ -693,6 +770,7 @@ export function OutletAttendancePage() {
                         />
                       </div>
                     </div>
+
                     <div className="attendance-action-row">
                       <button
                         className="primary-button"
@@ -713,50 +791,9 @@ export function OutletAttendancePage() {
                         </button>
                       ) : null}
                     </div>
-                  </>
-                ) : (
-                  <div className="soft-note">
-                    A manager sets the timetable. Staff only need to tap their own scheduled shift from the board.
-                  </div>
-                )}
-              </article>
-
-              <article className="attendance-planner-card">
-                <div className="section-header">
-                  <div>
-                    <p className="eyebrow">Fallback</p>
-                    <h3 className="section-title">No scheduled shift?</h3>
-                  </div>
-                  <span className="supporting-copy">{staffRoster.length} staff</span>
-                </div>
-                {manualClockingAllowed ? (
-                  <>
-                    <p className="supporting-copy">
-                      Only use this roster when the manager has not placed the employee on the timetable yet.
-                    </p>
-                    <div className="attendance-quick-roster">
-                      {staffRoster.map((entry) => {
-                        const active = entry.id === selectedUser.id && !selectedShift;
-                        return (
-                          <button
-                            className={active ? 'attendance-quick-chip active' : 'attendance-quick-chip'}
-                            key={entry.id}
-                            onClick={() => selectManualStaff(entry.id)}
-                            type="button"
-                          >
-                            <strong>{entry.fullName}</strong>
-                            <span>{entry.roleName}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <div className="soft-note">
-                    Manual clocking is disabled for this outlet. Staff must tap a scheduled shift from the timetable board.
-                  </div>
-                )}
-              </article>
+                  </details>
+                </article>
+              ) : null}
             </aside>
 
           </section>
@@ -841,7 +878,7 @@ export function OutletAttendancePage() {
               </div>
 
               <div className="field">
-                <label htmlFor="attendance-photo">Take employee photo</label>
+                <label htmlFor="attendance-photo">Take proof photo</label>
                 <input
                   accept="image/*"
                   capture="user"
@@ -852,8 +889,8 @@ export function OutletAttendancePage() {
                   type="file"
                 />
                 <p className="supporting-copy">
-                  Use the front camera on the iPad. The image is compressed
-                  before upload so the shift can be saved reliably.
+                  Use the front camera on the iPad. The image is compressed before upload so the
+                  shift can be saved reliably.
                 </p>
               </div>
 
@@ -955,8 +992,7 @@ export function OutletAttendancePage() {
                 <div className="soft-note">
                   <strong>{selectedUser.fullName} is off shift</strong>
                   <p className="supporting-copy">
-                    Select the employee, take the proof photo, then start the
-                    shift from this station.
+                    Select the employee, confirm any proof capture, then start the shift from this station.
                   </p>
                 </div>
               )}
