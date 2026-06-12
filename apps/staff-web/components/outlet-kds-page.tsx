@@ -409,8 +409,17 @@ export function OutletKdsPage() {
           return haystack.includes(normalizedSearch);
         })
         .sort(
-          (left, right) =>
-            new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+          (left, right) => {
+            const priorityDelta =
+              kitchenStatusPriority(left.status as KitchenStatus) -
+              kitchenStatusPriority(right.status as KitchenStatus);
+            if (priorityDelta !== 0) {
+              return priorityDelta;
+            }
+            return (
+              new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+            );
+          },
         ),
     [normalizedSearch, orders, stageFilter, stationFilter],
   );
@@ -479,9 +488,9 @@ export function OutletKdsPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Kitchen board</p>
-              <h2 className="section-title">Kitchen lanes</h2>
+              <h2 className="section-title">Prep queue</h2>
               <p className="supporting-copy">
-                Move fresh tickets into prep, then hand them back to service.
+                Pull new tickets into prep, then release them back to service fast.
               </p>
             </div>
             <span
@@ -637,6 +646,14 @@ export function OutletKdsPage() {
                             onClick={() => setSelectedOrderId(order.id)}
                             type="button"
                           >
+                            <div className="kitchen-ticket-card__topline">
+                              <span className="mini-badge">
+                                {order.table?.tableCode ?? 'COUNTER'}
+                              </span>
+                              <span className="kitchen-ticket-card__age">
+                                {formatRelativeTime(order.updatedAt)}
+                              </span>
+                            </div>
                             <div className="kitchen-ticket-card__header">
                               <div>
                                 <strong>#{order.orderNumber}</strong>
@@ -663,15 +680,23 @@ export function OutletKdsPage() {
                                 <strong>{order.kitchenTickets.length}</strong>
                               </div>
                               <div className="metric-inline">
+                                <span>Next</span>
+                                <strong>
+                                  {nextKitchenAction(order.status)?.label ?? 'No action'}
+                                </strong>
+                              </div>
+                              <div className="metric-inline">
                                 <span>Total</span>
                                 <strong>
                                   {formatMoney(order.currency, order.grandTotalCents)}
                                 </strong>
                               </div>
-                              <div className="metric-inline">
-                                <span>Age</span>
-                                <strong>{formatRelativeTime(order.updatedAt)}</strong>
-                              </div>
+                            </div>
+                            <div className="kitchen-ticket-card__footer">
+                              <span>{describeOrderStations(order, stationNameById)}</span>
+                              {selectedOrderId === order.id ? (
+                                <span className="mini-badge mini-badge--info">Selected</span>
+                              ) : null}
                             </div>
                           </button>
                           {nextKitchenAction(order.status) ? (
@@ -723,6 +748,11 @@ export function OutletKdsPage() {
                   </p>
                 </div>
                 <div className="service-inspector__actions">
+                  {nextAction ? (
+                    <span className="mini-badge mini-badge--info">
+                      Next {nextAction.label}
+                    </span>
+                  ) : null}
                   <Link
                     className="secondary-button"
                     href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
@@ -737,7 +767,7 @@ export function OutletKdsPage() {
 
               <div className="terminal-board-strip service-inspector__summary-strip">
                 <article className="terminal-board-chip">
-                  <span>Current lane</span>
+                  <span>Lane</span>
                   <strong>{formatEnum(selectedOrder.status)}</strong>
                 </article>
                 <article className="terminal-board-chip">
@@ -749,8 +779,8 @@ export function OutletKdsPage() {
                   <strong>{selectedOrder.table?.displayName ?? 'Counter'}</strong>
                 </article>
                 <article className="terminal-board-chip">
-                  <span>Wait age</span>
-                  <strong>{formatRelativeTime(selectedOrder.createdAt)}</strong>
+                  <span>Next</span>
+                  <strong>{nextAction ? nextAction.label : 'No action'}</strong>
                 </article>
               </div>
 
@@ -829,9 +859,9 @@ export function OutletKdsPage() {
                 <article className="sub-panel surface-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Advance the ticket</h3>
+                      <h3>Advance lane</h3>
                       <p className="supporting-copy">
-                        Push this ticket to the next kitchen stage.
+                        Move this ticket to the next kitchen stage.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -905,6 +935,19 @@ function kitchenCopyForStatus(status: KitchenStatus) {
       return 'Tickets currently being worked on.';
     case 'READY':
       return 'Ready for pickup or service handoff.';
+  }
+}
+
+function kitchenStatusPriority(status: KitchenStatus) {
+  switch (status) {
+    case 'SENT_TO_KITCHEN':
+      return 0;
+    case 'PREPARING':
+      return 1;
+    case 'READY':
+      return 2;
+    default:
+      return 99;
   }
 }
 

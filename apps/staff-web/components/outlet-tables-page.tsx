@@ -200,7 +200,10 @@ export function OutletTablesPage() {
   const canManageTables =
     outletAccess?.permissions.includes('table.manage') ?? false;
   const canManageQr = outletAccess?.permissions.includes('qr.manage') ?? false;
-  const canLoadDemoFloor = canManageTables && canManageQr;
+  const canLoadDemoFloor =
+    process.env.NEXT_PUBLIC_ENABLE_STAGING_TOOLS === 'true' &&
+    canManageTables &&
+    canManageQr;
 
   const filteredZones = useMemo(
     () =>
@@ -407,7 +410,7 @@ export function OutletTablesPage() {
   }
 
   async function handleLoadDemoFloor() {
-    if (!session?.accessToken || !outletId) {
+    if (!session?.accessToken || !outletId || !canLoadDemoFloor) {
       return;
     }
 
@@ -527,20 +530,22 @@ export function OutletTablesPage() {
               >
                 Refresh board
               </button>
-              <button
-                className="primary-button"
-                disabled={setupBusy || !canLoadDemoFloor}
-                onClick={() => void handleLoadDemoFloor()}
-                type="button"
-              >
-                {setupBusy
-                  ? 'Loading room...'
-                  : zones.length === 0
-                    ? 'Build demo room (10 tables)'
-                    : summary.total < 10
-                      ? 'Finish demo room'
-                      : 'Refresh demo room'}
-              </button>
+              {canLoadDemoFloor ? (
+                <button
+                  className="primary-button"
+                  disabled={setupBusy}
+                  onClick={() => void handleLoadDemoFloor()}
+                  type="button"
+                >
+                  {setupBusy
+                    ? 'Loading room...'
+                    : zones.length === 0
+                      ? 'Build demo room (10 tables)'
+                      : summary.total < 10
+                        ? 'Finish demo room'
+                        : 'Refresh demo room'}
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -568,9 +573,9 @@ export function OutletTablesPage() {
             </div>
           ) : null}
 
-            <div className="floor-command-strip">
-              <div className="field">
-                <label htmlFor="table-search">Search tables</label>
+          <div className="floor-command-strip">
+            <div className="field">
+              <label htmlFor="table-search">Search tables</label>
               <input
                 id="table-search"
                 onChange={(event) => setSearchTerm(event.target.value)}
@@ -594,23 +599,28 @@ export function OutletTablesPage() {
                 ))}
               </select>
             </div>
-              <div className="floor-command-strip__actions">
-                <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
-                  Orders board
-                </Link>
-                {selectedZoneId !== ALL_ZONES_FILTER ? (
+            <div className="floor-command-strip__actions">
+              {selectedTable ? (
+                <span className="mini-badge mini-badge--info">
+                  Focus {selectedTable.displayName}
+                </span>
+              ) : null}
+              <Link className="secondary-button" href={`/outlets/${outletId}/orders`}>
+                Orders board
+              </Link>
+              {selectedZoneId !== ALL_ZONES_FILTER ? (
                 <button
                   className="secondary-button"
                   onClick={() => setSelectedZoneId(ALL_ZONES_FILTER)}
                   type="button"
                 >
-                    Show whole floor
-                  </button>
-                ) : null}
-                {(searchTerm || statusFilter !== 'ALL') && (
-                  <button
-                    className="ghost-button"
-                    onClick={() => {
+                  Show whole floor
+                </button>
+              ) : null}
+              {(searchTerm || statusFilter !== 'ALL') && (
+                <button
+                  className="ghost-button"
+                  onClick={() => {
                     setSearchTerm('');
                     setStatusFilter('ALL');
                   }}
@@ -620,27 +630,6 @@ export function OutletTablesPage() {
                 </button>
               )}
             </div>
-          </div>
-
-          <div className="terminal-board-strip floor-ops-strip">
-            <article className="terminal-board-chip">
-              <span>Tables visible</span>
-              <strong>{summary.total}</strong>
-            </article>
-            <article className="terminal-board-chip">
-              <span>Occupied now</span>
-              <strong>{summary.occupied}</strong>
-            </article>
-            <article className="terminal-board-chip">
-              <span>Guest help</span>
-              <strong>{summary.helpRequests}</strong>
-            </article>
-            <article className="terminal-board-chip">
-              <span>QR live</span>
-              <strong>
-                {summary.total === 0 ? '0/0' : `${summary.withQr}/${summary.total}`}
-              </strong>
-            </article>
           </div>
 
           {busy ? (
@@ -665,7 +654,11 @@ export function OutletTablesPage() {
                     {setupBusy ? 'Loading room...' : 'Build demo room'}
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                <p className="supporting-copy">
+                  Ask a manager to publish the live floor layout before service starts.
+                </p>
+              )}
             </div>
           ) : filteredZones.length === 0 ? (
             <div className="empty-state">
@@ -683,7 +676,7 @@ export function OutletTablesPage() {
                     {activeZone ? activeZone.name : 'Whole floor'}
                   </h2>
                   <p className="supporting-copy">
-                    Pick a table, then act on seating, QR, guest help, or cashier flow.
+                    Tap a table to seat guests, jump into POS, or resolve service issues.
                   </p>
                 </div>
                 <div className="support-inline-meta">
@@ -735,7 +728,7 @@ export function OutletTablesPage() {
                       <h3 className="section-title">Tap any table to operate</h3>
                     </div>
                     <p className="supporting-copy">
-                      Room first. Table actions stay docked on the right.
+                      Room first. Table actions stay in the dock below.
                     </p>
                   </div>
 
@@ -892,7 +885,7 @@ export function OutletTablesPage() {
                           <p className="eyebrow">Primary actions</p>
                           <h4 className="table-inspector__section-title">Move this table forward</h4>
                           <p className="supporting-copy">
-                            Open POS, jump to the queue, or update the seating state.
+                            Open cashier, inspect the live queue, or change seating state.
                           </p>
                         </div>
 

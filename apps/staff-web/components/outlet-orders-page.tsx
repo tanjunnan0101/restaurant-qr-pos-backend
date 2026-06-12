@@ -33,7 +33,16 @@ import {
   useOutletContext,
 } from './outlet-page-base';
 
-const statusFilters: Array<StaffOrderStatus | 'ALL'> = [
+const actionableStatuses: StaffOrderStatus[] = [
+  'PENDING_PAYMENT',
+  'PAYMENT_PROCESSING',
+  'SENT_TO_KITCHEN',
+  'PREPARING',
+  'READY',
+];
+
+const statusFilters: Array<StaffOrderStatus | 'ALL' | 'ACTIONABLE'> = [
+  'ACTIONABLE',
   'ALL',
   'DRAFT',
   'PENDING_PAYMENT',
@@ -48,6 +57,7 @@ const statusFilters: Array<StaffOrderStatus | 'ALL'> = [
 ];
 
 type QueueMode = 'ACTION' | 'PAYMENTS' | 'OPEN' | 'ALL';
+type OrderFilter = StaffOrderStatus | 'ALL' | 'ACTIONABLE';
 
 export function OutletOrdersPage() {
   const {
@@ -63,7 +73,9 @@ export function OutletOrdersPage() {
   const [orders, setOrders] = useState<OrderListEntry[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
-  const [filter, setFilter] = useState<StaffOrderStatus | 'ALL'>('ALL');
+  const [filter, setFilter] = useState<OrderFilter>(
+    requestedTableId ? 'ALL' : 'ACTIONABLE',
+  );
   const [queueMode, setQueueMode] = useState<QueueMode>(
     requestedTableId ? 'ALL' : 'ACTION',
   );
@@ -114,7 +126,7 @@ export function OutletOrdersPage() {
         const result = await getOrders(
           authToken,
           outletId,
-          filter,
+          filter === 'ACTIONABLE' ? 'ALL' : filter,
           requestedTableId ?? undefined,
         );
         if (!cancelled) {
@@ -146,7 +158,7 @@ export function OutletOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, outletId, refreshTick, requestedOrderId, session]);
+  }, [filter, outletId, refreshTick, requestedOrderId, requestedTableId, session]);
 
   useEffect(() => {
     if (!session?.accessToken || !selectedOrderId || !outletId) {
@@ -255,6 +267,12 @@ export function OutletOrdersPage() {
     () =>
       orders
         .filter((order) => {
+          if (filter === 'ACTIONABLE' && !actionableStatuses.includes(order.status)) {
+            return false;
+          }
+          if (filter !== 'ALL' && filter !== 'ACTIONABLE' && order.status !== filter) {
+            return false;
+          }
           if (queueMode === 'ACTION' && !nextStatusAction(order.status)) {
             return false;
           }
@@ -301,7 +319,7 @@ export function OutletOrdersPage() {
             new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
           );
         }),
-    [normalizedSearch, orders, queueMode],
+    [filter, normalizedSearch, orders, queueMode],
   );
   const focusedTable = tableFocusedOrders[0]?.table ?? null;
 
@@ -654,9 +672,9 @@ export function OutletOrdersPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Service queue</p>
-              <h2 className="section-title">Ticket queue</h2>
+              <h2 className="section-title">Work queue</h2>
               <p className="supporting-copy">
-                Unpaid, in-progress, and follow-up tickets in one list.
+                Payments, active service, and follow-up tickets in one rail.
               </p>
             </div>
             <div className="inline-actions">
@@ -698,7 +716,7 @@ export function OutletOrdersPage() {
               onClick={() => setQueueMode('ACTION')}
               type="button"
             >
-              Action now
+              Action
               <small>{actionNowCount} tickets</small>
             </button>
             <button
@@ -706,7 +724,7 @@ export function OutletOrdersPage() {
               onClick={() => setQueueMode('PAYMENTS')}
               type="button"
             >
-              Payment issues
+              Payments
               <small>{paymentAttentionCount} tickets</small>
             </button>
             <button
@@ -743,32 +761,36 @@ export function OutletOrdersPage() {
                 className="filter-select"
                 id="orders-status-filter"
                 onChange={(event) =>
-                  setFilter(event.target.value as StaffOrderStatus | 'ALL')
+                    setFilter(event.target.value as OrderFilter)
                 }
                 value={filter}
               >
                 {statusFilters.map((item) => (
                   <option key={item} value={item}>
-                    {item === 'ALL' ? 'All statuses' : formatEnum(item)}
+                    {item === 'ACTIONABLE'
+                      ? 'Actionable now'
+                      : item === 'ALL'
+                        ? 'All statuses'
+                        : formatEnum(item)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="service-board-filters__actions">
-              {(searchTerm || filter !== 'ALL' || requestedTableId) ? (
+              {(searchTerm || filter !== (requestedTableId ? 'ALL' : 'ACTIONABLE') || requestedTableId) ? (
                 <>
-                  {(searchTerm || filter !== 'ALL') && (
+                  {(searchTerm || filter !== (requestedTableId ? 'ALL' : 'ACTIONABLE')) && (
                     <button
                       className="ghost-button"
                       onClick={() => {
                         setSearchTerm('');
-                        setFilter('ALL');
+                        setFilter(requestedTableId ? 'ALL' : 'ACTIONABLE');
                       }}
                       type="button"
-                    >
-                      Clear filters
-                    </button>
-                  )}
+                >
+                  Clear filters
+                </button>
+              )}
                   {queueMode !== 'ACTION' && !requestedTableId ? (
                     <button
                       className="ghost-button"
@@ -851,6 +873,14 @@ export function OutletOrdersPage() {
                     }}
                     type="button"
                   >
+                    <div className="service-ticket-card__topline">
+                      <span className="mini-badge">
+                        {order.table?.tableCode ?? 'COUNTER'}
+                      </span>
+                      <span className="service-ticket-card__age">
+                        {formatRelativeTime(order.updatedAt)}
+                      </span>
+                    </div>
                     <div className="service-ticket-card__header">
                       <div>
                         <strong>#{order.orderNumber}</strong>
@@ -879,20 +909,24 @@ export function OutletOrdersPage() {
                         </strong>
                       </div>
                       <div className="metric-inline">
-                        <span>Kitchen</span>
-                        <strong>{order.kitchenTickets.length}</strong>
+                        <span>Payment</span>
+                        <strong>{compactPaymentStatus(order.paymentStatus)}</strong>
                       </div>
                       <div className="metric-inline">
-                        <span>Updated</span>
-                        <strong>{formatRelativeTime(order.updatedAt)}</strong>
+                        <span>Next</span>
+                        <strong>
+                          {nextStatusAction(order.status)?.label ?? 'No action'}
+                        </strong>
                       </div>
                     </div>
 
                     <div className="service-ticket-card__footer">
                       <span>
-                        {order.table?.tableCode ?? 'Counter'} |{' '}
-                        {order.customerPhone ?? 'No phone'}
+                        {order.customerPhone ?? 'Walk-in / no phone'}
                       </span>
+                      {selectedOrderId === order.id ? (
+                        <span className="mini-badge mini-badge--info">Selected</span>
+                      ) : null}
                     </div>
                   </button>
                   {nextStatusAction(order.status) ? (
@@ -939,6 +973,14 @@ export function OutletOrdersPage() {
                   </p>
                 </div>
                 <div className="service-inspector__actions">
+                  {supportsAmendment ? (
+                    <Link
+                      className="primary-button"
+                      href={`/outlets/${outletId}/pos?orderId=${selectedOrder.id}`}
+                    >
+                      Edit in POS
+                    </Link>
+                  ) : null}
                   <Link
                     className="secondary-button"
                     href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
@@ -955,7 +997,7 @@ export function OutletOrdersPage() {
 
               <div className="terminal-board-strip service-inspector__summary-strip">
                 <article className="terminal-board-chip">
-                  <span>Total due</span>
+                  <span>Total</span>
                   <strong>
                     {formatMoney(
                       selectedOrder.currency,
@@ -964,15 +1006,17 @@ export function OutletOrdersPage() {
                   </strong>
                 </article>
                 <article className="terminal-board-chip">
-                  <span>Settlement</span>
-                  <strong>{formatEnum(selectedOrder.paymentStatus)}</strong>
+                  <span>Payment</span>
+                  <strong>{compactPaymentStatus(selectedOrder.paymentStatus)}</strong>
                 </article>
                 <article className="terminal-board-chip">
-                  <span>Kitchen tickets</span>
-                  <strong>{selectedOrder.kitchenTickets.length}</strong>
+                  <span>Kitchen</span>
+                  <strong>
+                    {selectedOrder.kitchenTickets.length} ticket{selectedOrder.kitchenTickets.length === 1 ? '' : 's'}
+                  </strong>
                 </article>
                 <article className="terminal-board-chip">
-                  <span>Next move</span>
+                  <span>Next</span>
                   <strong>{nextAction ? nextAction.label : 'No action'}</strong>
                 </article>
               </div>
@@ -983,7 +1027,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Ticket contents</h3>
                       <p className="supporting-copy">
-                        Ordered items and notes.
+                        Ordered items, modifiers, and remarks.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -1033,7 +1077,7 @@ export function OutletOrdersPage() {
                     <div>
                       <h3>Settlement and kitchen</h3>
                       <p className="supporting-copy">
-                        Payment records and released kitchen tickets.
+                        Payment records and kitchen releases for this ticket.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -1231,18 +1275,11 @@ export function OutletOrdersPage() {
                     </span>
                   </div>
                   <div className="stack-list">
-                    {supportsAmendment ? (
-                      <Link
-                        className="primary-button"
-                        href={`/outlets/${outletId}/pos?orderId=${selectedOrder.id}`}
-                      >
-                        Edit in POS
-                      </Link>
-                    ) : (
+                    {!supportsAmendment ? (
                       <p className="supporting-copy">
                         This ticket can no longer be amended in POS.
                       </p>
-                    )}
+                    ) : null}
 
                     {supportsCancellation ? (
                       <form className="form-grid" onSubmit={handleCancelOrder}>
@@ -1491,4 +1528,23 @@ function paymentAttentionTone(status: string) {
     return 'danger';
   }
   return 'neutral';
+}
+
+function compactPaymentStatus(status: string) {
+  switch (status) {
+    case 'PAID':
+      return 'Paid';
+    case 'PENDING':
+      return 'Pending';
+    case 'PROCESSING':
+      return 'Processing';
+    case 'MANUAL_VERIFICATION_REQUIRED':
+      return 'Verify';
+    case 'FAILED':
+      return 'Failed';
+    case 'CANCELLED':
+      return 'Cancelled';
+    default:
+      return formatEnum(status);
+  }
 }

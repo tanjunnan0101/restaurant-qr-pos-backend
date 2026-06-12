@@ -6,8 +6,10 @@ import { usePathname } from 'next/navigation';
 import {
   BellRing,
   ClipboardList,
+  Clock3,
   LayoutDashboard,
   LogOut,
+  MenuSquare,
   Package,
   Printer,
   ScanLine,
@@ -51,9 +53,19 @@ const outletPrimaryLinks = [
 
 const outletSupportLinks = [
   {
+    slug: 'menus',
+    label: 'Menus',
+    icon: MenuSquare,
+  },
+  {
     slug: 'inventory',
     label: 'Inventory',
     icon: Package,
+  },
+  {
+    slug: 'attendance',
+    label: 'Attendance',
+    icon: Clock3,
   },
   {
     slug: 'printing',

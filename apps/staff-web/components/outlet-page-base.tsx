@@ -2,18 +2,32 @@
 
 import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ClipboardList, ScanLine, SquareTerminal, Store } from 'lucide-react';
+import {
+  ClipboardList,
+  Clock3,
+  MenuSquare,
+  Package,
+  Printer,
+  ScanLine,
+  SquareTerminal,
+  Store,
+  Users,
+} from 'lucide-react';
 import { getOutlets } from '@/lib/api';
 import type { OutletSummary } from '@/lib/types';
 import { StaffPageFrame } from './staff-page-frame';
 import { useStaffSession } from './staff-session-guard';
 
-const primaryNavItems = [
+const workspaceRouteItems = [
   { href: 'pos', label: 'POS', icon: SquareTerminal },
   { href: 'orders', label: 'Orders', icon: ClipboardList },
   { href: 'tables', label: 'Tables', icon: Store },
   { href: 'kds', label: 'Kitchen', icon: ScanLine },
-  { href: 'menus', label: 'Menus', icon: ClipboardList },
+  { href: 'menus', label: 'Menus', icon: MenuSquare },
+  { href: 'inventory', label: 'Inventory', icon: Package },
+  { href: 'attendance', label: 'Attendance', icon: Clock3 },
+  { href: 'printing', label: 'Printing', icon: Printer },
+  { href: 'staff', label: 'Team', icon: Users },
 ];
 
 export function useOutletContext() {
@@ -87,7 +101,7 @@ export function OutletPageLayout({
 export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
   const pathname = usePathname();
   const activeWorkspace =
-    primaryNavItems.find((item) => pathname.endsWith(`/${item.href}`)) ?? null;
+    workspaceRouteItems.find((item) => pathname.endsWith(`/${item.href}`)) ?? null;
   const ActiveWorkspaceIcon = activeWorkspace?.icon;
 
   return (
