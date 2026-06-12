@@ -737,15 +737,11 @@ export function OutletKdsPage() {
           ) : (
             <>
               <div className="service-inspector__hero">
-                <div>
+                <div className="service-inspector__identity">
                   <p className="eyebrow">Selected ticket</p>
                   <h2 className="section-title">
                     #{selectedOrder.orderNumber}
                   </h2>
-                  <p className="supporting-copy">
-                    {selectedOrderTableLabel} |{' '}
-                    {formatRelativeTime(selectedOrder.createdAt)}
-                  </p>
                 </div>
                 <div className="service-inspector__actions">
                   {nextAction ? (
@@ -764,6 +760,9 @@ export function OutletKdsPage() {
                   </span>
                 </div>
               </div>
+              <p className="service-inspector__meta-copy">
+                {selectedOrderTableLabel} | {formatRelativeTime(selectedOrder.createdAt)}
+              </p>
 
               <div className="terminal-board-strip service-inspector__summary-strip">
                 <article className="terminal-board-chip">

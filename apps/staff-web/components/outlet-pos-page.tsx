@@ -1363,104 +1363,121 @@ export function OutletPosPage() {
             </div>
           ) : (
             <div className="menu-sections">
-              <div className="pos-category-bar">
-                {(filteredCategories ?? []).map((category) => (
-                  <button
-                    className={
-                      category.id === activeCategory?.id
-                        ? 'pos-category-chip active'
-                        : 'pos-category-chip'
-                    }
-                    key={category.id}
-                    onClick={() => setSelectedCategoryId(category.id)}
-                    type="button"
-                  >
-                    <strong>{category.name}</strong>
-                    <span>{category.items.length}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="section-header">
-                <p className="supporting-copy">
-                  {activeCategory
-                    ? `${activeCategory.items.length} items in ${activeCategory.name}`
-                    : `Showing ${filteredItemCount} item${filteredItemCount === 1 ? '' : 's'}`}
-                </p>
-                {menuSearch.trim() ? (
-                  <button
-                    className="ghost-button"
-                    onClick={() => setMenuSearch('')}
-                    type="button"
-                  >
-                    Clear search
-                  </button>
-                ) : null}
-              </div>
-
-              {filteredCategories.length === 0 ? (
-                <div className="empty-state">
-                  <h3>No menu items match this search</h3>
-                  <p className="supporting-copy">
-                    Try a different keyword or clear the search to see the full
-                    menu.
-                  </p>
-                </div>
-              ) : null}
-
-              {activeCategory ? (
-                <section className="category-panel" key={activeCategory.id}>
-                  <div className="product-grid product-grid--terminal">
-                    {activeCategory.items
-                      .filter((item) => item.active)
-                      .map((item) => {
-                        const hasCustomization = itemNeedsCustomization(item);
-                        return (
-                          <article className="product-card product-card--terminal" key={item.id}>
-                            <div className="product-card__topline">
-                              <span className="metric-label">
-                                {formatEnum(item.preparationStationKey)}
-                              </span>
-                              <span
-                                className={`status-pill ${
-                                  item.soldOut ? 'danger' : 'success'
-                                }`}
-                              >
-                                {item.soldOut ? 'Sold out' : 'Ready'}
-                              </span>
-                            </div>
-                            <div className="product-card__body">
-                              <h4>{item.name}</h4>
-                              <strong className="product-card__price">
-                                {formatMoney(
-                                  outlet?.currency ?? 'SGD',
-                                  item.basePriceCents,
-                                )}
-                              </strong>
-                              <p className="supporting-copy">
-                                {item.description || ' '}
-                              </p>
-                            </div>
-                            <div className="product-card__actions">
-                              <button
-                                className="primary-button"
-                                disabled={item.soldOut}
-                                onClick={() =>
-                                  hasCustomization
-                                    ? openCustomization(item)
-                                    : addDirectItem(item)
-                                }
-                                type="button"
-                              >
-                                {hasCustomization ? 'Customize' : 'Add'}
-                              </button>
-                            </div>
-                          </article>
-                        );
-                      })}
+              <div className="pos-menu-workbench">
+                <aside className="pos-category-rail">
+                  <div className="section-header">
+                    <div>
+                      <span className="metric-label">Categories</span>
+                      <p className="supporting-copy">
+                        Jump straight into the selling section.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {filteredCategories.length} loaded
+                    </span>
                   </div>
-                </section>
-              ) : null}
+                  <div className="pos-category-bar">
+                    {(filteredCategories ?? []).map((category) => (
+                      <button
+                        className={
+                          category.id === activeCategory?.id
+                            ? 'pos-category-chip active'
+                            : 'pos-category-chip'
+                        }
+                        key={category.id}
+                        onClick={() => setSelectedCategoryId(category.id)}
+                        type="button"
+                      >
+                        <strong>{category.name}</strong>
+                        <span>{category.items.length} items</span>
+                      </button>
+                    ))}
+                  </div>
+                </aside>
+
+                <div className="pos-category-stage">
+                  <div className="section-header">
+                    <p className="supporting-copy">
+                      {activeCategory
+                        ? `${activeCategory.items.length} items in ${activeCategory.name}`
+                        : `Showing ${filteredItemCount} item${filteredItemCount === 1 ? '' : 's'}`}
+                    </p>
+                    {menuSearch.trim() ? (
+                      <button
+                        className="ghost-button"
+                        onClick={() => setMenuSearch('')}
+                        type="button"
+                      >
+                        Clear search
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {filteredCategories.length === 0 ? (
+                    <div className="empty-state">
+                      <h3>No menu items match this search</h3>
+                      <p className="supporting-copy">
+                        Try a different keyword or clear the search to see the full
+                        menu.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {activeCategory ? (
+                    <section className="category-panel" key={activeCategory.id}>
+                      <div className="product-grid product-grid--terminal">
+                        {activeCategory.items
+                          .filter((item) => item.active)
+                          .map((item) => {
+                            const hasCustomization = itemNeedsCustomization(item);
+                            return (
+                              <article className="product-card product-card--terminal" key={item.id}>
+                                <div className="product-card__topline">
+                                  <span className="metric-label">
+                                    {formatEnum(item.preparationStationKey)}
+                                  </span>
+                                  <span
+                                    className={`status-pill ${
+                                      item.soldOut ? 'danger' : 'success'
+                                    }`}
+                                  >
+                                    {item.soldOut ? 'Sold out' : 'Ready'}
+                                  </span>
+                                </div>
+                                <div className="product-card__body">
+                                  <h4>{item.name}</h4>
+                                  <strong className="product-card__price">
+                                    {formatMoney(
+                                      outlet?.currency ?? 'SGD',
+                                      item.basePriceCents,
+                                    )}
+                                  </strong>
+                                  <p className="supporting-copy">
+                                    {item.description || ' '}
+                                  </p>
+                                </div>
+                                <div className="product-card__actions">
+                                  <button
+                                    className="primary-button"
+                                    disabled={item.soldOut}
+                                    onClick={() =>
+                                      hasCustomization
+                                        ? openCustomization(item)
+                                        : addDirectItem(item)
+                                    }
+                                    type="button"
+                                  >
+                                    {hasCustomization ? 'Customize' : 'Add'}
+                                  </button>
+                                </div>
+                              </article>
+                            );
+                          })}
+                      </div>
+                    </section>
+                  ) : null}
+                </div>
+              </div>
             </div>
           )}
         </section>

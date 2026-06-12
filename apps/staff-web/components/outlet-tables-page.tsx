@@ -538,12 +538,12 @@ export function OutletTablesPage() {
                   type="button"
                 >
                   {setupBusy
-                    ? 'Loading room...'
+                    ? 'Loading sample floor...'
                     : zones.length === 0
-                      ? 'Build demo room (10 tables)'
+                      ? 'Load sample floor (10 tables)'
                       : summary.total < 10
-                        ? 'Finish demo room'
-                        : 'Refresh demo room'}
+                        ? 'Finish sample floor'
+                        : 'Refresh sample floor'}
                 </button>
               ) : null}
             </div>
@@ -552,12 +552,12 @@ export function OutletTablesPage() {
           {needsDemoRoomSetup ? (
             <div className="floor-setup-callout">
               <div>
-                <p className="eyebrow">Staging utility</p>
-                <h3 className="section-title">Expand this outlet to the 10-table demo room</h3>
+                <p className="eyebrow">Sample floor</p>
+                <h3 className="section-title">Load the full 10-table sample floor</h3>
                 <p className="supporting-copy">
                   {summary.total} table{summary.total === 1 ? '' : 's'} are live right
                   now. Add the remaining {missingDemoTableCount} so this board behaves
-                  like a full room.
+                  like a full service floor.
                 </p>
               </div>
               <div className="inline-actions">
@@ -567,7 +567,7 @@ export function OutletTablesPage() {
                   onClick={() => void handleLoadDemoFloor()}
                   type="button"
                 >
-                  {setupBusy ? 'Loading room...' : 'Load missing tables now'}
+                  {setupBusy ? 'Loading sample floor...' : 'Load sample floor now'}
                 </button>
               </div>
             </div>
@@ -651,7 +651,7 @@ export function OutletTablesPage() {
                     onClick={() => void handleLoadDemoFloor()}
                     type="button"
                   >
-                    {setupBusy ? 'Loading room...' : 'Build demo room'}
+                    {setupBusy ? 'Loading sample floor...' : 'Load sample floor'}
                   </button>
                 </div>
               ) : (

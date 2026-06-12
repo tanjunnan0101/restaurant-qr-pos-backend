@@ -963,14 +963,9 @@ export function OutletOrdersPage() {
           ) : (
             <>
               <div className="service-inspector__hero">
-                <div>
+                <div className="service-inspector__identity">
                   <p className="eyebrow">Selected ticket</p>
                   <h2 className="section-title">#{selectedOrder.orderNumber}</h2>
-                  <p className="supporting-copy">
-                    {selectedOrderTableLabel} |{' '}
-                    {new Date(selectedOrder.createdAt).toLocaleString()} |{' '}
-                    {selectedOrderGuestLabel}
-                  </p>
                 </div>
                 <div className="service-inspector__actions">
                   {supportsAmendment ? (
@@ -994,6 +989,10 @@ export function OutletOrdersPage() {
                   </span>
                 </div>
               </div>
+              <p className="service-inspector__meta-copy">
+                {selectedOrderTableLabel} | {new Date(selectedOrder.createdAt).toLocaleString()} |{' '}
+                {selectedOrderGuestLabel}
+              </p>
 
               <div className="terminal-board-strip service-inspector__summary-strip">
                 <article className="terminal-board-chip">
