@@ -894,20 +894,20 @@ export function OutletTablesPage() {
                             className="primary-button"
                             href={`/outlets/${outletId}/pos?tableId=${selectedTable.id}`}
                           >
-                            Open POS
+                            Open cashier
                           </Link>
                           <Link
                             className="secondary-button"
                             href={`/outlets/${outletId}/orders?tableId=${selectedTable.id}`}
                           >
-                            View table orders
+                            Live orders
                           </Link>
                           {selectedTableSnapshot?.latestOrderId ? (
                             <Link
                               className="secondary-button"
                               href={`/outlets/${outletId}/orders/${selectedTableSnapshot.latestOrderId}`}
                             >
-                              Open latest ticket
+                              Latest ticket
                             </Link>
                           ) : (
                             <div className="soft-note soft-note--compact">

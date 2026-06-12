@@ -1343,7 +1343,7 @@ export function OutletPosPage() {
                 value={menuSearch}
               />
               <Link className="secondary-button" href={`/outlets/${outletId}/menus`}>
-                Add / edit items
+                Menu manager
               </Link>
               <a className="secondary-button" href="#pos-live-feed">
                 Live orders
@@ -1533,20 +1533,20 @@ export function OutletPosPage() {
 
             <div className="pos-ticket-jumpbar">
               <a className="ghost-button" href="#ticket-payment">
-                Jump to payment
+                Payment
               </a>
               <a className="ghost-button" href="#ticket-setup">
-                Guest and service
+                Guest setup
               </a>
               <a className="ghost-button" href="#pos-live-feed">
-                Live orders
+                Live queue
               </a>
               {selectedTable ? (
                 <Link
                   className="ghost-button"
                   href={`/outlets/${outletId}/orders?tableId=${selectedTable.id}`}
                 >
-                  Table orders
+                  Table queue
                 </Link>
               ) : null}
             </div>

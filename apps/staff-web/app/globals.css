@@ -1631,7 +1631,7 @@ body {
   margin: 0;
   color: var(--terminal-ink);
   font-family: var(--font-body);
-  font-size: clamp(1.55rem, 2.5vw, 2.35rem);
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
   font-weight: 800;
   line-height: 0.98;
   letter-spacing: -0.05em;
@@ -1910,12 +1910,12 @@ body {
 }
 
 .service-board-layout {
-  grid-template-columns: minmax(420px, 0.82fr) minmax(560px, 1.18fr);
+  grid-template-columns: minmax(380px, 0.84fr) minmax(520px, 1.16fr);
   align-items: start;
 }
 
 .kitchen-station-layout {
-  grid-template-columns: minmax(560px, 0.88fr) minmax(520px, 1.12fr);
+  grid-template-columns: minmax(440px, 0.92fr) minmax(460px, 1.08fr);
   align-items: start;
 }
 
@@ -2865,10 +2865,14 @@ body {
 }
 
 .table-inspector__hero {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 14px;
+}
+
+.table-inspector__hero > div {
+  min-width: 0;
 }
 
 .table-inspector__metrics {
@@ -2878,7 +2882,7 @@ body {
 }
 
 .table-inspector__metrics--wide {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .table-inspector__dock {
@@ -2903,7 +2907,7 @@ body {
 }
 
 .table-action-grid--wide {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
 .table-inspector__main-actions,
@@ -2942,7 +2946,7 @@ body {
 }
 
 .selected-table-summary {
-  margin-top: -4px;
+  margin-top: 0;
 }
 
 .table-card--upgraded {
@@ -3088,7 +3092,7 @@ body {
 
 .service-ticket-list {
   grid-template-columns: 1fr;
-  max-height: 72vh;
+  max-height: 68vh;
   overflow: auto;
   padding-right: 4px;
 }
@@ -3231,7 +3235,7 @@ body {
 }
 
 .service-inspector__summary-strip {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .service-ticket-card__metrics,
@@ -3369,25 +3373,25 @@ body {
 }
 
 .pos-ticket-summary {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .pos-ticket-workspace {
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.92fr);
+  gap: 10px;
+  grid-template-columns: minmax(0, 0.95fr) minmax(250px, 1.05fr);
   align-items: start;
 }
 
 .pos-ticket-jumpbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pos-ticket-jumpbar .ghost-button {
-  min-height: 40px;
-  padding: 8px 14px;
+  min-height: 36px;
+  padding: 7px 12px;
 }
 
 .pos-ticket-cart {
@@ -3416,7 +3420,7 @@ body {
 .pos-control-block,
 .pos-inline-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pos-inline-panel {
