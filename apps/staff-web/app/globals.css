@@ -65,7 +65,7 @@ button {
 
 .staff-shell {
   min-height: 100vh;
-  padding: 18px 14px 28px;
+  padding: 14px 12px 24px;
 }
 
 .auth-layout,
@@ -99,7 +99,7 @@ button {
 }
 
 .staff-page-layout {
-  grid-template-columns: 236px minmax(0, 1fr);
+  grid-template-columns: 216px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -305,7 +305,7 @@ button {
   position: sticky;
   top: 18px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .staff-sidebar--rich {
@@ -417,7 +417,7 @@ button {
 
 .staff-content {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .page-header,
@@ -1614,7 +1614,7 @@ body {
   position: sticky;
   top: 12px;
   z-index: 5;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-radius: 16px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(255, 255, 255, 0.86);
@@ -1674,7 +1674,7 @@ body {
 .staff-page-intro {
   margin-top: -6px;
   padding: 0 2px;
-  max-width: 620px;
+  max-width: 560px;
 }
 
 .staff-page-intro p {
@@ -1694,7 +1694,7 @@ body {
 .outlet-terminal-bar {
   display: grid;
   gap: 8px;
-  padding: 7px 9px;
+  padding: 6px 8px;
   border-radius: 16px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(255, 255, 255, 0.96);
@@ -1921,16 +1921,16 @@ body {
 .pos-layout {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
-  gap: 14px;
+  gap: 12px;
 }
 
 .service-board-layout {
-  grid-template-columns: minmax(460px, 0.92fr) minmax(520px, 1.08fr);
+  grid-template-columns: minmax(420px, 0.94fr) minmax(500px, 1.06fr);
   align-items: start;
 }
 
 .kitchen-station-layout {
-  grid-template-columns: minmax(520px, 1.08fr) minmax(420px, 0.92fr);
+  grid-template-columns: minmax(460px, 1fr) minmax(400px, 0.96fr);
   align-items: start;
 }
 
@@ -1976,7 +1976,7 @@ body {
 
 .service-board-filters,
 .kitchen-board-filters {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.56fr);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.56fr) minmax(220px, 0.56fr);
 }
 
 .support-inline-meta--board {
@@ -3455,7 +3455,7 @@ body {
 }
 
 .service-inspector__summary-strip--orders {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .service-inspector__meta-bar {
@@ -3482,7 +3482,7 @@ body {
 }
 
 .kitchen-lane-grid--dense {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .kitchen-lane-card {
@@ -3498,11 +3498,11 @@ body {
 }
 
 .kitchen-inspector .service-inspector__hero {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
 }
 
 .kitchen-inspector .service-inspector__actions {
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -3523,22 +3523,22 @@ body {
 }
 
 .pos-ticket-summary {
-  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
 
 .pos-ticket-workspace {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.86fr);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.92fr);
   align-items: start;
 }
 
 .pos-ticket-workspace--balanced {
-  grid-template-columns: minmax(0, 1.08fr) minmax(240px, 0.92fr);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.96fr);
 }
 
 .pos-ticket-workspace--equal {
-  grid-template-columns: minmax(0, 1.12fr) minmax(240px, 0.88fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .pos-ticket-jumpbar {
@@ -3548,8 +3548,8 @@ body {
 }
 
 .pos-ticket-jumpbar .ghost-button {
-  min-height: 36px;
-  padding: 7px 12px;
+  min-height: 34px;
+  padding: 6px 11px;
 }
 
 .pos-ticket-cart {
@@ -3658,12 +3658,12 @@ body {
 .menu-toolbar {
   display: grid;
   grid-template-columns: minmax(180px, 0.68fr) minmax(220px, 1fr) auto auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
 .menu-toolbar--pos {
-  grid-template-columns: minmax(170px, 0.62fr) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(180px, 0.58fr) minmax(220px, 1fr) auto;
 }
 
 .menu-toolbar > * {
@@ -3673,25 +3673,30 @@ body {
 .menu-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
+}
+
+.menu-toolbar__actions .secondary-button {
+  min-height: 38px;
+  padding: 8px 14px;
 }
 
 .pos-menu-workbench {
   display: grid;
-  gap: 14px;
-  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 12px;
+  grid-template-columns: 1fr;
   align-items: start;
   min-height: 0;
 }
 
 .pos-menu-workbench--dense {
-  grid-template-columns: 104px minmax(0, 1fr);
+  grid-template-columns: 1fr;
 }
 
 .pos-category-rail {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   align-content: start;
 }
 
@@ -3703,7 +3708,8 @@ body {
 }
 
 .pos-category-bar {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -3711,8 +3717,8 @@ body {
   display: inline-grid;
   gap: 2px;
   min-height: 52px;
-  min-width: 0;
-  width: 100%;
+  min-width: 128px;
+  width: auto;
   padding: 10px 14px;
   border-radius: 18px;
   border: 1px solid rgba(89, 73, 58, 0.14);
@@ -3727,7 +3733,7 @@ body {
 
 .product-grid--terminal {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   justify-content: stretch;
   align-items: start;
 }
@@ -3735,8 +3741,8 @@ body {
 .product-card--terminal {
   display: grid;
   gap: 8px;
-  min-height: 118px;
-  padding: 10px;
+  min-height: 0;
+  padding: 12px;
   border-radius: 18px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 251, 0.98));
@@ -3767,7 +3773,7 @@ body {
   position: sticky;
   top: 14px;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   max-height: calc(100vh - 34px);
   overflow: auto;
 }
@@ -3816,18 +3822,18 @@ body {
 }
 
 .pos-live-order-list--compact {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: 30vh;
 }
 
 .pos-live-order-card {
   gap: 7px;
-  padding: 10px;
+  padding: 12px;
   border-radius: 16px;
 }
 
 .cart-list {
-  max-height: 26vh;
+  max-height: 24vh;
   overflow: auto;
   padding-right: 4px;
 }

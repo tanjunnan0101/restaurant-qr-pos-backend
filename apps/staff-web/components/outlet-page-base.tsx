@@ -108,7 +108,7 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
     <section className="outlet-terminal-bar">
       <div className="outlet-terminal-bar__identity">
         <div className="outlet-terminal-bar__primary">
-          <p className="eyebrow">Outlet command strip</p>
+          <p className="eyebrow">Outlet</p>
           <h2 className="outlet-terminal-bar__title">{outlet.name}</h2>
           <p className="supporting-copy">
             {outlet.slug} | {outlet.currency} | {outlet.timezone}
@@ -127,20 +127,20 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
             </span>
           )}
           <div className="outlet-terminal-bar__stats">
-          <article className="command-pill">
-            <span>GST</span>
-            <strong>
-              {outlet.gstEnabled ? `${outlet.gstRateBps / 100}%` : 'Off'}
-            </strong>
-          </article>
-          <article className="command-pill">
-            <span>Service</span>
-            <strong>
-              {outlet.serviceChargeEnabled
-                ? `${outlet.serviceChargeBps / 100}%`
-                : 'Off'}
-            </strong>
-          </article>
+            <article className="command-pill">
+              <span>GST</span>
+              <strong>
+                {outlet.gstEnabled ? `${outlet.gstRateBps / 100}%` : 'Off'}
+              </strong>
+            </article>
+            <article className="command-pill">
+              <span>Service</span>
+              <strong>
+                {outlet.serviceChargeEnabled
+                  ? `${outlet.serviceChargeBps / 100}%`
+                  : 'Off'}
+              </strong>
+            </article>
           </div>
         </div>
       </div>

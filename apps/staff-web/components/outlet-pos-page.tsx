@@ -1267,11 +1267,9 @@ export function OutletPosPage() {
         <div className="workspace-hero__header">
           <div className="workspace-hero__copy">
             <p className="eyebrow">Cashier terminal</p>
-            <h2 className="section-title">
-              Build and close tickets fast
-            </h2>
+            <h2 className="section-title">Cashier workspace</h2>
             <p className="supporting-copy">
-              Add items, settle payment, and keep live outlet orders in view.
+              Build the ticket on the left and settle it on the right.
             </p>
           </div>
           <div className="workspace-pill-grid">
@@ -1288,7 +1286,7 @@ export function OutletPosPage() {
             </div>
             <div className="workspace-pill">
               <span>Table</span>
-              <strong>{selectedTable?.displayName ?? 'Counter / no table'}</strong>
+              <strong>{selectedTable?.displayName ?? 'Counter'}</strong>
             </div>
             <div className="workspace-pill">
               <span>Sync</span>
@@ -1321,9 +1319,9 @@ export function OutletPosPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Menu station</p>
-              <h2 className="section-title">Menu and item picker</h2>
+              <h2 className="section-title">Item picker</h2>
               <p className="supporting-copy">
-                Choose a menu, jump to a category, and add items without losing cashier pace.
+                Choose a menu, jump to a category, and add items with minimal taps.
               </p>
             </div>
             <div className="menu-toolbar menu-toolbar--pos">
@@ -1348,10 +1346,10 @@ export function OutletPosPage() {
               />
               <div className="menu-toolbar__actions">
                 <Link className="secondary-button" href={`/outlets/${outletId}/menus`}>
-                  Manage menu
+                  Menus
                 </Link>
                 <a className="secondary-button" href="#pos-live-feed">
-                  Live queue
+                  Orders
                 </a>
               </div>
             </div>
@@ -1375,7 +1373,7 @@ export function OutletPosPage() {
                     <div>
                       <span className="metric-label">Categories</span>
                       <p className="supporting-copy">
-                        Jump straight into the selling section.
+                        Tap a category to switch the selling rail.
                       </p>
                     </div>
                     <span className="status-pill neutral">
@@ -1403,11 +1401,14 @@ export function OutletPosPage() {
 
                 <div className="pos-category-stage">
                   <div className="section-header">
-                    <p className="supporting-copy">
-                      {activeCategory
-                        ? `${activeCategory.items.length} items in ${activeCategory.name}`
-                        : `Showing ${filteredItemCount} item${filteredItemCount === 1 ? '' : 's'}`}
-                    </p>
+                    <div>
+                      <span className="metric-label">Selling lane</span>
+                      <p className="supporting-copy">
+                        {activeCategory
+                          ? `${activeCategory.items.length} items in ${activeCategory.name}`
+                          : `Showing ${filteredItemCount} item${filteredItemCount === 1 ? '' : 's'}`}
+                      </p>
+                    </div>
                     {menuSearch.trim() ? (
                       <button
                         className="ghost-button"
@@ -1495,6 +1496,9 @@ export function OutletPosPage() {
           <div className="pos-ticket-builder">
             <p className="eyebrow">Order builder</p>
             <h2 className="section-title">Current ticket</h2>
+            <p className="supporting-copy">
+              Keep the cart, payment, and guest setup in one cashier rail.
+            </p>
 
             <div className="detail-overview-grid detail-overview-grid--ticket pos-ticket-summary">
               <article className="terminal-board-chip">
