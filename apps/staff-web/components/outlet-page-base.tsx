@@ -107,14 +107,26 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
   return (
     <section className="outlet-terminal-bar">
       <div className="outlet-terminal-bar__identity">
-        <div>
+        <div className="outlet-terminal-bar__primary">
           <p className="eyebrow">Outlet command strip</p>
           <h2 className="outlet-terminal-bar__title">{outlet.name}</h2>
           <p className="supporting-copy">
             {outlet.slug} | {outlet.currency} | {outlet.timezone}
           </p>
         </div>
-        <div className="outlet-terminal-bar__stats">
+        <div className="outlet-terminal-bar__tools">
+          {activeWorkspace && ActiveWorkspaceIcon ? (
+            <span className="workspace-pill workspace-pill--terminal current compact">
+              <ActiveWorkspaceIcon aria-hidden="true" size={16} />
+              <span>{activeWorkspace.label}</span>
+            </span>
+          ) : (
+            <span className="workspace-pill workspace-pill--terminal compact">
+              <SquareTerminal aria-hidden="true" size={16} />
+              <span>Outlet tools</span>
+            </span>
+          )}
+          <div className="outlet-terminal-bar__stats">
           <article className="command-pill">
             <span>GST</span>
             <strong>
@@ -129,26 +141,7 @@ export function OutletHeader({ outlet }: { outlet: OutletSummary }) {
                 : 'Off'}
             </strong>
           </article>
-        </div>
-      </div>
-
-      <div className="outlet-terminal-bar__nav">
-        <span className="terminal-mini-label">Current workspace</span>
-        <div className="outlet-terminal-bar__active-workspace">
-          {activeWorkspace && ActiveWorkspaceIcon ? (
-            <span className="workspace-pill workspace-pill--terminal current compact">
-              <ActiveWorkspaceIcon aria-hidden="true" size={16} />
-              <span>{activeWorkspace.label}</span>
-            </span>
-          ) : (
-            <span className="workspace-pill workspace-pill--terminal compact">
-              <SquareTerminal aria-hidden="true" size={16} />
-              <span>Outlet tools</span>
-            </span>
-          )}
-          <span className="outlet-terminal-bar__hint">
-            Switch stations from the left rail.
-          </span>
+          </div>
         </div>
       </div>
     </section>

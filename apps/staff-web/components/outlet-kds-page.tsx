@@ -461,7 +461,7 @@ export function OutletKdsPage() {
   return (
     <OutletPageLayout
       title="Kitchen"
-      subtitle="Production lanes for new, preparing, and ready tickets."
+      subtitle="Run the kitchen line from release to pickup handoff."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -488,7 +488,7 @@ export function OutletKdsPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Kitchen board</p>
-              <h2 className="section-title">Prep queue</h2>
+              <h2 className="section-title">Kitchen lanes</h2>
               <p className="supporting-copy">
                 Pull new tickets into prep, then release them back to service fast.
               </p>
@@ -736,7 +736,7 @@ export function OutletKdsPage() {
             </div>
           ) : (
             <>
-              <div className="service-inspector__hero">
+              <div className="service-inspector__hero service-inspector__hero--split">
                 <div className="service-inspector__identity">
                   <p className="eyebrow">Selected ticket</p>
                   <h2 className="section-title">
@@ -753,18 +753,21 @@ export function OutletKdsPage() {
                     className="secondary-button"
                     href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
                   >
-                    Open full order detail
+                    Full order detail
                   </Link>
                   <span className={`status-pill ${statusTone(selectedOrder.status)}`}>
                     {formatEnum(selectedOrder.status)}
                   </span>
                 </div>
               </div>
-              <p className="service-inspector__meta-copy">
-                {selectedOrderTableLabel} | {formatRelativeTime(selectedOrder.createdAt)}
-              </p>
+              <div className="support-inline-meta support-inline-meta--board service-inspector__meta-bar">
+                <span>{selectedOrderTableLabel}</span>
+                <span>{selectedOrder.customerName ?? selectedOrder.customerPhone ?? 'Walk-in / guest'}</span>
+                <span>{formatRelativeTime(selectedOrder.createdAt)}</span>
+                <span>{describeStationsFromDetail(selectedOrder)}</span>
+              </div>
 
-              <div className="terminal-board-strip service-inspector__summary-strip">
+              <div className="terminal-board-strip service-inspector__summary-strip service-inspector__summary-strip--kitchen">
                 <article className="terminal-board-chip">
                   <span>Lane</span>
                   <strong>{formatEnum(selectedOrder.status)}</strong>
@@ -783,62 +786,62 @@ export function OutletKdsPage() {
                 </article>
               </div>
 
-              <article className="sub-panel surface-panel">
-                <div className="section-header">
-                  <div>
-                      <h3>Prep list</h3>
-                      <p className="supporting-copy">
-                        Items and modifiers to produce now.
-                      </p>
-                  </div>
-                  <span className="status-pill neutral">
-                    {selectedOrder.items.length} line{selectedOrder.items.length === 1 ? '' : 's'}
-                  </span>
-                </div>
-                <div className="stack-list">
-                  {selectedOrder.items.map((item) => (
-                    <div className="stack-row" key={item.id}>
-                      <div>
-                        <strong>
-                          {item.quantity} x {item.itemName}
-                        </strong>
-                        {item.variantName ? (
-                          <p className="supporting-copy">
-                            Variant: {item.variantName}
-                          </p>
-                        ) : null}
-                        {item.modifiers.length ? (
-                          <ul className="sub-list">
-                            {item.modifiers.map((modifier) => (
-                              <li key={modifier.id}>
-                                {modifier.modifierOptionName}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                        {item.remarks ? (
-                          <p className="supporting-copy">Note: {item.remarks}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              <div className="service-inspector__actions-grid">
+              <div className="detail-grid service-inspector__details service-inspector__details--kitchen">
                 <article className="sub-panel surface-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Station tickets</h3>
+                      <h3>Make now</h3>
                       <p className="supporting-copy">
-                        Stations attached to this order.
+                        Items and modifiers to produce now.
+                      </p>
+                    </div>
+                    <span className="status-pill neutral">
+                      {selectedOrder.items.length} line{selectedOrder.items.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="stack-list service-panel-scroll">
+                    {selectedOrder.items.map((item) => (
+                      <div className="stack-row" key={item.id}>
+                        <div>
+                          <strong>
+                            {item.quantity} x {item.itemName}
+                          </strong>
+                          {item.variantName ? (
+                            <p className="supporting-copy">
+                              Variant: {item.variantName}
+                            </p>
+                          ) : null}
+                          {item.modifiers.length ? (
+                            <ul className="sub-list">
+                              {item.modifiers.map((modifier) => (
+                                <li key={modifier.id}>
+                                  {modifier.modifierOptionName}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {item.remarks ? (
+                            <p className="supporting-copy">Note: {item.remarks}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="sub-panel surface-panel">
+                  <div className="section-header">
+                    <div>
+                      <h3>Station routing</h3>
+                      <p className="supporting-copy">
+                        Stations attached to this order right now.
                       </p>
                     </div>
                     <span className="status-pill neutral">
                       {selectedOrder.kitchenTickets.length} station{selectedOrder.kitchenTickets.length === 1 ? '' : 's'}
                     </span>
                   </div>
-                  <div className="stack-list">
+                  <div className="stack-list service-panel-scroll">
                     {selectedOrder.kitchenTickets.map((ticket) => (
                       <div className="stack-row" key={ticket.id}>
                         <div>
@@ -854,11 +857,13 @@ export function OutletKdsPage() {
                     ))}
                   </div>
                 </article>
+              </div>
 
-                <article className="sub-panel surface-panel">
+              <div className="service-inspector__actions-grid service-inspector__actions-grid--kitchen">
+                <article className="sub-panel surface-panel service-action-panel service-action-panel--primary">
                   <div className="section-header">
                     <div>
-                      <h3>Advance lane</h3>
+                      <h3>Next kitchen action</h3>
                       <p className="supporting-copy">
                         Move this ticket to the next kitchen stage.
                       </p>

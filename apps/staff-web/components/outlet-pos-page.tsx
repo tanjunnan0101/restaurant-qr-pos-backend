@@ -1068,6 +1068,10 @@ export function OutletPosPage() {
     setCart((current) => current.filter((item) => item.id !== id));
   }
 
+  function clearCart() {
+    setCart([]);
+  }
+
   function startEditingCartItem(cartItem: CartItem) {
     const sourceItem = menuItemsById.get(cartItem.menuItemId);
     if (!sourceItem) {
@@ -1313,16 +1317,16 @@ export function OutletPosPage() {
       </section>
 
       <section className="pos-layout">
-        <section className="panel section-panel pos-shell-card">
+        <section className="panel section-panel pos-shell-card pos-shell-card--catalog">
           <div className="section-header">
             <div>
               <p className="eyebrow">Menu station</p>
-              <h2 className="section-title">Build a ticket fast</h2>
+              <h2 className="section-title">Menu and item picker</h2>
               <p className="supporting-copy">
-                Choose a menu, jump to a category, and add items with minimal clicks.
+                Choose a menu, jump to a category, and add items without losing cashier pace.
               </p>
             </div>
-            <div className="menu-toolbar">
+            <div className="menu-toolbar menu-toolbar--pos">
               <select
                 className="filter-select"
                 onChange={(event) => setSelectedMenuId(event.target.value)}
@@ -1342,12 +1346,14 @@ export function OutletPosPage() {
                 placeholder="Search items, categories, or stations"
                 value={menuSearch}
               />
-              <Link className="secondary-button" href={`/outlets/${outletId}/menus`}>
-                Menu manager
-              </Link>
-              <a className="secondary-button" href="#pos-live-feed">
-                Live orders
-              </a>
+              <div className="menu-toolbar__actions">
+                <Link className="secondary-button" href={`/outlets/${outletId}/menus`}>
+                  Manage menu
+                </Link>
+                <a className="secondary-button" href="#pos-live-feed">
+                  Live queue
+                </a>
+              </div>
             </div>
           </div>
 
@@ -1363,7 +1369,7 @@ export function OutletPosPage() {
             </div>
           ) : (
             <div className="menu-sections">
-              <div className="pos-menu-workbench">
+              <div className="pos-menu-workbench pos-menu-workbench--dense">
                 <aside className="pos-category-rail">
                   <div className="section-header">
                     <div>
@@ -1483,7 +1489,7 @@ export function OutletPosPage() {
         </section>
 
         <aside
-          className="panel section-panel pos-sidebar pos-ticket-card"
+          className="panel section-panel pos-sidebar pos-ticket-card pos-ticket-card--builder"
           id="current-ticket"
         >
           <div className="pos-ticket-builder">
@@ -1525,9 +1531,7 @@ export function OutletPosPage() {
                   : 'No table linked yet'}
               </span>
               <span>
-                {source === 'WAITER'
-                  ? 'Waiter-assisted order source'
-                  : 'Counter-created order source'}
+                {source === 'WAITER' ? 'Waiter-assisted order' : 'Counter order'}
               </span>
             </div>
 
@@ -1551,74 +1555,106 @@ export function OutletPosPage() {
               ) : null}
             </div>
 
-            <div className="pos-ticket-workspace">
-              <div className="cart-list pos-ticket-section pos-ticket-cart">
-                {cart.length === 0 ? (
-                  <div className="empty-state">
-                    <h3>Cart is empty</h3>
+            <div className="pos-ticket-workspace pos-ticket-workspace--balanced pos-ticket-workspace--equal">
+              <article className="sub-panel surface-panel pos-ticket-cart-shell">
+                <div className="section-header">
+                  <div>
+                    <h3>Cart lines</h3>
                     <p className="supporting-copy">
-                      Add items from the menu to begin the ticket.
+                      Review items, update quantities, and keep the ticket accurate before payment.
                     </p>
                   </div>
-                ) : (
-                  cart.map((item) => (
-                    <article className="cart-card cart-card--dense" key={item.id}>
-                      <div className="section-header">
-                        <div>
-                          <strong>{item.itemName}</strong>
-                          <p className="supporting-copy">
-                            {item.variantName ? `${item.variantName} | ` : ''}
-                            {item.modifierLabels.join(', ') || 'No modifiers'}
-                          </p>
-                          {item.remarks ? (
-                            <p className="supporting-copy">Note: {item.remarks}</p>
-                          ) : null}
+                  <div className="inline-actions">
+                    <span className="status-pill neutral">
+                      {itemCount} item{itemCount === 1 ? '' : 's'}
+                    </span>
+                    {cart.length > 0 ? (
+                      <button
+                        className="ghost-button"
+                        onClick={clearCart}
+                        type="button"
+                      >
+                        Clear cart
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="cart-list pos-ticket-section pos-ticket-cart">
+                  {cart.length === 0 ? (
+                    <div className="empty-state">
+                      <h3>Cart is empty</h3>
+                      <p className="supporting-copy">
+                        Add items from the menu to begin the ticket.
+                      </p>
+                    </div>
+                  ) : (
+                    cart.map((item) => (
+                      <article className="cart-card cart-card--dense" key={item.id}>
+                        <div className="section-header">
+                          <div>
+                            <strong>{item.itemName}</strong>
+                            <p className="supporting-copy">
+                              {item.variantName ? `${item.variantName} | ` : ''}
+                              {item.modifierLabels.join(', ') || 'No modifiers'}
+                            </p>
+                            {item.remarks ? (
+                              <p className="supporting-copy">Note: {item.remarks}</p>
+                            ) : null}
+                          </div>
+                          <strong>
+                            {formatMoney(
+                              outlet?.currency ?? 'SGD',
+                              item.lineTotalCents,
+                            )}
+                          </strong>
                         </div>
-                        <strong>
-                          {formatMoney(
-                            outlet?.currency ?? 'SGD',
-                            item.lineTotalCents,
-                          )}
-                        </strong>
-                      </div>
-                      <div className="cart-item-controls">
-                        <button
-                          className="quantity-button"
-                          onClick={() => updateCartQuantity(item.id, -1)}
-                          type="button"
-                        >
-                          -
-                        </button>
-                        <span className="quantity-value">{item.quantity}</span>
-                        <button
-                          className="quantity-button"
-                          onClick={() => updateCartQuantity(item.id, 1)}
-                          type="button"
-                        >
-                          +
-                        </button>
-                        <button
-                          className="secondary-button"
-                          onClick={() => startEditingCartItem(item)}
-                          type="button"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="ghost-button"
-                          onClick={() => removeCartItem(item.id)}
-                          type="button"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </article>
-                  ))
-                )}
-              </div>
+                        <div className="cart-item-controls">
+                          <button
+                            className="quantity-button"
+                            onClick={() => updateCartQuantity(item.id, -1)}
+                            type="button"
+                          >
+                            -
+                          </button>
+                          <span className="quantity-value">{item.quantity}</span>
+                          <button
+                            className="quantity-button"
+                            onClick={() => updateCartQuantity(item.id, 1)}
+                            type="button"
+                          >
+                            +
+                          </button>
+                          <button
+                            className="secondary-button"
+                            onClick={() => startEditingCartItem(item)}
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="ghost-button"
+                            onClick={() => removeCartItem(item.id)}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </article>
 
               <article className="sub-panel bill-card totals-hero pos-ticket-totals">
-                <h3>Estimated totals</h3>
+                <div className="section-header">
+                  <div>
+                    <h3>Estimated totals</h3>
+                    <p className="supporting-copy">
+                      Cashier preview before the backend confirms the final save.
+                    </p>
+                  </div>
+                  <span className="status-pill neutral">{paymentMethodLabel}</span>
+                </div>
                 <div className="stack-list">
                   <div className="stack-row">
                     <span>Subtotal</span>
@@ -1674,6 +1710,61 @@ export function OutletPosPage() {
                 </p>
               </article>
             </div>
+
+            <article className="sub-panel surface-panel pos-submit-station">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">Checkout station</p>
+                  <h3>Save or send the ticket</h3>
+                </div>
+                <span className="status-pill neutral">
+                  {cart.length === 0 ? 'Waiting for items' : 'Ready for action'}
+                </span>
+              </div>
+              <p className="supporting-copy">
+                Use the main action when the guest is ready. Hold a draft only when you need to park the ticket and continue later.
+              </p>
+              <div className="pos-action-stack">
+                <button
+                  className="primary-button full-width"
+                  disabled={submitDisabled}
+                  onClick={() => void submitOrder('submit')}
+                  type="button"
+                >
+                  {submitting
+                    ? editOrder
+                      ? 'Saving changes...'
+                      : 'Creating order...'
+                    : editOrder
+                      ? 'Save order changes'
+                      : 'Create staff order'}
+                </button>
+                <button
+                  className="secondary-button full-width"
+                  disabled={submitting || cart.length === 0}
+                  onClick={() => void submitOrder('draft')}
+                  type="button"
+                >
+                  {submitting
+                    ? editOrder
+                      ? 'Saving draft...'
+                      : 'Holding draft...'
+                    : editOrder?.status === 'DRAFT'
+                      ? 'Update held draft'
+                      : 'Hold as draft'}
+                </button>
+                {editOrder ? (
+                  <button
+                    className="ghost-button full-width"
+                    disabled={printingBill}
+                    onClick={() => void handlePrintBill()}
+                    type="button"
+                  >
+                    {printingBill ? 'Queueing bill...' : 'Print pre-payment bill'}
+                  </button>
+                ) : null}
+              </div>
+            </article>
 
             <div className="pos-payment-controls pos-ticket-section" id="ticket-payment">
               <article className="sub-panel surface-panel pos-control-block">
@@ -2017,46 +2108,6 @@ export function OutletPosPage() {
               </article>
             </div>
 
-            <div className="pos-action-stack">
-              <button
-                className="primary-button full-width"
-                disabled={submitDisabled}
-                onClick={() => void submitOrder('submit')}
-                type="button"
-              >
-                {submitting
-                  ? editOrder
-                    ? 'Saving changes...'
-                    : 'Creating order...'
-                  : editOrder
-                    ? 'Save order changes'
-                    : 'Create staff order'}
-              </button>
-              <button
-                className="secondary-button full-width"
-                disabled={submitting || cart.length === 0}
-                onClick={() => void submitOrder('draft')}
-                type="button"
-              >
-                {submitting
-                  ? editOrder
-                    ? 'Saving draft...'
-                    : 'Holding draft...'
-                  : editOrder?.status === 'DRAFT'
-                    ? 'Update held draft'
-                    : 'Hold as draft'}
-              </button>
-              {editOrder ? (
-                <button
-                  className="ghost-button full-width"
-                  disabled={printingBill}
-                  onClick={() => void handlePrintBill()}
-                  type="button"
-                >
-                  {printingBill ? 'Queueing bill...' : 'Print pre-payment bill'}
-                </button>
-              ) : null}
-            </div>
           </div>
 
         </aside>
@@ -2084,7 +2135,7 @@ export function OutletPosPage() {
             {formatRealtimeStatus(realtimeStatus)}
           </span>
         </div>
-        <div className="pos-live-order-list pos-live-order-list--grid">
+        <div className="pos-live-order-list pos-live-order-list--grid pos-live-order-list--compact">
           {liveOrdersVisible.length === 0 ? (
             <div className="empty-state">
               <h3>No active orders</h3>

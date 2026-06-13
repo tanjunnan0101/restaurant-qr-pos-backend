@@ -645,7 +645,7 @@ export function OutletOrdersPage() {
   return (
     <OutletPageLayout
       title="Orders"
-      subtitle="Queue, payments, and service handoff in one operator lane."
+      subtitle="Run the service queue, payment rescue, and handoff from one operator lane."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -672,7 +672,7 @@ export function OutletOrdersPage() {
           <div className="section-header">
             <div>
               <p className="eyebrow">Service queue</p>
-              <h2 className="section-title">Work queue</h2>
+              <h2 className="section-title">Action queue</h2>
               <p className="supporting-copy">
                 Payments, active service, and follow-up tickets in one rail.
               </p>
@@ -962,7 +962,7 @@ export function OutletOrdersPage() {
             </div>
           ) : (
             <>
-              <div className="service-inspector__hero">
+              <div className="service-inspector__hero service-inspector__hero--split">
                 <div className="service-inspector__identity">
                   <p className="eyebrow">Selected ticket</p>
                   <h2 className="section-title">#{selectedOrder.orderNumber}</h2>
@@ -980,7 +980,7 @@ export function OutletOrdersPage() {
                     className="secondary-button"
                     href={`/outlets/${outletId}/orders/${selectedOrder.id}`}
                   >
-                    Open detail
+                    Full detail
                   </Link>
                   <span
                     className={`status-pill ${statusTone(selectedOrder.status)}`}
@@ -989,12 +989,13 @@ export function OutletOrdersPage() {
                   </span>
                 </div>
               </div>
-              <p className="service-inspector__meta-copy">
-                {selectedOrderTableLabel} | {new Date(selectedOrder.createdAt).toLocaleString()} |{' '}
-                {selectedOrderGuestLabel}
-              </p>
+              <div className="support-inline-meta support-inline-meta--board service-inspector__meta-bar">
+                <span>{selectedOrderTableLabel}</span>
+                <span>{selectedOrderGuestLabel}</span>
+                <span>{new Date(selectedOrder.createdAt).toLocaleString()}</span>
+              </div>
 
-              <div className="terminal-board-strip service-inspector__summary-strip">
+              <div className="terminal-board-strip service-inspector__summary-strip service-inspector__summary-strip--orders">
                 <article className="terminal-board-chip">
                   <span>Total</span>
                   <strong>
@@ -1020,11 +1021,11 @@ export function OutletOrdersPage() {
                 </article>
               </div>
 
-              <div className="detail-grid service-inspector__details">
+              <div className="detail-grid service-inspector__details service-inspector__details--orders">
                 <article className="sub-panel surface-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Ticket contents</h3>
+                      <h3>Items on ticket</h3>
                       <p className="supporting-copy">
                         Ordered items, modifiers, and remarks.
                       </p>
@@ -1074,7 +1075,7 @@ export function OutletOrdersPage() {
                 <article className="sub-panel surface-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Settlement and kitchen</h3>
+                      <h3>Payments and kitchen</h3>
                       <p className="supporting-copy">
                         Payment records and kitchen releases for this ticket.
                       </p>
@@ -1087,7 +1088,9 @@ export function OutletOrdersPage() {
                     {selectedOrder.payments.map((payment) => (
                       <div className="stack-row" key={payment.id}>
                         <div>
-                          <strong>{formatEnum(payment.method)}</strong>
+                          <strong>
+                            {formatEnum(payment.method)}
+                          </strong>
                           <p className="supporting-copy">
                             {formatEnum(payment.status)}
                           </p>
@@ -1126,11 +1129,11 @@ export function OutletOrdersPage() {
                 </article>
               </div>
 
-              <div className="service-inspector__actions-grid">
-                <article className="sub-panel surface-panel">
+              <div className="service-inspector__actions-grid service-inspector__actions-grid--orders">
+                <article className="sub-panel surface-panel service-action-panel service-action-panel--primary">
                   <div className="section-header">
                     <div>
-                      <h3>Service control</h3>
+                      <h3>Next service action</h3>
                       <p className="supporting-copy">
                         Push the ticket to the next service stage.
                       </p>
@@ -1170,10 +1173,10 @@ export function OutletOrdersPage() {
                   )}
                 </article>
 
-                <article className="sub-panel surface-panel">
+                <article className="sub-panel surface-panel service-action-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Payment recovery</h3>
+                      <h3>Payment action</h3>
                       <p className="supporting-copy">
                         Reopen checkout or confirm manual settlement.
                       </p>
@@ -1261,10 +1264,10 @@ export function OutletOrdersPage() {
                   )}
                 </article>
 
-                <article className="sub-panel surface-panel">
+                <article className="sub-panel surface-panel service-action-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Edit or void</h3>
+                      <h3>Order changes</h3>
                       <p className="supporting-copy">
                         Edit in POS, or void before kitchen release.
                       </p>
@@ -1307,10 +1310,10 @@ export function OutletOrdersPage() {
                   </div>
                 </article>
 
-                <article className="sub-panel surface-panel">
+                <article className="sub-panel surface-panel service-action-panel">
                   <div className="section-header">
                     <div>
-                      <h3>Bill summary</h3>
+                      <h3>Final totals</h3>
                       <p className="supporting-copy">
                         Final backend-confirmed charges.
                       </p>

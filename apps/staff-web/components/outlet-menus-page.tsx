@@ -694,7 +694,7 @@ export function OutletMenusPage() {
             <article className="panel section-panel menu-action-card">
               <div>
                 <p className="eyebrow">Quick action</p>
-                <h2 className="section-title">Create menu</h2>
+                <h2 className="section-title">New menu</h2>
                 <p className="supporting-copy">
                   Start a new QR, POS, or shared menu from one entry point.
                 </p>
@@ -707,7 +707,7 @@ export function OutletMenusPage() {
             <article className="panel section-panel menu-action-card menu-action-card--soft">
               <div>
                 <p className="eyebrow">Quick action</p>
-                <h2 className="section-title">Add item</h2>
+                <h2 className="section-title">Quick add</h2>
                 <p className="supporting-copy">
                   Drop a new selling item into the active draft without leaving the floor.
                 </p>
@@ -720,7 +720,7 @@ export function OutletMenusPage() {
             <article className="panel section-panel menu-action-card menu-action-card--soft">
               <div>
                 <p className="eyebrow">Quick action</p>
-                <h2 className="section-title">Publish service menu</h2>
+                <h2 className="section-title">Go live</h2>
                 <p className="supporting-copy">
                   Review the active draft and push the updated selling menu live for QR and POS.
                 </p>
@@ -1004,15 +1004,15 @@ export function OutletMenusPage() {
                 <div className="support-config-card__header">
                   <div>
                     <p className="eyebrow">Menu station</p>
-                    <h2 className="section-title">Service rail</h2>
+                    <h2 className="section-title">Control deck</h2>
                   </div>
                   <span className="status-pill success">
                     {formatRealtimeStatus(status)}
                   </span>
                 </div>
                 <p className="supporting-copy">
-                  Pick the selling menu, refresh the current state, open a draft, publish updates,
-                  and jump straight into quick-add when the floor needs a new item.
+                  Pick the live menu, refresh, open a draft, publish updates,
+                  and jump into quick-add when service needs a new item.
                 </p>
                 <div className="support-inline-meta">
                   <span>{menus.length} menus</span>
@@ -1066,7 +1066,7 @@ export function OutletMenusPage() {
                 <div className="support-config-card__header">
                   <div>
                     <p className="eyebrow">Selection</p>
-                    <h3>Menu in service</h3>
+                    <h3>Live menu</h3>
                   </div>
                   <span
                     className={`status-pill ${
@@ -1268,13 +1268,13 @@ export function OutletMenusPage() {
                 <>
                   <article className="panel section-panel support-card">
                     <div className="support-card__header">
-                      <div>
-                        <p className="eyebrow">Loaded version</p>
-                        <h2 className="section-title">{menuDetail.name}</h2>
+                  <div>
+                    <p className="eyebrow">Loaded version</p>
+                    <h2 className="section-title">Menu on floor</h2>
                         <p className="supporting-copy">
-                          Version {selectedVersion.versionNumber} |{' '}
+                          {menuDetail.name} | Version {selectedVersion.versionNumber} |{' '}
                           {formatEnum(selectedVersion.status)}
-                          {menuDetail.isDefault ? ' | Default menu' : ''}
+                          {menuDetail.isDefault ? ' | Default' : ''}
                         </p>
                       </div>
                       <div className="tag-row">

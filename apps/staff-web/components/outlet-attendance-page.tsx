@@ -378,10 +378,10 @@ export function OutletAttendancePage() {
           <section className="panel section-panel attendance-hero">
             <div className="attendance-hero__copy">
               <p className="eyebrow">Shared shift station</p>
-              <h2 className="section-title">Tap a shift, confirm the person, then clock</h2>
+              <h2 className="section-title">Tap the shift, confirm the person, clock fast</h2>
               <p className="supporting-copy">
-                Keep the shared iPad flow short: choose the shift, capture proof only when needed,
-                then clock in or out from one station card.
+                Use the timetable first, take a photo only when policy asks for it,
+                then clock in or out from one station.
               </p>
               <div className="attendance-hero__actions">
                 <a className="primary-button" href="#attendance-shift-board">
@@ -479,9 +479,9 @@ export function OutletAttendancePage() {
               <div className="section-header">
                 <div>
                   <p className="eyebrow">Timetable</p>
-                  <h2 className="section-title">Tap a shift to clock</h2>
+                  <h2 className="section-title">Shift board</h2>
                   <p className="supporting-copy">
-                    Full-room schedule board for shared iPad attendance and shift handoff.
+                    Staff should start here, pick their own shift, and continue to the clock station.
                   </p>
                 </div>
                 <div className="support-inline-meta">
@@ -657,9 +657,9 @@ export function OutletAttendancePage() {
                 <div className="section-header">
                   <div>
                     <p className="eyebrow">Clock action</p>
-                    <h2 className="section-title">{selectedUser.fullName}</h2>
+                    <h2 className="section-title">Clock station</h2>
                     <p className="supporting-copy">
-                      {selectedUser.roleName} | {selectedUser.email}
+                      {selectedUser.fullName} | {selectedUser.roleName}
                     </p>
                     {selectedShift ? (
                       <div className="support-inline-meta">

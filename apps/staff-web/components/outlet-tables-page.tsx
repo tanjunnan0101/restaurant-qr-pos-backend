@@ -42,6 +42,8 @@ type TableOrderSnapshot = {
   latestStatus: string | null;
 };
 
+type TableOrderMap = Record<string, OrderListEntry[]>;
+
 export function OutletTablesPage() {
   const {
     session,
@@ -67,6 +69,7 @@ export function OutletTablesPage() {
   const [tableOrderSnapshots, setTableOrderSnapshots] = useState<
     Record<string, TableOrderSnapshot>
   >({});
+  const [tableOrders, setTableOrders] = useState<TableOrderMap>({});
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('idle');
   const [refreshTick, setRefreshTick] = useState(0);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,6 +108,11 @@ export function OutletTablesPage() {
           setTableOrderSnapshots(
             ordersResult.status === 'fulfilled'
               ? buildTableOrderSnapshots(ordersResult.value)
+              : {},
+          );
+          setTableOrders(
+            ordersResult.status === 'fulfilled'
+              ? groupOrdersByTable(ordersResult.value)
               : {},
           );
         }
@@ -273,6 +281,9 @@ export function OutletTablesPage() {
   const selectedTableSnapshot = selectedTable
     ? tableOrderSnapshots[selectedTable.id]
     : undefined;
+  const selectedTableOrders = selectedTable
+    ? tableOrders[selectedTable.id] ?? []
+    : [];
   const selectedHelpRequest = selectedTable?.serviceRequests[0] ?? null;
   const selectedFreshQrUrl = selectedTable
     ? freshQrUrls[selectedTable.id]
@@ -467,10 +478,18 @@ export function OutletTablesPage() {
     }
   }
 
+  const sampleFloorButtonLabel =
+    zones.length === 0
+      ? 'Load sample tables'
+      : summary.total < 10
+        ? 'Load remaining sample tables'
+        : 'Reload sample tables';
+  const sparseBoard = boardTables.length <= 3;
+
   return (
     <OutletPageLayout
       title="Tables"
-      subtitle="Operate tables, seating, QR, and guest help from one floor board."
+      subtitle="Operate floor seating, QR service, and live table actions from one board."
     >
       {outlet ? <OutletHeader outlet={outlet} /> : null}
 
@@ -497,7 +516,7 @@ export function OutletTablesPage() {
           <div className="floor-toolbar">
             <div className="floor-toolbar__copy">
               <p className="eyebrow">Floor board</p>
-              <h2 className="section-title">Operate the room fast</h2>
+              <h2 className="section-title">Run the room fast</h2>
               <p className="supporting-copy">
                 Scan the floor, select a table, and jump straight into service.
               </p>
@@ -537,13 +556,7 @@ export function OutletTablesPage() {
                   onClick={() => void handleLoadDemoFloor()}
                   type="button"
                 >
-                  {setupBusy
-                    ? 'Loading sample floor...'
-                    : zones.length === 0
-                      ? 'Load sample floor (10 tables)'
-                      : summary.total < 10
-                        ? 'Finish sample floor'
-                        : 'Refresh sample floor'}
+                  {setupBusy ? 'Loading sample tables...' : sampleFloorButtonLabel}
                 </button>
               ) : null}
             </div>
@@ -567,7 +580,7 @@ export function OutletTablesPage() {
                   onClick={() => void handleLoadDemoFloor()}
                   type="button"
                 >
-                  {setupBusy ? 'Loading sample floor...' : 'Load sample floor now'}
+                  {setupBusy ? 'Loading sample tables...' : 'Load sample tables now'}
                 </button>
               </div>
             </div>
@@ -651,7 +664,7 @@ export function OutletTablesPage() {
                     onClick={() => void handleLoadDemoFloor()}
                     type="button"
                   >
-                    {setupBusy ? 'Loading sample floor...' : 'Load sample floor'}
+                    {setupBusy ? 'Loading sample tables...' : 'Load sample tables'}
                   </button>
                 </div>
               ) : (
@@ -720,7 +733,13 @@ export function OutletTablesPage() {
                 ))}
               </div>
 
-              <div className="floor-workspace">
+              <div
+                className={
+                  sparseBoard
+                    ? 'floor-workspace floor-workspace--sparse'
+                    : 'floor-workspace'
+                }
+              >
                 <section className="sub-panel surface-panel floor-canvas">
                   <div className="floor-canvas__header">
                     <div>
@@ -732,9 +751,22 @@ export function OutletTablesPage() {
                     </p>
                   </div>
 
-                  <div className="floor-zone-board floor-zone-board--wide">
+                  <div
+                    className={
+                      sparseBoard
+                        ? 'floor-zone-board floor-zone-board--wide floor-zone-board--sparse'
+                        : 'floor-zone-board floor-zone-board--wide'
+                    }
+                  >
                     {displayedZones.map((zone) => (
-                      <section className="floor-zone-section" key={zone.id}>
+                      <section
+                        className={
+                          zone.tables.length <= 3
+                            ? 'floor-zone-section floor-zone-section--compact'
+                            : 'floor-zone-section'
+                        }
+                        key={zone.id}
+                      >
                         <div className="floor-zone-section__header">
                           <div>
                             <h4>{zone.name}</h4>
@@ -753,14 +785,20 @@ export function OutletTablesPage() {
                           </span>
                         </div>
 
-                        <div className="floor-tile-grid">
+                        <div
+                          className={
+                            zone.tables.length <= 3
+                              ? 'floor-tile-grid floor-tile-grid--compact'
+                              : 'floor-tile-grid'
+                          }
+                        >
                           {zone.tables.map((table) => {
                             const snapshot = tableOrderSnapshots[table.id];
                             const hasHelp = table.serviceRequests.length > 0;
 
                             return (
                               <button
-                              className={
+                                className={
                                   table.id === selectedTable?.id
                                     ? 'floor-tile active'
                                     : 'floor-tile'
@@ -873,6 +911,11 @@ export function OutletTablesPage() {
                           ? `QR ${selectedTable.qrCodes[0].publicCode}`
                           : 'No QR assigned'}
                       </span>
+                      <span>
+                        {selectedTableOrders.length > 0
+                          ? `${selectedTableOrders.length} order${selectedTableOrders.length === 1 ? '' : 's'} on this table`
+                          : 'No table orders yet'}
+                      </span>
                       {selectedTableSnapshot?.latestStatus ? (
                         <span>{formatEnum(selectedTableSnapshot.latestStatus)}</span>
                       ) : null}
@@ -880,13 +923,32 @@ export function OutletTablesPage() {
                     </div>
 
                     <div className="table-inspector__dock">
-                      <div className="table-inspector__main-actions">
+                      <article className="table-command-card table-command-card--primary">
                         <div>
                           <p className="eyebrow">Primary actions</p>
-                          <h4 className="table-inspector__section-title">Move this table forward</h4>
+                          <h4 className="table-inspector__section-title">Run this table</h4>
                           <p className="supporting-copy">
-                            Open cashier, inspect the live queue, or change seating state.
+                            Start the order, inspect the live queue, or update seating state.
                           </p>
+                        </div>
+
+                        <div className="table-command-card__status-strip">
+                          <span className="mini-badge mini-badge--info">
+                            {selectedTable.status === 'OCCUPIED'
+                              ? 'Guests seated'
+                              : selectedTable.status === 'OUT_OF_SERVICE'
+                                ? 'Table offline'
+                                : 'Ready for seating'}
+                          </span>
+                          <span className="mini-badge">
+                            {selectedTableSnapshot?.activeCount ?? 0} live tickets
+                          </span>
+                          <span className="mini-badge mini-badge--info">
+                            Tap table, inspect here, jump only when ready
+                          </span>
+                          <span className="mini-badge">
+                            {selectedHelpRequest ? 'Help call active' : 'No help call'}
+                          </span>
                         </div>
 
                         <div className="table-action-grid table-action-grid--wide">
@@ -952,12 +1014,89 @@ export function OutletTablesPage() {
                             )
                           ) : null}
                         </div>
-                      </div>
+                      </article>
 
-                      <div className="table-inspector__service-panel">
+                      <article className="table-command-card">
+                        <div className="section-header">
+                          <div>
+                            <p className="eyebrow">Table orders</p>
+                            <h4 className="table-inspector__section-title">
+                              Orders on this table
+                            </h4>
+                            <p className="supporting-copy">
+                              Tap a table on the floor and its live or recent orders appear here.
+                            </p>
+                          </div>
+                          <span className="mini-badge">
+                            {selectedTableOrders.length} order
+                            {selectedTableOrders.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+
+                        {selectedTableOrders.length > 0 ? (
+                          <div className="order-list">
+                            {selectedTableOrders.slice(0, 4).map((order) => (
+                              <article
+                                className="order-list-item order-list-item--upgraded"
+                                key={order.id}
+                              >
+                                <div className="section-header">
+                                  <div>
+                                    <strong>#{order.orderNumber}</strong>
+                                    <p className="supporting-copy">
+                                      {order.customerName ?? 'Walk-in / guest'} |{' '}
+                                      {formatRelativeTime(order.updatedAt)}
+                                    </p>
+                                  </div>
+                                  <div className="table-card__meta">
+                                    <span className={`status-pill ${orderStatusTone(order.status)}`}>
+                                      {formatEnum(order.status)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="table-card__stats">
+                                  <div className="metric-inline">
+                                    <span>Payment</span>
+                                    <strong>{formatEnum(order.paymentStatus)}</strong>
+                                  </div>
+                                  <div className="metric-inline">
+                                    <span>Total</span>
+                                    <strong>{formatMoney(order.currency, order.grandTotalCents)}</strong>
+                                  </div>
+                                </div>
+
+                                <div className="table-inspector__actions">
+                                  <Link
+                                    className="secondary-button"
+                                    href={`/outlets/${outletId}/orders/${order.id}`}
+                                  >
+                                    Open order
+                                  </Link>
+                                  <Link
+                                    className="ghost-button"
+                                    href={`/outlets/${outletId}/orders?tableId=${selectedTable.id}`}
+                                  >
+                                    Open table queue
+                                  </Link>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="soft-note">
+                            <strong>No orders on this table yet</strong>
+                            <p className="supporting-copy">
+                              Tap Open cashier to create the first ticket for this table.
+                            </p>
+                          </div>
+                        )}
+                      </article>
+
+                      <article className="table-command-card">
                         <div>
-                          <p className="eyebrow">Table controls</p>
-                          <h4 className="table-inspector__section-title">Guest help, QR, and floor state</h4>
+                          <p className="eyebrow">Support controls</p>
+                          <h4 className="table-inspector__section-title">QR, guest help, and floor state</h4>
                           <p className="supporting-copy">
                             Clear help calls, rotate the QR, or change floor state without
                             leaving this table.
@@ -1064,7 +1203,7 @@ export function OutletTablesPage() {
                             </a>
                           ) : null}
                         </div>
-                      </div>
+                      </article>
                     </div>
                   </section>
                 ) : null}
@@ -1114,6 +1253,23 @@ function buildTableOrderSnapshots(orders: OrderListEntry[]) {
   }, {});
 }
 
+function groupOrdersByTable(orders: OrderListEntry[]) {
+  return orders.reduce<TableOrderMap>((accumulator, order) => {
+    const tableId = order.table?.id;
+    if (!tableId) {
+      return accumulator;
+    }
+
+    const nextOrders = [...(accumulator[tableId] ?? []), order].sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+    );
+
+    accumulator[tableId] = nextOrders;
+    return accumulator;
+  }, {});
+}
+
 function statusTone(status: string) {
   if (status === 'AVAILABLE') {
     return 'success';
@@ -1125,6 +1281,52 @@ function statusTone(status: string) {
     return 'danger';
   }
   return 'neutral';
+}
+
+function orderStatusTone(status: string) {
+  if (status === 'READY' || status === 'COMPLETED') {
+    return 'success';
+  }
+  if (
+    status === 'PENDING_PAYMENT' ||
+    status === 'PAYMENT_PROCESSING' ||
+    status === 'SENT_TO_KITCHEN' ||
+    status === 'PREPARING' ||
+    status === 'SERVED'
+  ) {
+    return 'warning';
+  }
+  if (status === 'CANCELLED') {
+    return 'danger';
+  }
+  return 'neutral';
+}
+
+function formatMoney(currency: string, cents: number) {
+  return new Intl.NumberFormat('en-SG', {
+    style: 'currency',
+    currency,
+  }).format(cents / 100);
+}
+
+function formatRelativeTime(value: string) {
+  const diffMs = Date.now() - new Date(value).getTime();
+  const diffMinutes = Math.max(0, Math.round(diffMs / 60000));
+
+  if (diffMinutes < 1) {
+    return 'just now';
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d ago`;
 }
 
 function formatRealtimeStatus(status: RealtimeStatus) {
