@@ -99,7 +99,7 @@ button {
 }
 
 .staff-page-layout {
-  grid-template-columns: 216px minmax(0, 1fr);
+  grid-template-columns: 196px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -141,7 +141,7 @@ button {
 
 .hero-copy {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .eyebrow {
@@ -1415,7 +1415,7 @@ body {
 .staff-operator-card {
   display: grid;
   gap: 12px;
-  padding: 14px;
+  padding: 12px;
   border-radius: 20px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(246, 250, 252, 0.95);
@@ -1428,7 +1428,7 @@ body {
 
 .staff-operator-card__title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.28rem;
   line-height: 0.95;
   letter-spacing: -0.04em;
   font-family: var(--font-display);
@@ -1447,7 +1447,7 @@ body {
 .terminal-stat {
   display: grid;
   gap: 3px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 16px;
   background: rgba(24, 33, 38, 0.04);
 }
@@ -1481,16 +1481,16 @@ body {
 
 .terminal-inline-note strong {
   color: var(--terminal-ink);
-  font-size: 0.92rem;
+  font-size: 0.84rem;
 }
 
 .sidebar-section {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .sidebar-section + .sidebar-section {
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid rgba(24, 33, 38, 0.06);
 }
 
@@ -1514,10 +1514,10 @@ body {
 .nav-link-terminal {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 9px 12px;
-  border-radius: 16px;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 14px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(248, 250, 251, 0.96);
   color: var(--terminal-ink);
@@ -1530,22 +1530,22 @@ body {
 }
 
 .nav-link-terminal--compact {
-  min-height: 40px;
-  padding: 8px 11px;
+  min-height: 36px;
+  padding: 7px 10px;
 }
 
 .nav-link-terminal__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 12px;
   background: rgba(24, 33, 38, 0.05);
 }
 
 .nav-link-terminal__copy strong {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .nav-link-current.nav-link-terminal {
@@ -1560,8 +1560,8 @@ body {
 
 .context-pill--terminal {
   min-height: unset;
-  padding: 10px 12px;
-  border-radius: 16px;
+  padding: 8px 10px;
+  border-radius: 14px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(248, 250, 251, 0.96);
   color: var(--terminal-ink);
@@ -1622,6 +1622,11 @@ body {
   box-shadow: 0 14px 30px rgba(15, 24, 31, 0.06);
 }
 
+.staff-command-header--compact {
+  top: 8px;
+  padding: 4px 6px;
+}
+
 .staff-command-header__title {
   display: grid;
   gap: 2px;
@@ -1637,6 +1642,10 @@ body {
   letter-spacing: -0.05em;
 }
 
+.page-title--terminal-compact {
+  font-size: clamp(1.02rem, 1.45vw, 1.32rem);
+}
+
 .staff-command-header__meta {
   display: flex;
   flex-wrap: wrap;
@@ -1648,7 +1657,7 @@ body {
   display: grid;
   gap: 2px;
   min-width: 84px;
-  padding: 5px 8px;
+  padding: 4px 7px;
   border-radius: 10px;
   border: 1px solid rgba(24, 33, 38, 0.08);
   background: rgba(248, 250, 251, 0.92);
@@ -1663,7 +1672,7 @@ body {
 }
 
 .command-pill strong {
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .command-pill--strong {
@@ -1693,7 +1702,7 @@ body {
 
 .outlet-terminal-bar {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   padding: 6px 8px;
   border-radius: 16px;
   border: 1px solid rgba(24, 33, 38, 0.08);
@@ -1726,7 +1735,7 @@ body {
 
 .outlet-terminal-bar__title {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 0.96rem;
   color: var(--terminal-ink);
 }
 
@@ -1840,14 +1849,14 @@ body {
 .workspace-hero__copy,
 .hero-panel__copy {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .workspace-pill-grid,
 .badge-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .operations-summary-grid,

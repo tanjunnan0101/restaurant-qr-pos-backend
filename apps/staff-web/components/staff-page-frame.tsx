@@ -114,6 +114,7 @@ export function StaffPageFrame({
     (outlet) => outlet.id === currentOutletId,
   );
   const currentMode = resolveCurrentMode(pathname);
+  const isOutletPage = pathname.startsWith('/outlets/');
 
   return (
     <main className="staff-shell">
@@ -271,10 +272,24 @@ export function StaffPageFrame({
         </aside>
 
         <section className="staff-content">
-          <header className="staff-command-header">
+          <header
+            className={
+              isOutletPage
+                ? 'staff-command-header staff-command-header--compact'
+                : 'staff-command-header'
+            }
+          >
             <div className="staff-command-header__title">
               <p className="eyebrow">Staff terminal</p>
-              <h1 className="page-title page-title--terminal">{title}</h1>
+              <h1
+                className={
+                  isOutletPage
+                    ? 'page-title page-title--terminal page-title--terminal-compact'
+                    : 'page-title page-title--terminal'
+                }
+              >
+                {title}
+              </h1>
             </div>
             <div className="staff-command-header__meta">
               <div className="command-pill command-pill--strong">
@@ -296,9 +311,11 @@ export function StaffPageFrame({
             </div>
           </header>
 
-          <section className="staff-page-intro">
-            <p>{subtitle}</p>
-          </section>
+          {!isOutletPage ? (
+            <section className="staff-page-intro">
+              <p>{subtitle}</p>
+            </section>
+          ) : null}
           {children}
         </section>
       </div>
