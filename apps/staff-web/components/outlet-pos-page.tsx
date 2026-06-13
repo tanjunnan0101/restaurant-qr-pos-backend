@@ -1316,7 +1316,7 @@ export function OutletPosPage() {
 
       <section className="pos-layout">
         <section className="panel section-panel pos-shell-card pos-shell-card--catalog">
-          <div className="section-header">
+          <div className="pos-catalog-header">
             <div>
               <p className="eyebrow">Menu station</p>
               <h2 className="section-title">Item picker</h2>
@@ -1324,32 +1324,34 @@ export function OutletPosPage() {
                 Choose a menu, jump to a category, and add items with minimal taps.
               </p>
             </div>
-            <div className="menu-toolbar menu-toolbar--pos">
-              <select
-                className="filter-select"
-                onChange={(event) => setSelectedMenuId(event.target.value)}
-                value={selectedMenuId}
-              >
-                <option value="">Select menu</option>
-                {menus.map((menu) => (
-                  <option key={menu.id} value={menu.id}>
-                    {menu.name}
-                    {menu.isDefault ? ' (Default)' : ''}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="filter-select"
-                onChange={(event) => setMenuSearch(event.target.value)}
-                placeholder="Search items, categories, or stations"
-                value={menuSearch}
-              />
-              <div className="menu-toolbar__actions">
+            <div className="pos-catalog-toolbar">
+              <div className="menu-toolbar menu-toolbar--pos">
+                <select
+                  className="filter-select"
+                  onChange={(event) => setSelectedMenuId(event.target.value)}
+                  value={selectedMenuId}
+                >
+                  <option value="">Select menu</option>
+                  {menus.map((menu) => (
+                    <option key={menu.id} value={menu.id}>
+                      {menu.name}
+                      {menu.isDefault ? ' (Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="filter-select"
+                  onChange={(event) => setMenuSearch(event.target.value)}
+                  placeholder="Search items, categories, or stations"
+                  value={menuSearch}
+                />
+              </div>
+              <div className="menu-toolbar__actions menu-toolbar__actions--pos">
                 <Link className="secondary-button" href={`/outlets/${outletId}/menus`}>
-                  Menus
+                  Menu manager
                 </Link>
                 <a className="secondary-button" href="#pos-live-feed">
-                  Orders
+                  Live orders
                 </a>
               </div>
             </div>

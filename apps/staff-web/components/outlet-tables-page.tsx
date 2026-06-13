@@ -797,18 +797,22 @@ export function OutletTablesPage() {
                             const hasHelp = table.serviceRequests.length > 0;
 
                             return (
-                              <button
+                              <article
                                 className={
                                   table.id === selectedTable?.id
                                     ? 'floor-tile active'
                                     : 'floor-tile'
                                 }
                                 key={table.id}
-                                onClick={() => {
-                                  setSelectedTableId(table.id);
-                                }}
-                                type="button"
                               >
+                                <button
+                                  aria-pressed={table.id === selectedTable?.id}
+                                  className="floor-tile__select"
+                                  onClick={() => {
+                                    setSelectedTableId(table.id);
+                                  }}
+                                  type="button"
+                                >
                                 <div className="floor-tile__badges">
                                   <span className={`status-pill ${statusTone(table.status)}`}>
                                     {formatEnum(table.status)}
@@ -846,7 +850,22 @@ export function OutletTablesPage() {
                                       : 'No QR'}
                                   </span>
                                 </div>
-                              </button>
+                                </button>
+                                <div className="floor-tile__cta-row">
+                                  <Link
+                                    className="secondary-button"
+                                    href={`/outlets/${outletId}/orders?tableId=${table.id}`}
+                                  >
+                                    View orders
+                                  </Link>
+                                  <Link
+                                    className="ghost-button"
+                                    href={`/outlets/${outletId}/pos?tableId=${table.id}`}
+                                  >
+                                    Open POS
+                                  </Link>
+                                </div>
+                              </article>
                             );
                           })}
                         </div>
